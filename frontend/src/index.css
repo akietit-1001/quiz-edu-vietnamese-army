@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* Enable class-based dark mode in Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-vpa-dark: #070a09;
+  --color-vpa-dark-card: #0f1412;
+  --color-vpa-olive: #1b3f30;
+  --color-vpa-olive-light: #2c3a33;
+  --color-vpa-gold: #e5a93b;
+  --color-vpa-gold-bright: #ffdf7a;
+  --color-vpa-red: #da251d;
+  --color-vpa-sand: #f8f8fa;
+  --color-vpa-sand-light: #ffffff;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-vpa-sand);
+  color: var(--color-vpa-olive);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.dark body {
+  background-color: var(--color-vpa-dark);
+  color: #ffffff;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2c3a33;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-vpa-gold);
+}
+
+/* Animation utilities */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-up {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
+.animate-scale-up {
+  animation: scale-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Print layout optimizations for PDF export */
+@media print {
+  nav, button, input, select, .no-print, .actions-column, header, .fixed, #root > :not(.print-area-only) {
+    display: none !important;
+  }
+  body, html {
+    background: white !important;
+    color: black !important;
+  }
+  .print-area-only {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: black !important;
+  }
+}
+
+@media screen {
+  .print-area-only {
+    display: none !important;
+  }
+}
