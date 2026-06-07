@@ -44,7 +44,7 @@ npm run dev
 ---
 
 ## Các Tính Năng Đã Hiện Thực Hóa
-1.  **Authentication & 2FA:** Đăng nhập, đăng ký, đăng xuất, tự động gửi mã OTP xác thực 2FA về Gmail `ndakiet1001@gmail.com`.
+1.  **Authentication & 2FA:** Đăng nhập, đăng ký, đăng xuất, tự động gửi mã OTP xác thực 2FA về Gmail.
 2.  **Phân Quyền Chi Tiết (RBAC):** `master-admin` (tối cao), `admin` (CRUD phòng, đề, quản lý quân nhân cùng đơn vị), `sub-admin` (xem phòng, CRUD đề thi), `user` (làm đề, tham gia phòng thi).
 3.  **Hệ Thống Đề Thi:** Tạo trắc nghiệm, đúng/sai, điền ô trống. Hỗ trợ import đề từ file Word (.docx), Excel (.xlsx/.csv), PDF (.pdf) và export đề ra file Word hành chính quân sự chuẩn chỉnh.
 4.  **Phòng Thi Thời Gian Thực:** Quản lý hàng chờ lobby đồng bộ, Host mở khóa thi đồng bộ. Giám sát chống gian lận (visibility tabout detection & khóa toàn màn hình).
