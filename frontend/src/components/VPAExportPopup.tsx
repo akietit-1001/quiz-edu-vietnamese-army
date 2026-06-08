@@ -330,11 +330,12 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
             {/* Signature Toggle */}
             <div className="mb-5 p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between">
               <div>
-                <label className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand">Hiện chữ ký chỉ huy</label>
+                <label htmlFor="popup-showSignature" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Hiện chữ ký chỉ huy</label>
                 <p className="text-[9px] text-gray-500">Đính kèm khung ký xác nhận ở cuối văn bản</p>
               </div>
               <input
                 type="checkbox"
+                id="popup-showSignature"
                 checked={showSignature}
                 onChange={e => setShowSignature(e.target.checked)}
                 className="w-4.5 h-4.5 accent-vpa-gold rounded-none cursor-pointer"
@@ -344,27 +345,30 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
             {/* Setup Inputs */}
             <div className="space-y-3">
               <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị cấp trên</label>
+                <label htmlFor="popup-upperUnit" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị cấp trên</label>
                 <input
                   type="text"
+                  id="popup-upperUnit"
                   value={upperUnit}
                   onChange={e => setUpperUnit(e.target.value)}
                   className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
                 />
               </div>
               <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị hiện tại</label>
+                <label htmlFor="popup-currentUnit" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị hiện tại</label>
                 <input
                   type="text"
+                  id="popup-currentUnit"
                   value={currentUnit}
                   onChange={e => setCurrentUnit(e.target.value)}
                   className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
                 />
               </div>
               <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ người ký</label>
+                <label htmlFor="popup-position" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ người ký</label>
                 <input
                   type="text"
+                  id="popup-position"
                   value={position}
                   onChange={e => setPosition(e.target.value)}
                   className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
@@ -374,9 +378,10 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
               {showSignature && (
                 <div className="grid grid-cols-2 gap-2 border-l-2 border-vpa-gold pl-2 my-2 py-1">
                   <div>
-                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cấp bậc người ký</label>
+                    <label htmlFor="popup-signerRank" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cấp bậc người ký</label>
                     <input
                       type="text"
+                      id="popup-signerRank"
                       value={signerRank}
                       onChange={e => setSignerRank(e.target.value)}
                       placeholder="VD: Đại tá"
@@ -384,9 +389,10 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Họ tên người ký</label>
+                    <label htmlFor="popup-signerName" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Họ tên người ký</label>
                     <input
                       type="text"
+                      id="popup-signerName"
                       value={signerName}
                       onChange={e => setSignerName(e.target.value)}
                       placeholder="VD: Nguyễn Văn A"
@@ -397,9 +403,10 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
               )}
 
               <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Địa danh / Tỉnh</label>
+                <label htmlFor="popup-province" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Địa danh / Tỉnh</label>
                 <input
                   type="text"
+                  id="popup-province"
                   value={province}
                   onChange={e => setProvince(e.target.value)}
                   className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"

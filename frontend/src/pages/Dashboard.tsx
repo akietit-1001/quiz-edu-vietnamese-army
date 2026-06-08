@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, PencilSimple } from '@phosphor-icons/react';
+import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, PencilSimple, Lock } from '@phosphor-icons/react';
 
 interface DashboardProps {
   user: any;
@@ -36,6 +36,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [profileAddress, setProfileAddress] = useState(user?.address || '');
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
+  
+  // Change Password states
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
   
   // 2FA states in UI
   const [otp2FA, setOtp2FA] = useState('');
@@ -100,6 +109,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+    if (newPassword !== confirmNewPassword) {
+      setPwError('Mật khẩu xác nhận không chính xác.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwError('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const response = await axios.put('/api/users/change-password', {
+        currentPassword,
+        newPassword
+      });
+      setPwSuccess(response.data.message || 'Đổi mật khẩu thành công!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setTimeout(() => {
+        setShowChangePasswordModal(false);
+        setPwSuccess('');
+      }, 1500);
+    } catch (err: any) {
+      setPwError(err.response?.data?.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.');
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -129,7 +171,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setLoading2FA(true);
     try {
       const response = await axios.post('/api/auth/enable-2fa', { code: otp2FA });
-      setUser({ ...user, twoFactorEnabled: true });
+      const updatedUser = { ...user, twoFactorEnabled: true };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       setShow2FAModal(false);
       setOtp2FA('');
       await window.showAlert(response.data.message, 'Xác thực hai yếu tố');
@@ -145,7 +189,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (!confirmDisable) return;
     try {
       const response = await axios.post('/api/auth/disable-2fa');
-      setUser({ ...user, twoFactorEnabled: false });
+      const updatedUser = { ...user, twoFactorEnabled: false };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       await window.showAlert(response.data.message, 'Bảo mật 2FA');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Không thể tắt 2FA.');
@@ -174,13 +220,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Welcome Banner */}
       <div className="relative border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 mb-8 overflow-hidden rounded-none shadow-md">
         <div className="absolute top-0 right-0 w-48 h-48 bg-vpa-olive/5 dark:bg-vpa-gold/5 rounded-full filter blur-3xl" />
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-4 right-4 z-10 flex space-x-2">
           <button
             onClick={handleOpenEditProfile}
             className="px-3 py-1.5 border border-vpa-olive-light/40 text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light/10 transition-colors flex items-center space-x-1"
           >
             <PencilSimple size={12} />
             <span>Sửa hồ sơ</span>
+          </button>
+          <button
+            onClick={() => {
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmNewPassword('');
+              setPwError('');
+              setPwSuccess('');
+              setShowChangePasswordModal(true);
+            }}
+            className="px-3 py-1.5 border border-vpa-olive-light/40 text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light/10 transition-colors flex items-center space-x-1"
+          >
+            <Lock size={12} />
+            <span>Đổi mật khẩu</span>
           </button>
         </div>
         <h1 className="text-xl md:text-2xl font-extrabold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider">
@@ -195,7 +255,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {user?.twoFactorEnabled ? (
             <div className="flex items-center space-x-2 text-green-600 dark:text-green-500 text-xs font-bold">
               <ShieldCheck size={20} />
-              <span>BẢO MẬT 2FA ĐANG BẬT (GỬI OTP VỀ GMAIL)</span>
+              <span>BẢO MẬT 2FA ĐANG BẬT</span>
             </div>
           ) : (
             <div className="flex items-center space-x-2 text-vpa-red text-xs font-bold">
@@ -587,6 +647,84 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
                 >
                   Cập nhật
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CHANGE PASSWORD MODAL */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn">
+            {/* Header decoration */}
+            <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
+              <div className="w-3 h-3 bg-vpa-red rounded-none" />
+              <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
+                Thay đổi mật khẩu quân nhân
+              </h3>
+            </div>
+
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Mật khẩu hiện tại</label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Mật khẩu mới</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Xác nhận mật khẩu mới</label>
+                <input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={e => setConfirmNewPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                />
+              </div>
+
+              {pwSuccess && (
+                <p className="text-green-600 text-[10px] font-bold uppercase tracking-wider bg-green-500/10 p-2 border border-green-500/20">{pwSuccess}</p>
+              )}
+
+              {pwError && (
+                <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">{pwError}</p>
+              )}
+
+              <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePasswordModal(false)}
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={pwLoading}
+                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
+                >
+                  {pwLoading ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
                 </button>
               </div>
             </form>

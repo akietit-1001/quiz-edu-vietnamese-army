@@ -269,3 +269,31 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật thông tin cá nhân' });
   }
 };
+
+// 6. CHANGE PASSWORD (SELF)
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+
+    // Compare with current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Mật khẩu hiện tại không chính xác' });
+    }
+
+    // Set new password (which will be automatically hashed by pre-save hook)
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ message: 'Thay đổi mật khẩu thành công' });
+  } catch (error) {
+    console.error('Lỗi đổi mật khẩu:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi thay đổi mật khẩu' });
+  }
+};

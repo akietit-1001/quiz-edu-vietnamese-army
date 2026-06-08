@@ -1,5 +1,5 @@
 import express from 'express';
-import { getUsers, createUser, updateUser, deleteUser, updateProfile } from '../controllers/userController.js';
+import { getUsers, createUser, updateUser, deleteUser, updateProfile, changePassword } from '../controllers/userController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 
@@ -9,6 +9,9 @@ router.use(authMiddleware);
 
 // Self profile update
 router.put('/profile', updateProfile);
+
+// Change password
+router.put('/change-password', changePassword);
 
 // Get users is available to admin, master-admin, and sub-admin
 router.get('/', roleMiddleware(['master-admin', 'admin', 'sub-admin']), getUsers);

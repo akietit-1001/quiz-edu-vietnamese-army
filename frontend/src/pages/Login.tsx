@@ -96,13 +96,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
           /* Normal Credentials Form */
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
+              <label htmlFor="login-email" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
                 {t('email')}
               </label>
               <div className="relative">
                 <Envelope size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
                 <input
                   type="email"
+                  id="login-email"
+                  name="email"
+                  autoComplete="email"
                   required
                   placeholder="ndakiet1001@gmail.com"
                   value={email}
@@ -113,13 +116,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
+              <label htmlFor="login-password" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
                 {t('password')}
               </label>
               <div className="relative">
                 <Lock size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
                 <input
                   type="password"
+                  id="login-password"
+                  name="password"
+                  autoComplete="current-password"
                   required
                   placeholder="••••••••"
                   value={password}
@@ -155,13 +161,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
+              <label htmlFor="login-otp" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
                 Nhập mã xác minh OTP (6 chữ số)
               </label>
               <div className="relative">
                 <Key size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
                 <input
                   type="text"
+                  id="login-otp"
+                  name="otpCode"
+                  autoComplete="one-time-code"
                   required
                   maxLength={6}
                   placeholder="123456"

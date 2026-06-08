@@ -1,8 +1,9 @@
 import User from '../models/User.js';
+import TempUser from '../models/TempUser.js';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
-import { sendOTPEmail } from '../utils/mailer.js';
+import { sendRegistrationOTPEmail, send2FAOTPEmail } from '../utils/mailer.js';
 
 // Helper to generate access and refresh tokens
 const generateTokens = (user) => {
@@ -26,51 +27,37 @@ export const register = async (req, res) => {
   try {
     const { email, password, fullName, dateOfBirth, rank, position, unit, address } = req.body;
 
-    // Check if user exists
+    // Check if user exists in permanent database
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: 'Email này đã được đăng ký sử dụng' });
     }
 
-    // First user is master-admin, others are user by default
-    const userCount = await User.countDocuments({});
-    const role = userCount === 0 ? 'master-admin' : 'user';
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    const user = await User.create({
-      email,
-      password,
-      fullName,
-      dateOfBirth,
-      rank,
-      position,
-      unit,
-      address,
-      role
-    });
-
-    const { accessToken, refreshToken } = generateTokens(user);
-
-    // Save refresh token to HTTP-Only cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-
-    res.status(201).json({
-      message: 'Đăng ký tài khoản thành công',
-      user: {
-        id: user._id,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        unit: user.unit,
-        rank: user.rank,
-        position: user.position,
-        twoFactorEnabled: user.twoFactorEnabled
+    // Create or update record in TempUser
+    await TempUser.findOneAndUpdate(
+      { email },
+      {
+        email,
+        otpCode,
+        expiresAt,
+        userData: { email, password, fullName, dateOfBirth, rank, position, unit, address },
+        createdAt: new Date() // Reset TTL timer
       },
-      accessToken
+      { upsert: true, new: true }
+    );
+
+    // Send registration OTP email
+    const sent = await sendRegistrationOTPEmail(email, otpCode);
+
+    res.status(200).json({
+      requiresVerification: true,
+      email,
+      message: sent 
+        ? 'Mã OTP xác thực tài khoản đã được gửi về Gmail của đồng chí. Vui lòng xác thực để hoàn tất đăng ký.'
+        : 'Đã ghi nhận yêu cầu đăng ký nhưng lỗi gửi mail OTP. Vui lòng kiểm tra lại thiết lập email hoặc thử lại.'
     });
   } catch (error) {
     console.error('Lỗi đăng ký:', error.message);
@@ -78,6 +65,7 @@ export const register = async (req, res) => {
   }
 };
 
+// 2. LOGIN
 // 2. LOGIN
 export const login = async (req, res) => {
   try {
@@ -109,7 +97,7 @@ export const login = async (req, res) => {
       await user.save();
 
       // Send OTP to user's real email
-      const sent = await sendOTPEmail(user.email, otpCode);
+      const sent = await send2FAOTPEmail(user.email, otpCode);
 
       return res.status(200).json({
         requires2FA: true,
@@ -207,6 +195,70 @@ export const verify2FA = async (req, res) => {
   }
 };
 
+// 3.5. VERIFY REGISTRATION OTP
+export const verifyRegister = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    const tempUser = await TempUser.findOne({ email });
+    if (!tempUser) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin đăng ký của người dùng này hoặc mã đã hết hạn. Vui lòng thực hiện đăng ký lại.' });
+    }
+
+    if (tempUser.otpCode !== code || Date.now() > tempUser.expiresAt) {
+      return res.status(400).json({ message: 'Mã xác thực đăng ký không hợp lệ hoặc đã hết hạn' });
+    }
+
+    // Check if user already exists (prevent duplicate creation)
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      await TempUser.deleteOne({ email });
+      return res.status(400).json({ message: 'Email này đã được đăng ký sử dụng' });
+    }
+
+    // First user is master-admin, others are user by default
+    const userCount = await User.countDocuments({});
+    const role = userCount === 0 ? 'master-admin' : 'user';
+
+    // Create the permanent record in User collection
+    const user = await User.create({
+      ...tempUser.userData,
+      role
+    });
+
+    // Delete the temporary document from TempUser
+    await TempUser.deleteOne({ email });
+
+    const { accessToken, refreshToken } = generateTokens(user);
+
+    // Save refresh to cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.status(200).json({
+      message: 'Xác thực tài khoản thành công',
+      user: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        unit: user.unit,
+        rank: user.rank,
+        position: user.position,
+        twoFactorEnabled: user.twoFactorEnabled
+      },
+      accessToken
+    });
+  } catch (error) {
+    console.error('Lỗi xác thực đăng ký:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi xác thực đăng ký' });
+  }
+};
+
 // 4. SETUP 2FA (Enable 2FA option in settings)
 export const setup2FA = async (req, res) => {
   try {
@@ -225,7 +277,7 @@ export const setup2FA = async (req, res) => {
     });
     await user.save();
 
-    const sent = await sendOTPEmail(user.email, otpCode);
+    const sent = await send2FAOTPEmail(user.email, otpCode);
 
     res.status(200).json({
       message: sent 

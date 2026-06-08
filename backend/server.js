@@ -1,8 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './config/db.js';
 
@@ -18,8 +19,6 @@ import ExamRoom from './models/ExamRoom.js';
 import User from './models/User.js';
 import { setServers } from "node:dns/promises";
 setServers(["1.1.1.1", "8.8.8.8"]);
-
-dotenv.config();
 
 // Connect to Database
 connectDB();

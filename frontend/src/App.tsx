@@ -18,14 +18,25 @@ import ExamTaker from './pages/ExamTaker';
 import RoomResults from './pages/RoomResults';
 import { ArrowUp } from '@phosphor-icons/react';
 
-export const App: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'login' | 'register' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'lobby' | 'taker' | 'results'>('login');
-  const [darkMode, setDarkMode] = useState(true); // Default to Dark mode (premium forest green)
+// Redux Integration
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { setAuth, updateUser, clearAuth } from './store/slices/authSlice';
+import { setDarkMode, setCurrentView } from './store/slices/uiSlice';
+import { startRoomLobby, startExam, clearExam } from './store/slices/examSlice';
 
-  // Navigation states
-  const [activeRoomCode, setActiveRoomCode] = useState<string | null>(null);
+export const App: React.FC = () => {
+  const dispatch = useAppDispatch();
+
+  // Select states from Redux
+  const { user, token } = useAppSelector((state) => state.auth);
+  const { darkMode, currentView } = useAppSelector((state) => state.ui);
+  const {
+    activeRoomCode,
+    activeRoomId,
+    activeQuizId,
+    activeExamMode,
+    activeRoomSettings,
+  } = useAppSelector((state) => state.exam);
 
   // Global Dialog State
   const [modal, setModal] = useState<{
@@ -78,10 +89,6 @@ export const App: React.FC = () => {
       });
     };
   }, []);
-  const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
-  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
-  const [activeExamMode, setActiveExamMode] = useState<'exam' | 'practice' | 'mock'>('exam');
-  const [activeRoomSettings, setActiveRoomSettings] = useState<any>({});
 
   // Scroll ontop state
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -118,31 +125,18 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // 2. Persistent authentication recovery
+  // 2. Persistent authentication recovery & Header setup on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('accessToken');
-    const savedUser = localStorage.getItem('user');
-
-    if (savedToken && savedUser) {
-      try {
-        const decodedUser = JSON.parse(savedUser);
-        setToken(savedToken);
-        setUser(decodedUser);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
-        setCurrentView('dashboard');
-      } catch (e) {
-        handleLogout();
-      }
+    if (token && user) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      dispatch(setCurrentView('dashboard'));
     }
-  }, []);
+  }, [token, user, dispatch]);
 
   const handleLoginSuccess = (userData: any, accessToken: string) => {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setToken(accessToken);
-    setUser(userData);
+    dispatch(setAuth({ user: userData, accessToken }));
     axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-    setCurrentView('dashboard');
+    dispatch(setCurrentView('dashboard'));
   };
 
   const handleLogout = async () => {
@@ -151,12 +145,9 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error('Logout request failed, cleaning local storage.');
     }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
+    dispatch(clearAuth());
     delete axios.defaults.headers.common['Authorization'];
-    setCurrentView('login');
+    dispatch(setCurrentView('login'));
   };
 
   // Keep handleLogout reference fresh for the interceptor
@@ -223,7 +214,7 @@ export const App: React.FC = () => {
             const { accessToken } = res.data;
 
             localStorage.setItem('accessToken', accessToken);
-            setToken(accessToken);
+            dispatch(setAuth({ user, accessToken }));
             axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
             
             if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
@@ -254,34 +245,31 @@ export const App: React.FC = () => {
   }, []);
 
   const handleJoinRoom = (roomCode: string) => {
-    setActiveRoomCode(roomCode);
-    setCurrentView('lobby');
+    dispatch(startRoomLobby(roomCode));
+    dispatch(setCurrentView('lobby'));
   };
 
   const handleStartExam = (roomId: string, quizId: string, settings: any) => {
-    setActiveRoomId(roomId);
-    setActiveQuizId(quizId);
-    setActiveExamMode('exam');
-    setActiveRoomSettings(settings);
-    setCurrentView('taker');
+    dispatch(startExam({ roomId, quizId, mode: 'exam', settings }));
+    dispatch(setCurrentView('taker'));
   };
 
   const handleStartPractice = (quizId: string, mode: 'practice' | 'mock') => {
-    setActiveRoomId(null);
-    setActiveRoomCode(null);
-    setActiveQuizId(quizId);
-    setActiveExamMode(mode);
-    setActiveRoomSettings({ antiCheatEnabled: mode === 'mock', showResultImmediately: true });
-    setCurrentView('taker');
+    dispatch(startExam({
+      roomId: null,
+      quizId,
+      mode,
+      settings: { antiCheatEnabled: mode === 'mock', showResultImmediately: true }
+    }));
+    dispatch(setCurrentView('taker'));
   };
 
   const handleExamFinished = async (attempt: any) => {
     if (attempt) {
       await window.showAlert(`Nộp bài thành công! Điểm của đồng chí: ${attempt.score}/${attempt.totalQuestions} (${attempt.rank})`, 'Thông báo kết quả');
     }
-    
-    // If exam room settings allow immediate view of results, redirect to dashboard or room results
-    setCurrentView('dashboard');
+    dispatch(clearExam());
+    dispatch(setCurrentView('dashboard'));
   };
 
   return (
@@ -292,12 +280,12 @@ export const App: React.FC = () => {
         currentView === 'register' ? (
           <Register 
             onRegisterSuccess={handleLoginSuccess}
-            onNavigateToLogin={() => setCurrentView('login')}
+            onNavigateToLogin={() => dispatch(setCurrentView('login'))}
           />
         ) : (
           <Login 
             onLoginSuccess={handleLoginSuccess}
-            onNavigateToRegister={() => setCurrentView('register')}
+            onNavigateToRegister={() => dispatch(setCurrentView('register'))}
           />
         )
       ) : (
@@ -307,40 +295,43 @@ export const App: React.FC = () => {
             user={user}
             onLogout={handleLogout}
             darkMode={darkMode}
-            setDarkMode={setDarkMode}
+            setDarkMode={(val: boolean) => dispatch(setDarkMode(val))}
           />
           <main className="transition-colors duration-300">
             {currentView === 'dashboard' && (
               <Dashboard 
                 user={user}
-                setUser={setUser}
+                setUser={(val: any) => dispatch(updateUser(val))}
                 onJoinRoom={handleJoinRoom}
-                onNavigateToQuizMgmt={() => setCurrentView('quiz-mgmt')}
-                onNavigateToUserMgmt={() => setCurrentView('user-mgmt')}
+                onNavigateToQuizMgmt={() => dispatch(setCurrentView('quiz-mgmt'))}
+                onNavigateToUserMgmt={() => dispatch(setCurrentView('user-mgmt'))}
                 onStartPractice={handleStartPractice}
               />
             )}
             {currentView === 'quiz-mgmt' && (
               <QuizManagement 
                 user={user}
-                onNavigateBack={() => setCurrentView('dashboard')}
+                onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
               />
             )}
             {currentView === 'user-mgmt' && (
               <UserManagement 
                 user={user}
-                onNavigateBack={() => setCurrentView('dashboard')}
+                onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
               />
             )}
             {currentView === 'lobby' && activeRoomCode && (
               <RoomLobby 
                 user={user}
                 roomCode={activeRoomCode}
-                onLeave={() => setCurrentView('dashboard')}
+                onLeave={() => {
+                  dispatch(clearExam());
+                  dispatch(setCurrentView('dashboard'));
+                }}
                 onExamStarted={handleStartExam}
                 onNavigateToResults={(roomId) => {
-                  setActiveRoomId(roomId);
-                  setCurrentView('results');
+                  dispatch(startExam({ roomId, quizId: '', mode: 'exam', settings: {} }));
+                  dispatch(setCurrentView('results'));
                 }}
               />
             )}
@@ -359,7 +350,10 @@ export const App: React.FC = () => {
               <RoomResults 
                 user={user}
                 roomId={activeRoomId}
-                onNavigateBack={() => setCurrentView('dashboard')}
+                onNavigateBack={() => {
+                  dispatch(clearExam());
+                  dispatch(setCurrentView('dashboard'));
+                }}
               />
             )}
           </main>
