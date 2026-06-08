@@ -1,5 +1,6 @@
 import QuestionBank from '../models/QuestionBank.js';
 import Quiz from '../models/Quiz.js';
+import User from '../models/User.js';
 
 // 1. ADD QUESTION TO BANK
 export const createBankQuestion = async (req, res) => {
@@ -27,16 +28,49 @@ export const createBankQuestion = async (req, res) => {
   }
 };
 
-// 2. GET ALL BANK QUESTIONS (With filters)
+// 2. GET ALL BANK QUESTIONS (With filters & role/unit permission filtering)
 export const getBankQuestions = async (req, res) => {
   try {
     const { category, difficulty, search } = req.query;
+    const currentUser = req.user;
     let query = {};
 
     if (category) query.category = category;
     if (difficulty) query.difficulty = difficulty;
     if (search) {
       query.questionText = { $regex: search, $options: 'i' };
+    }
+
+    // Role & Unit permission checks
+    if (currentUser.role !== 'master-admin') {
+      const escapedUnit = (currentUser.unit || '').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      let userQuery = {};
+
+      if (currentUser.role === 'admin') {
+        userQuery = {
+          $or: [
+            { role: 'master-admin' },
+            { _id: currentUser._id },
+            { unit: { $regex: escapedUnit, $options: 'i' } },
+            { managedBy: currentUser._id }
+          ]
+        };
+      } else if (currentUser.role === 'sub-admin') {
+        userQuery = {
+          $or: [
+            { role: 'master-admin' },
+            { _id: currentUser._id },
+            { 
+              role: 'user',
+              unit: { $regex: escapedUnit, $options: 'i' }
+            }
+          ]
+        };
+      }
+
+      const allowedUsers = await User.find(userQuery).select('_id');
+      const allowedCreatorIds = allowedUsers.map(u => u._id);
+      query.creatorId = { $in: allowedCreatorIds };
     }
 
     const questions = await QuestionBank.find(query).populate('creatorId', 'fullName rank unit');
@@ -47,20 +81,49 @@ export const getBankQuestions = async (req, res) => {
   }
 };
 
-// 3. UPDATE BANK QUESTION
+// 3. UPDATE BANK QUESTION (With role/unit permission filtering)
 export const updateBankQuestion = async (req, res) => {
   try {
     const { id } = req.params;
     const { questionType, questionText, options, correctAnswers, explanation, category, difficulty } = req.body;
-    
+    const currentUser = req.user;
+
     const question = await QuestionBank.findById(id);
     if (!question) {
       return res.status(404).json({ message: 'Không tìm thấy câu hỏi' });
     }
 
-    // Auth check (creator, admin or master-admin)
-    if (question.creatorId.toString() !== req.user.id && req.user.role === 'user') {
-      return res.status(403).json({ message: 'Đồng chí không có quyền sửa câu hỏi này' });
+    // Enforce role/unit hierarchy permission checks
+    const isCreator = question.creatorId.toString() === currentUser.id;
+    let isAllowed = false;
+
+    if (currentUser.role === 'master-admin') {
+      isAllowed = true;
+    } else if (isCreator) {
+      isAllowed = true;
+    } else {
+      // Fetch creator details for unit/role validation
+      const creator = await User.findById(question.creatorId);
+      if (creator) {
+        const escapedUnit = (currentUser.unit || '').toLowerCase();
+        if (currentUser.role === 'admin') {
+          if (creator.role === 'sub-admin' || creator.role === 'user') {
+            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
+              isAllowed = true;
+            }
+          }
+        } else if (currentUser.role === 'sub-admin') {
+          if (creator.role === 'user') {
+            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
+              isAllowed = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (!isAllowed) {
+      return res.status(403).json({ message: 'Đồng chí không có quyền chỉnh sửa câu hỏi này' });
     }
 
     if (questionType) question.questionType = questionType;
@@ -83,16 +146,47 @@ export const updateBankQuestion = async (req, res) => {
   }
 };
 
-// 4. DELETE BANK QUESTION
+// 4. DELETE BANK QUESTION (With role/unit permission filtering)
 export const deleteBankQuestion = async (req, res) => {
   try {
     const { id } = req.params;
+    const currentUser = req.user;
+
     const question = await QuestionBank.findById(id);
     if (!question) {
       return res.status(404).json({ message: 'Không tìm thấy câu hỏi' });
     }
 
-    if (question.creatorId.toString() !== req.user.id && req.user.role === 'user') {
+    // Enforce role/unit hierarchy permission checks
+    const isCreator = question.creatorId.toString() === currentUser.id;
+    let isAllowed = false;
+
+    if (currentUser.role === 'master-admin') {
+      isAllowed = true;
+    } else if (isCreator) {
+      isAllowed = true;
+    } else {
+      // Fetch creator details for unit/role validation
+      const creator = await User.findById(question.creatorId);
+      if (creator) {
+        const escapedUnit = (currentUser.unit || '').toLowerCase();
+        if (currentUser.role === 'admin') {
+          if (creator.role === 'sub-admin' || creator.role === 'user') {
+            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
+              isAllowed = true;
+            }
+          }
+        } else if (currentUser.role === 'sub-admin') {
+          if (creator.role === 'user') {
+            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
+              isAllowed = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (!isAllowed) {
       return res.status(403).json({ message: 'Đồng chí không có quyền xóa câu hỏi này' });
     }
 
@@ -104,14 +198,46 @@ export const deleteBankQuestion = async (req, res) => {
   }
 };
 
-// 5. AUTO-GENERATE QUIZ FROM CRITERIA (Ngẫu nhiên câu hỏi)
+// 5. AUTO-GENERATE QUIZ FROM CRITERIA (With permission filtering)
 export const autoGenerateQuiz = async (req, res) => {
   try {
     const { title, description, duration, passingScorePercent, isPublic, rules } = req.body;
-    // rules should be array of: { category: string, difficulty: string, count: number }
+    const currentUser = req.user;
 
     if (!rules || !Array.isArray(rules) || rules.length === 0) {
       return res.status(400).json({ message: 'Vui lòng cung cấp tiêu chí rút ngẫu nhiên câu hỏi' });
+    }
+
+    // Build allowed creator IDs for non-master-admins
+    let allowedCreatorIds = [];
+    if (currentUser.role !== 'master-admin') {
+      const escapedUnit = (currentUser.unit || '').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      let userQuery = {};
+
+      if (currentUser.role === 'admin') {
+        userQuery = {
+          $or: [
+            { role: 'master-admin' },
+            { _id: currentUser._id },
+            { unit: { $regex: escapedUnit, $options: 'i' } },
+            { managedBy: currentUser._id }
+          ]
+        };
+      } else if (currentUser.role === 'sub-admin') {
+        userQuery = {
+          $or: [
+            { role: 'master-admin' },
+            { _id: currentUser._id },
+            { 
+              role: 'user',
+              unit: { $regex: escapedUnit, $options: 'i' }
+            }
+          ]
+        };
+      }
+
+      const allowedUsers = await User.find(userQuery).select('_id');
+      allowedCreatorIds = allowedUsers.map(u => u._id);
     }
 
     let allSelectedQuestions = [];
@@ -121,9 +247,18 @@ export const autoGenerateQuiz = async (req, res) => {
       const count = parseInt(rule.count) || 0;
       if (count <= 0) continue;
 
+      const matchStage = {
+        category: rule.category,
+        difficulty: rule.difficulty
+      };
+
+      if (currentUser.role !== 'master-admin') {
+        matchStage.creatorId = { $in: allowedCreatorIds };
+      }
+
       // Use aggregation pipeline to get random samples
       const samples = await QuestionBank.aggregate([
-        { $match: { category: rule.category, difficulty: rule.difficulty } },
+        { $match: matchStage },
         { $sample: { size: count } }
       ]);
 

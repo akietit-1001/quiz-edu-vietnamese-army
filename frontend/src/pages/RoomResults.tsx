@@ -20,6 +20,8 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('completedAt');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   // VPA Export configurations
   const [showExportPopup, setShowExportPopup] = useState(false);
@@ -58,6 +60,10 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
   useEffect(() => {
     fetchResults();
   }, [roomId, sortBy, sortOrder]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, sortBy, sortOrder]);
 
   const fetchResults = async () => {
     try {
@@ -139,6 +145,10 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
       (att.userId.rank || '').toLowerCase().includes(term)
     );
   });
+
+  const totalPages = Math.ceil(filteredAttempts.length / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const displayedAttempts = filteredAttempts.slice(startIndex, startIndex + pageSize);
 
   if (loading) {
     return (
@@ -252,7 +262,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAttempts.map(att => {
+                  {displayedAttempts.map(att => {
                     const correctRatio = Math.round((att.score / att.totalQuestions) * 100);
                     return (
                       <tr key={att._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
@@ -294,6 +304,60 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3">
+                <span className="text-gray-500 text-center sm:text-left">
+                  Hiển thị {startIndex + 1} - {Math.min(startIndex + pageSize, filteredAttempts.length)} trong tổng số {filteredAttempts.length} kết quả làm bài
+                </span>
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                    className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                  >
+                    Trước
+                  </button>
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const p = i + 1;
+                    if (
+                      totalPages > 6 &&
+                      p !== 1 &&
+                      p !== totalPages &&
+                      Math.abs(p - page) > 1
+                    ) {
+                      if (p === 2 && page > 3) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                      if (p === totalPages - 1 && page < totalPages - 2) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                      return null;
+                    }
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPage(p)}
+                        className={`w-7 h-7 flex items-center justify-center border transition-all ${
+                          page === p
+                            ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark font-black shadow-sm'
+                            : 'border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    disabled={page === totalPages}
+                    onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                    className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
@@ -317,14 +381,14 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
         <div className="print-area-only p-12 text-black bg-white leading-relaxed text-sm font-serif" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
           {/* Header */}
           <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
-            <div className="text-center w-[45%] font-serif">
+            <div className="text-center w-[38%] font-serif">
               <p className="uppercase font-serif">{printData.upperUnit}</p>
               <p className="font-bold uppercase font-serif">{printData.currentUnit}</p>
               <p className="font-bold mt-0.5">---------</p>
             </div>
-            <div className="text-center w-[50%] font-serif">
-              <p className="font-bold text-[13px] font-serif">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif">
+            <div className="text-center w-[58%] font-serif">
+              <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
                 Độc lập - Tự do - Hạnh phúc
               </p>
               <p className="italic mt-1.5 font-serif">

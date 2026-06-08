@@ -19,6 +19,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   // Filtering/Searching
   const [searchTerm, setSearchTerm] = useState('');
   const [rankFilter, setRankFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   // Modal / Form state
   const [showFormModal, setShowFormModal] = useState(false);
@@ -39,6 +41,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, rankFilter]);
 
   const fetchUsers = async () => {
     try {
@@ -167,6 +173,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     return matchSearch && matchRank;
   });
 
+  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const displayedUsers = filteredUsers.slice(startIndex, startIndex + pageSize);
+
   // Role hierarchy restrictions
   const getAvailableRoles = () => {
     if (user?.role === 'master-admin') {
@@ -282,7 +292,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map(u => (
+                {displayedUsers.map(u => (
                   <tr key={u._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                     <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{u.fullName}</td>
                     <td className="py-3 px-4">{u.rank || 'Chưa cập nhật'}</td>
@@ -327,6 +337,60 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               </tbody>
             </table>
           </div>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3 p-4 bg-vpa-sand-light dark:bg-vpa-dark-card border-t border-vpa-olive-light/10">
+              <span className="text-gray-500 text-center sm:text-left">
+                Hiển thị {startIndex + 1} - {Math.min(startIndex + pageSize, filteredUsers.length)} trong tổng số {filteredUsers.length} quân nhân
+              </span>
+              <div className="flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  disabled={page === 1}
+                  onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                  className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                >
+                  Trước
+                </button>
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const p = i + 1;
+                  if (
+                    totalPages > 6 &&
+                    p !== 1 &&
+                    p !== totalPages &&
+                    Math.abs(p - page) > 1
+                  ) {
+                    if (p === 2 && page > 3) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                    if (p === totalPages - 1 && page < totalPages - 2) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                    return null;
+                  }
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPage(p)}
+                      className={`w-7 h-7 flex items-center justify-center border transition-all ${
+                        page === p
+                          ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark font-black shadow-sm'
+                          : 'border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  disabled={page === totalPages}
+                  onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                  className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

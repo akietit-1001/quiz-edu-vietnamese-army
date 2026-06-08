@@ -10,12 +10,12 @@ router.use(authMiddleware);
 // Retrieve bank questions (available to admins & sub-admins for viewing)
 router.get('/', roleMiddleware(['master-admin', 'admin', 'sub-admin']), getBankQuestions);
 
-// Central Bank CRUD operations (Admins and Master-Admin only)
-router.post('/', roleMiddleware(['master-admin', 'admin']), createBankQuestion);
-router.put('/:id', roleMiddleware(['master-admin', 'admin']), updateBankQuestion);
-router.delete('/:id', roleMiddleware(['master-admin', 'admin']), deleteBankQuestion);
+// Central Bank CRUD operations (Admins, Master-Admin, and Sub-Admins based on permissions)
+router.post('/', roleMiddleware(['master-admin', 'admin', 'sub-admin']), createBankQuestion);
+router.put('/:id', roleMiddleware(['master-admin', 'admin', 'sub-admin']), updateBankQuestion);
+router.delete('/:id', roleMiddleware(['master-admin', 'admin', 'sub-admin']), deleteBankQuestion);
 
 // Auto-generation route
-router.post('/generate', roleMiddleware(['master-admin', 'admin']), autoGenerateQuiz);
+router.post('/generate', roleMiddleware(['master-admin', 'admin', 'sub-admin']), autoGenerateQuiz);
 
 export default router;

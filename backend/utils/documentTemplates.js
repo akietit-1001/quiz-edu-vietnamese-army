@@ -27,7 +27,7 @@ const createVPAHeader = (upperUnit = 'BỘ QUỐC PHÒNG', currentUnit = 'HỌC 
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
+            width: { size: 40, type: WidthType.PERCENTAGE },
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
@@ -50,7 +50,7 @@ const createVPAHeader = (upperUnit = 'BỘ QUỐC PHÒNG', currentUnit = 'HỌC 
             ],
           }),
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
+            width: { size: 60, type: WidthType.PERCENTAGE },
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, TrashIcon } from '@phosphor-icons/react';
+import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, TrashIcon, PencilSimple } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
 
 interface QuizManagementProps {
@@ -81,6 +81,30 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [searchBank, setSearchBank] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
+  const [bankPage, setBankPage] = useState(1);
+  const bankPageSize = 10;
+
+  const totalBankPages = Math.ceil(bankQuestions.length / bankPageSize);
+  const startIndex = (bankPage - 1) * bankPageSize;
+  const displayedBankQuestions = bankQuestions.slice(startIndex, startIndex + bankPageSize);
+
+  // Quizzes list states for search and pagination
+  const [searchQuiz, setSearchQuiz] = useState('');
+  const [quizCategoryFilter, setQuizCategoryFilter] = useState('');
+  const [quizPage, setQuizPage] = useState(1);
+  const quizPageSize = 10;
+
+  const filteredQuizzes = quizzes.filter(quiz => {
+    const matchSearch = quiz.title.toLowerCase().includes(searchQuiz.toLowerCase()) || 
+                        (quiz.description || '').toLowerCase().includes(searchQuiz.toLowerCase()) ||
+                        (quiz.shareCode || '').toLowerCase().includes(searchQuiz.toLowerCase());
+    const matchCategory = quizCategoryFilter ? quiz.category === quizCategoryFilter : true;
+    return matchSearch && matchCategory;
+  });
+
+  const totalQuizPages = Math.ceil(filteredQuizzes.length / quizPageSize);
+  const startQuizIndex = (quizPage - 1) * quizPageSize;
+  const displayedQuizzes = filteredQuizzes.slice(startQuizIndex, startQuizIndex + quizPageSize);
 
   // Single bank question state (for adding to bank)
   const [bankQText, setBankQText] = useState('');
@@ -90,6 +114,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [bankQExplanation, setBankQExplanation] = useState('');
   const [bankQCategory, setBankQCategory] = useState('Chính trị');
   const [bankQDifficulty, setBankQDifficulty] = useState('Trung bình');
+  const [editingBankQId, setEditingBankQId] = useState<string | null>(null);
 
   // Auto-generation parameters
   const [genTitle, setGenTitle] = useState('');
@@ -107,9 +132,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     if (currentTab === 'bank') {
+      setBankPage(1);
       fetchBankQuestions();
     }
   }, [currentTab, categoryFilter, difficultyFilter, searchBank]);
+
+  useEffect(() => {
+    setQuizPage(1);
+  }, [searchQuiz, quizCategoryFilter]);
 
   const fetchQuizzes = async () => {
     try {
@@ -305,25 +335,52 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   };
 
   // Question Bank operations
-  const handleAddQuestionToBank = async (e: React.SubmitEvent) => {
+  const handleAddQuestionToBank = async (e: any) => {
     e.preventDefault();
     try {
-      await axios.post('/api/bank', {
-        questionType: bankQType,
-        questionText: bankQText,
-        options: bankQOptions,
-        correctAnswers: bankQAnswers,
-        explanation: bankQExplanation,
-        category: bankQCategory,
-        difficulty: bankQDifficulty
-      });
+      if (editingBankQId) {
+        await axios.put(`/api/bank/${editingBankQId}`, {
+          questionType: bankQType,
+          questionText: bankQText,
+          options: bankQOptions,
+          correctAnswers: bankQAnswers,
+          explanation: bankQExplanation,
+          category: bankQCategory,
+          difficulty: bankQDifficulty
+        });
+      } else {
+        await axios.post('/api/bank', {
+          questionType: bankQType,
+          questionText: bankQText,
+          options: bankQOptions,
+          correctAnswers: bankQAnswers,
+          explanation: bankQExplanation,
+          category: bankQCategory,
+          difficulty: bankQDifficulty
+        });
+      }
       setIsAddingToBank(false);
       resetBankQForm();
       fetchBankQuestions();
-      await window.showAlert('Đã thêm câu hỏi vào ngân hàng thành công!', 'Ngân hàng câu hỏi');
+      await window.showAlert(
+        editingBankQId ? 'Đã cập nhật câu hỏi thành công!' : 'Đã thêm câu hỏi vào ngân hàng thành công!',
+        'Ngân hàng câu hỏi'
+      );
     } catch (err: any) {
-      await window.showAlert(err.response?.data?.message || 'Lỗi lưu câu hỏi vào ngân hàng.', 'Lỗi thêm câu hỏi');
+      await window.showAlert(err.response?.data?.message || 'Lỗi lưu câu hỏi vào ngân hàng.', 'Lỗi lưu câu hỏi');
     }
+  };
+
+  const handleEditBankQ = (q: any) => {
+    setEditingBankQId(q._id);
+    setBankQText(q.questionText);
+    setBankQType(q.questionType);
+    setBankQOptions(q.options || []);
+    setBankQAnswers(q.correctAnswers || []);
+    setBankQExplanation(q.explanation || '');
+    setBankQCategory(q.category);
+    setBankQDifficulty(q.difficulty);
+    setIsAddingToBank(true);
   };
 
   const handleDeleteBankQ = async (id: string) => {
@@ -332,8 +389,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     try {
       await axios.delete(`/api/bank/${id}`);
       fetchBankQuestions();
+      await window.showAlert('Đã xóa câu hỏi khỏi ngân hàng thành công!', 'Xóa câu hỏi');
     } catch (err: any) {
-      await window.showAlert(err.response?.data?.message || 'Lỗi xóa câu hỏi ngân hàng.', 'Lỗi xóa câu hỏi');
+      await window.showAlert(err.response?.data?.message || 'Lỗi xóa câu hỏi.', 'Lỗi xóa câu hỏi');
     }
   };
 
@@ -402,6 +460,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setBankQExplanation('');
     setBankQCategory('Chính trị');
     setBankQDifficulty('Trung bình');
+    setEditingBankQId(null);
   };
 
   const resetGenForm = () => {
@@ -499,6 +558,34 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             </div>
           )}
 
+          {/* Search & Filter Bar for Quizzes */}
+          {!isCreating && !isImporting && !isGenerating && (
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 mb-6 shadow-sm flex flex-wrap gap-4 items-center">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuiz}
+                  onChange={e => setSearchQuiz(e.target.value)}
+                  placeholder="Tìm kiếm đề thi..."
+                  className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64"
+                />
+                <MagnifyingGlass size={14} className="absolute left-2.5 top-3 text-gray-500" />
+              </div>
+              
+              <div className="flex items-center space-x-1">
+                <Funnel size={14} className="text-vpa-gold" />
+                <select
+                  value={quizCategoryFilter}
+                  onChange={e => setQuizCategoryFilter(e.target.value)}
+                  className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
+                >
+                  <option value="">Tất cả chuyên ngành</option>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* List Quizzes Table */}
           {!isCreating && !isImporting && !isGenerating && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
@@ -515,7 +602,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     </tr>
                   </thead>
                   <tbody>
-                    {quizzes.map(quiz => (
+                    {displayedQuizzes.map(quiz => (
                       <tr key={quiz._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                         <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{quiz.title}</td>
                         <td className="py-3 px-4">{quiz.category}</td>
@@ -559,14 +646,72 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </td>
                       </tr>
                     ))}
-                    {quizzes.length === 0 && (
+                    {displayedQuizzes.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="text-center py-8 text-gray-400">Chưa có đề thi quân sự nào được xuất bản.</td>
+                        <td colSpan={6} className="text-center py-8 text-gray-400">
+                          {quizzes.length === 0
+                            ? "Chưa có đề thi quân sự nào được xuất bản."
+                            : "Không tìm thấy đề thi phù hợp với bộ lọc tìm kiếm."}
+                        </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination controls */}
+              {totalQuizPages > 1 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3">
+                  <span className="text-gray-500 text-center sm:text-left">
+                    Hiển thị {startQuizIndex + 1} - {Math.min(startQuizIndex + quizPageSize, filteredQuizzes.length)} trong tổng số {filteredQuizzes.length} đề thi
+                  </span>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      disabled={quizPage === 1}
+                      onClick={() => setQuizPage(prev => Math.max(prev - 1, 1))}
+                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                    >
+                      Trước
+                    </button>
+                    {Array.from({ length: totalQuizPages }).map((_, i) => {
+                      const p = i + 1;
+                      if (
+                        totalQuizPages > 6 &&
+                        p !== 1 &&
+                        p !== totalQuizPages &&
+                        Math.abs(p - quizPage) > 1
+                      ) {
+                        if (p === 2 && quizPage > 3) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                        if (p === totalQuizPages - 1 && quizPage < totalQuizPages - 2) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                        return null;
+                      }
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setQuizPage(p)}
+                          className={`w-7 h-7 flex items-center justify-center border transition-all ${
+                            quizPage === p
+                              ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark font-black shadow-sm'
+                              : 'border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      disabled={quizPage === totalQuizPages}
+                      onClick={() => setQuizPage(prev => Math.min(prev + 1, totalQuizPages))}
+                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1140,7 +1285,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     </tr>
                   </thead>
                   <tbody>
-                    {bankQuestions.map(q => (
+                    {displayedBankQuestions.map(q => (
                       <tr key={q._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                         <td className="py-3 px-4 font-semibold text-vpa-olive dark:text-vpa-sand leading-relaxed">{q.questionText}</td>
                         <td className="py-3 px-4">{q.category}</td>
@@ -1158,6 +1303,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         <td className="py-3 px-4 text-gray-500">{q.creatorId?.fullName || ''}</td>
                         <td className="py-3 px-4 text-right flex justify-end space-x-2">
                           <button
+                            type="button"
+                            onClick={() => handleEditBankQ(q)}
+                            className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark"
+                          >
+                            <PencilSimple size={14} />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleDeleteBankQ(q._id)}
                             className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
                           >
@@ -1174,16 +1327,70 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination controls */}
+              {totalBankPages > 1 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3">
+                  <span className="text-gray-500 text-center sm:text-left">
+                    Hiển thị {startIndex + 1} - {Math.min(startIndex + bankPageSize, bankQuestions.length)} trong tổng số {bankQuestions.length} câu hỏi
+                  </span>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      disabled={bankPage === 1}
+                      onClick={() => setBankPage(prev => Math.max(prev - 1, 1))}
+                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                    >
+                      Trước
+                    </button>
+                    {Array.from({ length: totalBankPages }).map((_, i) => {
+                      const p = i + 1;
+                      if (
+                        totalBankPages > 6 &&
+                        p !== 1 &&
+                        p !== totalBankPages &&
+                        Math.abs(p - bankPage) > 1
+                      ) {
+                        if (p === 2 && bankPage > 3) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                        if (p === totalBankPages - 1 && bankPage < totalBankPages - 2) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
+                        return null;
+                      }
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setBankPage(p)}
+                          className={`w-7 h-7 flex items-center justify-center border transition-all ${
+                            bankPage === p
+                              ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark font-black shadow-sm'
+                              : 'border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      disabled={bankPage === totalBankPages}
+                      onClick={() => setBankPage(prev => Math.min(prev + 1, totalBankPages))}
+                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Add Question to Bank form */}
+          {/* Add/Edit Question to Bank form */}
           {isAddingToBank && (
             <form onSubmit={handleAddQuestionToBank} className="space-y-6">
               <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
                 <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30 flex items-center space-x-2">
                   <Database size={18} className="text-vpa-gold" />
-                  <span>Khai báo câu hỏi mới vào ngân hàng chung</span>
+                  <span>{editingBankQId ? 'Chỉnh sửa câu hỏi trong ngân hàng chung' : 'Khai báo câu hỏi mới vào ngân hàng chung'}</span>
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1465,14 +1672,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         <div className="print-area-only p-12 text-black bg-white leading-relaxed text-sm font-serif" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
           {/* Header */}
           <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
-            <div className="text-center w-[45%] font-serif">
+            <div className="text-center w-[38%] font-serif">
               <p className="uppercase font-serif">{printData.upperUnit}</p>
               <p className="font-bold uppercase font-serif">{printData.currentUnit}</p>
               <p className="font-bold mt-0.5">---------</p>
             </div>
-            <div className="text-center w-[50%] font-serif">
-              <p className="font-bold text-[13px] font-serif">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif">
+            <div className="text-center w-[58%] font-serif">
+              <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
                 Độc lập - Tự do - Hạnh phúc
               </p>
               <p className="italic mt-1.5 font-serif">

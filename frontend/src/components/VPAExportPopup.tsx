@@ -438,14 +438,14 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 
                 {/* VPA Document Header block */}
                 <div className="flex justify-between items-start text-[10px] leading-tight mb-6 text-black dark:text-gray-200 font-serif">
-                  <div className="text-center w-[45%] font-serif">
+                  <div className="text-center w-[38%] font-serif">
                     <p className="uppercase font-serif">{upperUnit || 'BỘ QUỐC PHÒNG'}</p>
                     <p className="font-bold uppercase font-serif">{currentUnit || 'ĐƠN VỊ THI'}</p>
                     <p className="font-bold tracking-tighter mt-0.5">---------</p>
                   </div>
-                  <div className="text-center w-[50%] font-serif">
-                    <p className="font-bold text-[10.5px] font-serif">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-                    <p className="font-bold border-b border-black dark:border-white pb-1 inline-block mx-auto text-[10.5px] font-serif">
+                  <div className="text-center w-[58%] font-serif">
+                    <p className="font-bold text-[10.5px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+                    <p className="font-bold border-b border-black dark:border-white pb-1 inline-block mx-auto text-[10.5px] font-serif whitespace-nowrap">
                       Độc lập - Tự do - Hạnh phúc
                     </p>
                     <p className="italic mt-1.5 text-gray-600 dark:text-gray-400 font-serif">
