@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { ArrowLeft, DownloadSimple, Funnel, ShieldWarning } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
@@ -36,11 +37,21 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
 
   useEffect(() => {
     if (printData) {
+      const originalTitle = document.title;
+      const cleanRoomCode = (printData.room?.roomCode || 'Phong_thi')
+        .replace(/[^a-zA-Z0-9\s-_]/g, '')
+        .trim();
+      document.title = `Bao_cao_ket_qua_${cleanRoomCode}`;
+
       const timer = setTimeout(() => {
         window.print();
+        document.title = originalTitle;
         setPrintData(null);
       }, 500);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        document.title = originalTitle;
+      };
     }
   }, [printData]);
 
@@ -163,14 +174,14 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
         {/* Export buttons */}
         <div className="flex space-x-3">
           <button
-            onClick={() => { setExportFormat('xlsx'); setShowExportPopup(true); }}
+            onClick={() => setShowExportPopup(true)}
             className="px-3 py-1.5 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
           >
             <DownloadSimple size={16} />
             <span>Xuất Excel</span>
           </button>
           <button
-            onClick={() => { setExportFormat('docx'); setShowExportPopup(true); }}
+            onClick={() => setShowExportPopup(true)}
             className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
           >
             <DownloadSimple size={16} />
@@ -302,7 +313,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
       />
 
       {/* Printable VPA Report Container */}
-      {printData && (
+      {printData && createPortal(
         <div className="print-area-only p-12 text-black bg-white leading-relaxed text-sm font-serif" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
           {/* Header */}
           <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
@@ -373,7 +384,8 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
               </div>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

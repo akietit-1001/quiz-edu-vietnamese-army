@@ -202,7 +202,12 @@ export const App: React.FC = () => {
               failedQueue.push({ resolve, reject });
             })
               .then((token) => {
-                originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+                  originalRequest.headers.set('Authorization', `Bearer ${token}`);
+                } else {
+                  if (!originalRequest.headers) originalRequest.headers = {};
+                  originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                }
                 return axios(originalRequest);
               })
               .catch((err) => {
@@ -220,7 +225,13 @@ export const App: React.FC = () => {
             localStorage.setItem('accessToken', accessToken);
             setToken(accessToken);
             axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-            originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+            
+            if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+              originalRequest.headers.set('Authorization', `Bearer ${accessToken}`);
+            } else {
+              if (!originalRequest.headers) originalRequest.headers = {};
+              originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+            }
 
             processQueue(null, accessToken);
             return axios(originalRequest);

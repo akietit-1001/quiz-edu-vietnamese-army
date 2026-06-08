@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 
 interface VPAExportPopupProps {
   isOpen: boolean;
@@ -33,7 +32,6 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   type,
   previewData
 }) => {
-  const { t } = useTranslation();
   const [upperUnit, setUpperUnit] = useState('BỘ QUỐC PHÒNG');
   const [currentUnit, setCurrentUnit] = useState(defaultUnit || 'HỌC VIỆN KỸ THUẬT QUÂN SỰ');
   const [position, setPosition] = useState(defaultPosition || 'TRƯỞNG PHÒNG ĐÀO TẠO');
@@ -101,15 +99,15 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   // Render Quiz questions in preview
   const renderQuizPreviewContent = () => {
     if (!previewData || !previewData.questions) return null;
-    const questions = previewData.questions.slice(0, 2); // Show first 2 questions
+    const questions = previewData.questions.slice(0, previewData.questions.length); // Show first 2 questions
     return (
       <div className="mt-4 text-left border-t border-gray-300 pt-4 font-serif text-[11px] text-gray-800">
-        <h4 className="text-center font-bold text-[12px] uppercase mb-1">ĐỀ THI TRẮC NGHIỆM</h4>
-        <p className="text-center font-bold mb-1">MÔN THI: {(previewData.title || '').toUpperCase()}</p>
-        <p className="text-center italic mb-4">Thời gian làm bài: {previewData.duration || 45} phút (Không kể giao đề)</p>
+        <h4 className="text-center dark:text-white font-bold text-[12px] uppercase mb-1">ĐỀ THI</h4>
+        <p className="text-center dark:text-white font-bold mb-1">MÔN THI: {(previewData.title || '').toUpperCase()}</p>
+        <p className="text-center dark:text-white italic mb-4">Thời gian làm bài: {previewData.duration || 45} phút (Không kể giao đề)</p>
         
         {questions.map((q: any, idx: number) => (
-          <div key={idx} className="mb-3 font-serif">
+          <div key={idx} className="mb-3 font-serif dark:text-white">
             <p className="font-bold">Câu {idx + 1}: {q.questionText}</p>
             {q.questionType === 'fill-in-the-blank' ? (
               <p className="pl-4 italic text-gray-500">Đáp án: ..........................................................................</p>
@@ -122,11 +120,11 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
             )}
           </div>
         ))}
-        {previewData.questions.length > 2 && (
+        {/* {previewData.questions.length > 2 && (
           <p className="text-center italic text-gray-500 border-t border-dashed border-gray-300 pt-1 mt-2 font-serif">
             [...còn tiếp {previewData.questions.length - 2} câu hỏi khác...]
           </p>
-        )}
+        )} */}
       </div>
     );
   };
@@ -261,7 +259,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
               <div className="w-3.5 h-3.5 bg-vpa-gold-bright rounded-none" />
               <h3 className="text-sm font-black tracking-wide uppercase text-vpa-olive dark:text-vpa-sand">
-                Cấu hình xuất bản VPA
+                Cấu hình
               </h3>
             </div>
 
@@ -338,7 +336,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
               <input
                 type="checkbox"
                 checked={showSignature}
-                onChange={e => setShowSignature(e.checked)}
+                onChange={e => setShowSignature(e.target.checked)}
                 className="w-4.5 h-4.5 accent-vpa-gold rounded-none cursor-pointer"
               />
             </div>
@@ -429,7 +427,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
         {/* Right Column: Premium Document Live Preview (7 cols) */}
         <div className="lg:col-span-7 flex flex-col">
           <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2">
-            Xem trước tài liệu trực quan (Mô phỏng A4)
+            Xem trước
           </label>
           
           {(format === 'xlsx' || format === 'csv') ? (

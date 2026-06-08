@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel } from '@phosphor-icons/react';
+import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, TrashIcon } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
 
 interface QuizManagementProps {
@@ -33,11 +34,22 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     if (printData) {
+      const originalTitle = document.title;
+      const cleanTitle = (printData.quiz?.title || 'De_thi')
+        .replace(/[^a-zA-Z0-9\s-_]/g, '')
+        .trim()
+        .replace(/\s+/g, '_');
+      document.title = `De_thi_mon_${cleanTitle}`;
+
       const timer = setTimeout(() => {
         window.print();
+        document.title = originalTitle;
         setPrintData(null);
       }, 500);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        document.title = originalTitle;
+      };
     }
   }, [printData]);
 
@@ -293,7 +305,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   };
 
   // Question Bank operations
-  const handleAddQuestionToBank = async (e: React.FormEvent) => {
+  const handleAddQuestionToBank = async (e: React.SubmitEvent) => {
     e.preventDefault();
     try {
       await axios.post('/api/bank', {
@@ -340,7 +352,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setGenRules(updated);
   };
 
-  const handleAutoGenerateSubmit = async (e: React.FormEvent) => {
+  const handleAutoGenerateSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     try {
       const response = await axios.post('/api/bank/generate', {
@@ -466,21 +478,21 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   onClick={() => setIsGenerating(true)}
                   className="px-3 py-1.5 border border-vpa-gold text-vpa-gold-bright hover:bg-vpa-gold/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
                 >
-                  <Shuffle size={16} />
+                  <ShuffleIcon size={16} />
                   <span>Rút đề ngẫu nhiên</span>
                 </button>
                 <button
                   onClick={() => setIsImporting(true)}
                   className="px-3 py-1.5 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
                 >
-                  <UploadSimple size={16} />
+                  <UploadSimpleIcon size={16} />
                   <span>Import bộ đề</span>
                 </button>
                 <button
                   onClick={() => { setIsCreating(true); handleAddQuestion(); }}
                   className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
                 >
-                  <Plus size={16} />
+                  <PlusIcon size={16} />
                   <span>Soạn đề thủ công</span>
                 </button>
               </div>
@@ -542,7 +554,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                             onClick={() => handleDeleteQuiz(quiz._id)}
                             className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
                           >
-                            <Trash size={14} />
+                            <TrashIcon size={14} />
                           </button>
                         </td>
                       </tr>
@@ -1449,7 +1461,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       />
 
       {/* Printable VPA Quiz Document Container */}
-      {printData && (
+      {printData && createPortal(
         <div className="print-area-only p-12 text-black bg-white leading-relaxed text-sm font-serif" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
           {/* Header */}
           <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
@@ -1512,7 +1524,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               </div>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

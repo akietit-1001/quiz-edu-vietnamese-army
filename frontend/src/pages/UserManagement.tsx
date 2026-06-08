@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, PlusCircle, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Password } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck } from '@phosphor-icons/react';
 
 interface UserManagementProps {
   user: any;
