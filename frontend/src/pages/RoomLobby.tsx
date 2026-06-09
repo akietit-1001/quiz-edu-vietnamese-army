@@ -266,12 +266,9 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </h3>
               
               <ul className="space-y-3 text-xs text-gray-700 dark:text-gray-300">
-                <li><span className="font-semibold text-gray-500">Chỉ huy phòng:</span> {hostDetails?.rank} {hostDetails?.fullName} </li>
+                <li><span className="font-semibold text-gray-500">Chỉ huy phòng:</span>  {hostDetails?.rank} {hostDetails?.fullName} </li>
                 <li><span className="font-semibold text-gray-500">Đơn vị host:</span> {hostDetails?.unit}</li>
-                <li><span className="font-semibold text-gray-500">Trạng thái:</span> {
-                  roomStatus === 'waiting' ? 'Đang chờ thí sinh...' : 
-                  roomStatus === 'active' ? 'Đang diễn ra thi...' : 'Đã kết thúc thi'
-                }</li>
+                <li><span className="font-semibold text-gray-500">Trạng thái:</span> {roomStatus === 'waiting' ? 'Đang chờ thí sinh...' : roomStatus === 'active' ? 'Đang diễn ra thi...' : 'Đã kết thúc thi'}</li>
                 {roomStatus === 'active' && timeLeft !== null && (
                   <li className="flex items-center space-x-2 text-vpa-red dark:text-vpa-gold font-bold">
                     <span className="font-semibold text-gray-500">Thời gian còn lại:</span>
