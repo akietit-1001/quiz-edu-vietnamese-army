@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { ArrowLeft, DownloadSimple, Funnel, ShieldWarning } from '@phosphor-icons/react';
+import { ArrowLeft, DownloadSimpleIcon, Funnel, ShieldWarning } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
+
 
 interface RoomResultsProps {
   user: any;
@@ -183,19 +184,19 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
 
         {/* Export buttons */}
         <div className="flex space-x-3">
-          <button
+          {/* <button
             onClick={() => setShowExportPopup(true)}
             className="px-3 py-1.5 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
           >
             <DownloadSimple size={16} />
             <span>Xuất Excel</span>
-          </button>
+          </button> */}
           <button
             onClick={() => setShowExportPopup(true)}
             className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
           >
-            <DownloadSimple size={16} />
-            <span>Xuất báo cáo Word</span>
+            <DownloadSimpleIcon size={16} />
+            <span>Xuất báo cáo</span>
           </button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import userRoutes from './routes/userRoutes.js';
 import quizRoutes from './routes/quizRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import bankRoutes from './routes/bankRoutes.js';
+import invitationRoutes from './routes/invitationRoutes.js';
 import './utils/queue.js';
 
 // Models for Socket.io database operations
@@ -35,6 +36,8 @@ const io = new Server(server, {
   }
 });
 
+app.set('socketio', io);
+
 // Middleware
 app.use(cors({
   origin: '*', // In production, replace with your frontend URL
@@ -49,6 +52,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bank', bankRoutes);
+app.use('/api/invitations', invitationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -64,6 +68,14 @@ app.use((err, req, res, next) => {
 // --- Socket.io Real-time Exam Room Logic ---
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
+
+  // Register user for real-time notifications
+  socket.on('registerUser', (userId) => {
+    if (userId) {
+      socket.join(`user_${userId}`);
+      console.log(`User ${userId} registered for notifications`);
+    }
+  });
 
   // 1. Join room (user or host)
   socket.on('joinRoom', async ({ roomCode, userId, role }) => {
@@ -85,10 +97,20 @@ io.on('connection', (socket) => {
       }
 
       // Add user to participant list if not already in it, and not the host
-      if (room.hostId.toString() !== userId) {
+      const isHost = room.hostId.toString() === userId;
+
+      if (!isHost) {
+        const Invitation = (await import('./models/Invitation.js')).default;
+        const inv = await Invitation.findOne({
+          roomId: room._id,
+          recipientId: userId,
+          status: 'accepted'
+        });
+        const role = (inv && inv.role === 'examiner') ? 'examiner' : 'examinee';
+
         const isAlreadyParticipant = room.participants.some(p => p.userId.toString() === userId);
         if (!isAlreadyParticipant) {
-          room.participants.push({ userId, status: 'waiting' });
+          room.participants.push({ userId, role, status: 'waiting' });
           await room.save();
         } else {
           // If already in list, set status back to waiting/taking if they reconnected

@@ -126,6 +126,18 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  // 1.5. Check URL parameters for direct room joining (from email invitations)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCodeParam = urlParams.get('joinRoom');
+    if (roomCodeParam && token) {
+      // Clean URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Join room
+      handleJoinRoom(roomCodeParam);
+    }
+  }, [token]);
+
   // 2. Persistent authentication recovery & Silent refresh on mount
   useEffect(() => {
     const initAuth = async () => {

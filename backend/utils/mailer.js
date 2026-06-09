@@ -97,3 +97,56 @@ export const send2FAOTPEmail = async (toEmail, otpCode) => {
     return false;
   }
 };
+
+/**
+ * Sends a room invitation via email
+ * @param {string} toEmail 
+ * @param {string} senderName 
+ * @param {string} roomCode 
+ * @param {string} role 
+ * @param {string} link 
+ */
+export const sendInvitationEmail = async (toEmail, senderName, roomCode, role, link) => {
+  const roleText = role === 'examiner' ? 'Giám khảo (Giám sát)' : 'Thí sinh (Người làm bài thi)';
+  const mailOptions = {
+    from: `"Quiz-Edu Lời mời" <${process.env.GMAIL_USER || 'ndakiet1001@gmail.com'}>`,
+    to: toEmail,
+    subject: `THƯ MỜI THAM GIA PHÒNG THI ${roomCode} - HỆ THỐNG QUIZ-EDU`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 2px solid #1b3f30; border-radius: 8px; background-color: #faf9f6;">
+        <h2 style="color: #1b3f30; text-align: center; border-bottom: 2px solid #1b3f30; padding-bottom: 15px; margin-top: 0; text-transform: uppercase;">
+          Thư mời tham gia phòng thi
+        </h2>
+        <p>Kính chào đồng chí,</p>
+        <p>Đồng chí <strong>${senderName}</strong> đã gửi lời mời đồng chí tham gia phòng thi <strong>${roomCode}</strong> với vai trò:</p>
+        <div style="background-color: #eef2ed; border-left: 4px solid #e5a93b; padding: 15px; margin: 15px 0; font-weight: bold; color: #1b3f30;">
+          Vai trò: ${roleText}
+        </div>
+        <p>Để tham gia phòng thi này, đồng chí vui lòng click vào đường link dưới đây để đăng nhập và tham gia:</p>
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="${link}" style="background-color: #e5a93b; color: #1b3f30; font-weight: bold; text-decoration: none; padding: 12px 25px; border-radius: 4px; display: inline-block; text-transform: uppercase;">
+            Tham gia phòng thi ngay
+          </a>
+        </div>
+        <p style="font-size: 12px; color: #666; text-align: center;">
+          Hoặc copy liên kết này dán vào trình duyệt: <br/>
+          <a href="${link}" style="color: #1b3f30;">${link}</a>
+        </p>
+        <br/>
+        <div style="border-top: 1px solid #d2d7d4; padding-top: 15px; font-size: 12px; color: #555; text-align: center; font-style: italic;">
+          <p>HỆ THỐNG QUIZ-EDU - HỌC VIỆN KỸ THUẬT QUÂN SỰ</p>
+          <p>Hệ thống ôn luyện và thi trực tuyến đồng bộ</p>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Invitation email sent: ${info.response}`);
+    return true;
+  } catch (error) {
+    console.error('Lỗi gửi email thư mời:', error.message);
+    return false;
+  }
+};

@@ -102,12 +102,12 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
     const questions = previewData.questions.slice(0, previewData.questions.length); // Show first 2 questions
     return (
       <div className="mt-4 text-left border-t border-gray-300 pt-4 font-serif text-[11px] text-gray-800">
-        <h4 className="text-center dark:text-white font-bold text-[12px] uppercase mb-1">ĐỀ THI</h4>
-        <p className="text-center dark:text-white font-bold mb-1">MÔN THI: {(previewData.title || '').toUpperCase()}</p>
-        <p className="text-center dark:text-white italic mb-4">Thời gian làm bài: {previewData.duration || 45} phút (Không kể giao đề)</p>
+        <h4 className="text-center font-bold text-[12px] uppercase mb-1">ĐỀ THI</h4>
+        <p className="text-center font-bold mb-1">MÔN THI: {(previewData.title || '').toUpperCase()}</p>
+        <p className="text-center italic mb-4">Thời gian làm bài: {previewData.duration || 45} phút (Không kể giao đề)</p>
         
         {questions.map((q: any, idx: number) => (
-          <div key={idx} className="mb-3 font-serif dark:text-white">
+          <div key={idx} className="mb-3 font-serif">
             <p className="font-bold">Câu {idx + 1}: {q.questionText}</p>
             {q.questionType === 'fill-in-the-blank' ? (
               <p className="pl-4 italic text-gray-500">Đáp án: ..........................................................................</p>
@@ -440,11 +440,11 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
           {(format === 'xlsx' || format === 'csv') ? (
             renderSpreadsheetPreview()
           ) : (
-            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed min-h-[350px] max-h-[550px] overflow-y-auto select-none rounded shadow-inner text-black dark:text-white">
-              <div className="bg-white dark:bg-vpa-dark p-6 min-h-full border border-gray-200 dark:border-vpa-olive-light/20 shadow-md">
+            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed min-h-[350px] max-h-[550px] overflow-y-auto select-none rounded shadow-inner text-black">
+              <div className="bg-white p-6 min-h-full border border-gray-200 shadow-md">
                 
                 {/* VPA Document Header block */}
-                <div className="flex justify-between items-start text-[10px] leading-tight mb-6 text-black dark:text-gray-200 font-serif">
+                <div className="flex justify-between items-start text-[10px] leading-tight mb-6 text-black font-serif">
                   <div className="text-center w-[38%] font-serif">
                     <p className="uppercase font-serif">{upperUnit || 'BỘ QUỐC PHÒNG'}</p>
                     <p className="font-bold uppercase font-serif">{currentUnit || 'ĐƠN VỊ THI'}</p>
@@ -452,10 +452,10 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   </div>
                   <div className="text-center w-[58%] font-serif">
                     <p className="font-bold text-[10.5px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-                    <p className="font-bold border-b border-black dark:border-white pb-1 inline-block mx-auto text-[10.5px] font-serif whitespace-nowrap">
+                    <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[10.5px] font-serif whitespace-nowrap">
                       Độc lập - Tự do - Hạnh phúc
                     </p>
-                    <p className="italic mt-1.5 text-gray-600 dark:text-gray-400 font-serif">
+                    <p className="italic mt-1.5 text-gray-600 font-serif">
                       {province || 'Hà Nội'}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
                     </p>
                   </div>
@@ -466,7 +466,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
 
                 {/* Signature block preview */}
                 {showSignature && (
-                  <div className="flex justify-end mt-8 text-black dark:text-gray-200 font-serif">
+                  <div className="flex justify-end mt-8 text-black font-serif">
                     <div className="text-center w-[45%] font-serif">
                       <p className="font-bold uppercase text-[11px] font-serif">{position || 'TRƯỞNG PHÒNG ĐÀO TẠO'}</p>
                       <p className="italic text-[9.5px] text-gray-500 mb-10 font-serif">(Ký và ghi rõ họ tên)</p>

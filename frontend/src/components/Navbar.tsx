@@ -1,6 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
-import { Sun, Moon, Translate, SignOut, UserCircle } from '@phosphor-icons/react';
+import { Sun, Moon, SignOut, UserCircle } from '@phosphor-icons/react';
 
 interface NavbarProps {
   user: any;
@@ -10,12 +9,6 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, darkMode, setDarkMode }) => {
-  const { t, i18n } = useTranslation();
-
-  const toggleLanguage = () => {
-    const nextLang = i18n.language === 'vi' ? 'en' : 'vi';
-    i18n.changeLanguage(nextLang);
-  };
 
   return (
     <nav className="sticky top-0 z-40 w-full h-16 border-b border-vpa-olive-light/50 bg-vpa-sand-light/95 dark:bg-vpa-dark/95 backdrop-blur-md transition-colors px-6 flex items-center justify-between">
@@ -38,10 +31,10 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, darkMode, setDar
             <UserCircle size={32} className="text-vpa-olive dark:text-vpa-gold-bright" />
             <div className="text-left hidden md:block">
               <p className="text-xs font-bold text-vpa-olive dark:text-vpa-sand leading-tight">
-                {user.fullName}
+                {user.rank ? `${user.rank} ` : ''}{user.fullName}
               </p>
               <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
-                {user.rank} | {user.position} | {user.unit}
+                {user.position} | {user.unit}
               </p>
             </div>
             <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light bg-vpa-sand dark:bg-vpa-olive-light/30 text-vpa-olive dark:text-vpa-gold">
@@ -49,15 +42,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, darkMode, setDar
             </span>
           </div>
         )}
-
-        {/* Translation Toggle */}
-        <button
-          onClick={toggleLanguage}
-          className="p-2 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 transition-colors"
-          title="Đổi ngôn ngữ / Switch Language"
-        >
-          <Translate size={18} />
-        </button>
 
         {/* Theme Toggle */}
         <button
@@ -73,7 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout, darkMode, setDar
           <button
             onClick={onLogout}
             className="p-2 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
-            title={t('logout')}
+            title="Đăng xuất"
           >
             <SignOut size={18} />
           </button>

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { ShieldWarning, Key, Envelope, Lock } from '@phosphor-icons/react';
 
@@ -9,7 +8,6 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
-  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -97,7 +95,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="login-email" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
-                {t('email')}
+                Gmail công tác
               </label>
               <div className="relative">
                 <Envelope size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
@@ -117,7 +115,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
 
             <div>
               <label htmlFor="login-password" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
-                {t('password')}
+                Mật khẩu
               </label>
               <div className="relative">
                 <Lock size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />

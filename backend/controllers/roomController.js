@@ -59,7 +59,47 @@ export const getRoomByCode = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy phòng thi với mã đã nhập' });
     }
 
-    res.status(200).json(room);
+    // Check if there is a pending invitation for this user for this room, if so, auto-accept it
+    const Invitation = (await import('../models/Invitation.js')).default;
+    const pendingInv = await Invitation.findOne({
+      roomId: room._id,
+      recipientId: req.user.id,
+      status: 'pending'
+    });
+    
+    if (pendingInv) {
+      pendingInv.status = 'accepted';
+      await pendingInv.save();
+      
+      // If examinee, add to participants if not already there
+      if (pendingInv.role === 'examinee') {
+        const isAlreadyParticipant = room.participants.some(p => p.userId.toString() === req.user.id);
+        if (!isAlreadyParticipant) {
+          room.participants.push({ userId: req.user.id, status: 'waiting' });
+          await room.save();
+        }
+      }
+    }
+
+    // Check if user is host or has examiner role in this room
+    let userRoomRole = 'examinee';
+    if (room.hostId._id.toString() === req.user.id) {
+      userRoomRole = 'host';
+    } else {
+      const inv = await Invitation.findOne({
+        roomId: room._id,
+        recipientId: req.user.id,
+        status: 'accepted'
+      });
+      if (inv && inv.role === 'examiner') {
+        userRoomRole = 'examiner';
+      }
+    }
+
+    const roomObj = room.toObject();
+    roomObj.userRoomRole = userRoomRole;
+
+    res.status(200).json(roomObj);
   } catch (error) {
     console.error('Lỗi tìm phòng thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi tìm phòng thi' });
@@ -298,5 +338,18 @@ export const getExamSubmitStatus = async (req, res) => {
   } catch (error) {
     console.error('Lỗi kiểm tra trạng thái nộp bài:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra trạng thái nộp bài' });
+  }
+};
+
+// 7.8. GET MY CREATED ROOMS (Host only)
+export const getMyRooms = async (req, res) => {
+  try {
+    const rooms = await ExamRoom.find({ hostId: req.user.id })
+      .populate('quizId', 'title duration')
+      .sort({ createdAt: -1 });
+    res.status(200).json(rooms);
+  } catch (error) {
+    console.error('Lỗi lấy danh sách phòng thi của tôi:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách phòng thi' });
   }
 };

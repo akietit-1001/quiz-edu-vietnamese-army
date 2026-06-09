@@ -1338,7 +1338,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <input
                     type="file"
                     required
-                    accept=".xlsx,.xls,.csv,.docx,.pdf"
+                    accept=".xlsx,.xls,.csv,.doc,.docx,.pdf"
                     onChange={handleFileChange}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
@@ -1346,7 +1346,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
                     {selectedFile ? `File đã chọn: ${selectedFile.name}` : 'Kéo thả tệp tin hoặc click để chọn'}
                   </p>
-                  <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng: .xlsx, .csv, .docx, .pdf</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng: .xlsx, .xls, .csv, .doc, .docx, .pdf</p>
                 </div>
               </div>
 
@@ -1396,9 +1396,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   {/* Steps Progress Visualizer */}
                   <div className="w-full max-w-md space-y-4 pt-4 border-t border-vpa-olive-light/20">
                     {[
-                      { step: 1, text: "Tiếp nhận tệp và tải lên máy chủ quân sự" },
-                      { step: 2, text: "Trích xuất văn bản & chuyển đổi định dạng bằng Microsoft MarkItDown" },
-                      { step: 3, text: "Mô hình Google Gemini thiết lập & sinh câu hỏi trắc nghiệm tự động" },
+                      { step: 1, text: "Tiếp nhận tệp" },
+                      { step: 2, text: "Tải lên máy chủ và trích xuất văn bản" },
+                      { step: 3, text: "Đang xử lý tạo đề thi trắc nghiệm" },
                       { step: 4, text: "Bản thảo đề thi hoàn chỉnh đã sẵn sàng duyệt" }
                     ].map((item) => {
                       const isActive = aiProgressStep === item.step;
@@ -1482,7 +1482,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       <input
                         type="file"
                         required
-                        accept=".xlsx,.xls,.csv,.docx,.pdf,.txt"
+                        accept=".xlsx,.xls,.csv,.doc,.docx,.pdf,.txt"
                         onChange={handleAIFileChange}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
@@ -1490,7 +1490,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
                         {aiFile ? `Tài liệu đã chọn: ${aiFile.name}` : 'Kéo thả tài liệu ôn luyện hoặc click để chọn'}
                       </p>
-                      <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng tài liệu: .pdf, .docx, .xlsx, .xls, .csv, .txt</p>
+                      <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng tài liệu: .pdf, .doc, .docx, .xlsx, .xls, .csv, .txt</p>
                     </div>
                   </div>
 

@@ -11,6 +11,11 @@ const participantSchema = new mongoose.Schema({
     enum: ['waiting', 'taking', 'finished', 'left'],
     default: 'waiting'
   },
+  role: {
+    type: String,
+    enum: ['examinee', 'examiner'],
+    default: 'examinee'
+  },
   attemptId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ExamAttempt',

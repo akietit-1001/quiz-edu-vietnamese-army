@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 
 interface PopupProps {
   isOpen: boolean;
@@ -22,7 +21,6 @@ export const Popup: React.FC<PopupProps> = ({
   cancelText,
   danger = false
 }) => {
-  const { t } = useTranslation();
   if (!isOpen) return null;
 
   return (
@@ -45,7 +43,7 @@ export const Popup: React.FC<PopupProps> = ({
             onClick={onCancel}
             className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors"
           >
-            {cancelText || t('cancel')}
+            {cancelText || "Hủy bỏ"}
           </button>
           <button
             onClick={onConfirm}
@@ -55,7 +53,7 @@ export const Popup: React.FC<PopupProps> = ({
                 : 'bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright'
             }`}
           >
-            {confirmText || t('confirm')}
+            {confirmText || "Xác nhận"}
           </button>
         </div>
       </div>

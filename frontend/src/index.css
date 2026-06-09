@@ -13,6 +13,21 @@
   --color-vpa-red: #da251d;
   --color-vpa-sand: #f8f8fa;
   --color-vpa-sand-light: #ffffff;
+  --font-serif: "Times New Roman", Times, serif;
+}
+
+.font-serif {
+  font-family: "Times New Roman", Times, serif !important;
+}
+
+/* Fix for disjointed/spaced-out Vietnamese characters in print and previews */
+.print-area-only,
+.print-area-only *,
+.font-serif,
+.font-serif * {
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  text-rendering: optimizeLegibility !important;
 }
 
 body {

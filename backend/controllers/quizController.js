@@ -2,15 +2,16 @@ import Quiz from '../models/Quiz.js';
 import User from '../models/User.js';
 import xlsx from 'xlsx';
 import mammoth from 'mammoth';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import pdfParse from 'pdf-parse';
 import { Packer } from 'docx';
 import { generateQuizDOCX } from '../utils/documentTemplates.js';
 import { spawn } from 'child_process';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
 import { quizGenQueue } from '../utils/queue.js';
+import { convertDocToDocx } from '../utils/docConverter.js';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -311,7 +312,24 @@ export const importQuiz = async (req, res) => {
     }
 
     const { title, category, duration, passingScorePercent } = req.body;
-    const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+    let fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+
+    if (fileExtension === 'doc') {
+      try {
+        console.log('[importQuiz] Converting uploaded .doc file to .docx...');
+        const docxBuffer = await convertDocToDocx(req.file.buffer);
+        req.file.buffer = docxBuffer;
+        req.file.originalname = req.file.originalname.substring(0, req.file.originalname.lastIndexOf('.')) + '.docx';
+        fileExtension = 'docx';
+        console.log('[importQuiz] Conversion successful!');
+      } catch (convErr) {
+        console.error('[importQuiz] Conversion failed:', convErr.message);
+        return res.status(400).json({
+          message: `Lỗi tự động chuyển đổi từ .doc sang .docx: ${convErr.message}. Vui lòng tự chuyển đổi bằng cách chọn "Lưu dưới dạng" (Save As) thành định dạng .docx rồi tải lại.`
+        });
+      }
+    }
+
     let questions = [];
 
     if (fileExtension === 'xlsx' || fileExtension === 'xls' || fileExtension === 'csv') {
@@ -363,7 +381,7 @@ export const importQuiz = async (req, res) => {
       questions = parseQuestionsFromText(data.text);
 
     } else {
-      return res.status(400).json({ message: 'Định dạng file không được hỗ trợ (.xlsx, .csv, .docx, .pdf)' });
+      return res.status(400).json({ message: 'Định dạng file không được hỗ trợ (.xlsx, .xls, .csv, .doc, .docx, .pdf)' });
     }
 
     if (questions.length === 0) {
@@ -431,6 +449,23 @@ export const generateQuizFromFile = async (req, res) => {
       return res.status(400).json({ message: 'Vui lòng cung cấp file tài liệu' });
     }
 
+    let fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+    if (fileExtension === 'doc') {
+      try {
+        console.log('[generateQuizFromFile] Converting uploaded .doc file to .docx...');
+        const docxBuffer = await convertDocToDocx(req.file.buffer);
+        req.file.buffer = docxBuffer;
+        req.file.originalname = req.file.originalname.substring(0, req.file.originalname.lastIndexOf('.')) + '.docx';
+        fileExtension = 'docx';
+        console.log('[generateQuizFromFile] Conversion successful!');
+      } catch (convErr) {
+        console.error('[generateQuizFromFile] Conversion failed:', convErr.message);
+        return res.status(400).json({
+          message: `Lỗi tự động chuyển đổi từ .doc sang .docx: ${convErr.message}. Vui lòng tự chuyển đổi bằng cách chọn "Lưu dưới dạng" (Save As) thành định dạng .docx rồi tải lại.`
+        });
+      }
+    }
+
     // Calculate SHA-256 hash of the uploaded file
     const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
@@ -452,9 +487,7 @@ export const generateQuizFromFile = async (req, res) => {
 
     const { numQuestions, category } = req.body;
     const count = parseInt(numQuestions) || 10;
-    
-    // Save file to temporary path
-    const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+
     const tempDir = path.join(process.cwd(), 'temp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
@@ -469,9 +502,28 @@ export const generateQuizFromFile = async (req, res) => {
       markdownText = await extractMarkdownUsingMarkItDown(tempFilePath);
     } catch (parseError) {
       console.error('Lỗi chuyển đổi MarkItDown:', parseError.message);
-      return res.status(500).json({ 
-        message: `Lỗi phân tích tài liệu bằng MarkItDown: ${parseError.message}. Hãy đảm bảo bạn đã cài đặt python và thư viện 'markitdown' (chạy 'pip install markitdown').` 
-      });
+      console.log('-> Đang chuyển sang bộ phân tích dự phòng (Local JS Parser fallback)... File extension:', fileExtension);
+      
+      try {
+        if (fileExtension === 'docx') {
+          const docxResult = await mammoth.extractRawText({ buffer: req.file.buffer });
+          markdownText = docxResult.value;
+        } else if (fileExtension === 'pdf') {
+          const pdfResult = await pdfParse(req.file.buffer);
+          markdownText = pdfResult.text;
+        } else if (fileExtension === 'txt' || fileExtension === 'md') {
+          markdownText = req.file.buffer.toString('utf-8');
+        } else {
+          // If no fallback parser is available for this file extension, throw original error
+          throw new Error(`Định dạng đuôi file '.${fileExtension}' không được bộ phân tích dự phòng hỗ trợ.`);
+        }
+        console.log('-> Bộ phân tích dự phòng đã trích xuất văn bản thành công!');
+      } catch (fallbackError) {
+        console.error('Lỗi phân tích dự phòng thất bại:', fallbackError);
+        return res.status(500).json({ 
+          message: `Lỗi phân tích tài liệu: ${parseError.message}. Chi tiết lỗi dự phòng: ${fallbackError.message}. Vui lòng kiểm tra lại định dạng tệp của đồng chí.` 
+        });
+      }
     } finally {
       // 2. Clean up temp file
       if (tempFilePath && fs.existsSync(tempFilePath)) {
