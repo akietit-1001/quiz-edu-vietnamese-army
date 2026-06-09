@@ -4,6 +4,7 @@ import ExamAttempt from '../models/ExamAttempt.js';
 import xlsx from 'xlsx';
 import { Packer } from 'docx';
 import { generateResultsDOCX } from '../utils/documentTemplates.js';
+import { examSubmitQueue } from '../utils/queue.js';
 
 // 1. CREATE EXAM ROOM
 export const createRoom = async (req, res) => {
@@ -219,7 +220,7 @@ export const exportRoomResults = async (req, res) => {
   }
 };
 
-// 7. SUBMIT EXAM ANSWERS (User triggers)
+// 7. SUBMIT EXAM ANSWERS (User triggers - Queue-based)
 export const submitExam = async (req, res) => {
   try {
     const { roomId, quizId, answers, mode, antiCheatViolations = 0 } = req.body;
@@ -238,69 +239,64 @@ export const submitExam = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi tương ứng' });
     }
 
-    // Evaluate answers
-    let correctCount = 0;
-    const evaluatedAnswers = answers.map(ans => {
-      const question = quiz.questions[ans.questionIndex];
-      if (!question) return ans;
-
-      // Sort and trim arrays to compare
-      const userAnswers = (ans.selectedAnswers || []).map(a => a.trim().toLowerCase()).sort();
-      const actualAnswers = (question.correctAnswers || []).map(a => a.trim().toLowerCase()).sort();
-
-      const isCorrect = userAnswers.length === actualAnswers.length && 
-                        userAnswers.every((val, index) => val === actualAnswers[index]);
-
-      if (isCorrect) correctCount++;
-
-      return ans;
-    });
-
-    const totalQuestions = quiz.questions.length;
-    const scorePercent = (correctCount / totalQuestions) * 100;
-    const isPassed = scorePercent >= quiz.passingScorePercent;
-
-    // Determine Rank
-    let rank = 'Yếu';
-    if (isPassed) {
-      if (scorePercent >= 90) rank = 'Xuất sắc';
-      else if (scorePercent >= 80) rank = 'Giỏi';
-      else if (scorePercent >= 65) rank = 'Khá';
-      else rank = 'Trung bình';
-    }
-
-    const attempt = await ExamAttempt.create({
+    // Queue the submission instead of synchronously calculating and saving to DB with auto-retry on temporary DB locks
+    const job = await examSubmitQueue.add('submitAnswers', {
       userId,
-      roomId: roomId || null,
+      roomId,
       quizId,
-      mode: mode || 'exam',
-      answers: evaluatedAnswers,
-      score: correctCount,
-      totalQuestions,
-      isPassed,
-      rank,
+      answers,
+      mode,
       antiCheatViolations
+    }, {
+      attempts: 3, // Retry up to 3 times on database lock or transaction failures
+      backoff: {
+        type: 'exponential',
+        delay: 1000 // Wait 1s, then 2s, 4s...
+      }
     });
 
-    // Update participant status in the room if applicable
-    if (roomId) {
-      await ExamRoom.updateOne(
-        { _id: roomId, 'participants.userId': userId },
-        { 
-          $set: { 
-            'participants.$.status': 'finished',
-            'participants.$.attemptId': attempt._id 
-          } 
-        }
-      );
-    }
-
-    res.status(201).json({
-      message: 'Nộp bài thi thành công',
-      attempt
+    res.status(202).json({
+      message: 'Đã nhận bài thi. Tiến trình chấm điểm đang chạy...',
+      jobId: job.id
     });
   } catch (error) {
     console.error('Lỗi nộp bài thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi nộp bài thi' });
+  }
+};
+
+// 7.5. GET EXAM SUBMISSION STATUS BY JOB ID
+export const getExamSubmitStatus = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await examSubmitQueue.getJob(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin nộp bài này' });
+    }
+
+    const state = await job.getState(); // 'completed' | 'failed' | 'active' | 'waiting'
+
+    if (state === 'completed') {
+      return res.status(200).json({
+        status: 'completed',
+        attempt: job.returnvalue
+      });
+    }
+
+    if (state === 'failed') {
+      return res.status(500).json({
+        status: 'failed',
+        message: job.failedReason || 'Tiến trình nộp bài thi bị lỗi. Vui lòng liên hệ giám thị.'
+      });
+    }
+
+    res.status(200).json({
+      status: state,
+      message: 'Hệ thống đang chấm điểm bài thi của đồng chí...'
+    });
+  } catch (error) {
+    console.error('Lỗi kiểm tra trạng thái nộp bài:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra trạng thái nộp bài' });
   }
 };

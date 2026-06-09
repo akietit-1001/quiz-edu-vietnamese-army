@@ -272,27 +272,50 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       </div>
 
       {/* Users Table */}
-      {loading ? (
-        <div className="text-center py-12 text-xs font-mono uppercase tracking-widest text-vpa-olive dark:text-vpa-sand animate-pulse-slow">
-          Đang tải danh sách quân nhân...
-        </div>
-      ) : (
-        <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-none overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                  <th className="py-3 px-4">Họ và tên</th>
-                  <th className="py-3 px-4">Cấp bậc</th>
-                  <th className="py-3 px-4">Chức vụ</th>
-                  <th className="py-3 px-4">Đơn vị</th>
-                  <th className="py-3 px-4">Email / Tài khoản</th>
-                  <th className="py-3 px-4">Quyền hạn</th>
-                  <th className="py-3 px-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedUsers.map(u => (
+      <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-none overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
+                <th className="py-3 px-4">Họ và tên</th>
+                <th className="py-3 px-4">Cấp bậc</th>
+                <th className="py-3 px-4">Chức vụ</th>
+                <th className="py-3 px-4">Đơn vị</th>
+                <th className="py-3 px-4">Email / Tài khoản</th>
+                <th className="py-3 px-4">Quyền hạn</th>
+                <th className="py-3 px-4 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ?
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="border-b border-vpa-olive-light/10 animate-pulse">
+                    <td className="py-4 px-4">
+                      <div className="w-32 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-20 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-24 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-28 h-4 bg-vpa-olive-light/15 dark:bg-vpa-gold/15 rounded"></div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-36 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded font-mono"></div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="w-16 h-5 bg-vpa-olive-light/15 dark:bg-vpa-gold/15 rounded"></div>
+                    </td>
+                    <td className="py-4 px-4 text-right flex justify-end space-x-2">
+                      <div className="w-7 h-7 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                      <div className="w-7 h-7 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                    </td>
+                  </tr>
+                ))
+              :
+                displayedUsers.map(u => (
                   <tr key={u._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                     <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{u.fullName}</td>
                     <td className="py-3 px-4">{u.rank || 'Chưa cập nhật'}</td>
@@ -328,12 +351,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                       )}
                     </td>
                   </tr>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-gray-400">Không tìm thấy quân nhân nào khớp bộ lọc.</td>
-                  </tr>
-                )}
+                ))
+              }
               </tbody>
             </table>
           </div>
@@ -392,7 +411,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
             </div>
           )}
         </div>
-      )}
 
       {/* Create / Edit Form Modal */}
       {showFormModal && (

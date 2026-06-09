@@ -62,6 +62,11 @@ const quizSchema = new mongoose.Schema({
     type: String,
     unique: true
   },
+  documentHash: {
+    type: String,
+    default: null,
+    index: true
+  },
   createdAt: {
     type: Date,
     default: Date.now

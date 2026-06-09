@@ -1,5 +1,5 @@
 import express from 'express';
-import { createRoom, getRoomByCode, startRoom, endRoom, getRoomResults, exportRoomResults, submitExam } from '../controllers/roomController.js';
+import { createRoom, getRoomByCode, startRoom, endRoom, getRoomResults, exportRoomResults, submitExam, getExamSubmitStatus } from '../controllers/roomController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 
@@ -21,5 +21,6 @@ router.get('/:id/results/export', roleMiddleware(['master-admin', 'admin']), exp
 
 // Submit exam answers (Available to all roles - user/sub-admin/admin/master-admin when taking the exam)
 router.post('/submit', submitExam);
+router.get('/submit-status/:jobId', getExamSubmitStatus);
 
 export default router;

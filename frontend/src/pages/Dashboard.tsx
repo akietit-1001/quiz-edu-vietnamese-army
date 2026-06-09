@@ -23,6 +23,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onStartPractice
 }) => {
   const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
   
@@ -63,11 +64,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, []);
 
   const fetchQuizzes = async () => {
+    setLoading(true);
     try {
       const response = await axios.get('/api/quizzes');
       setQuizzes(response.data);
     } catch (err) {
       console.error('Lỗi lấy danh sách đề thi:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -374,7 +378,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2">
-            {quizzes.map(quiz => (
+            {loading ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="border border-vpa-olive-light/30 bg-vpa-sand/30 dark:bg-vpa-dark/15 p-4 animate-pulse flex flex-col justify-between h-40"
+                >
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="w-16 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                      <div className="w-16 h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                    </div>
+                    <div className="w-3/4 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/20 rounded mb-2"></div>
+                    <div className="w-full h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded mb-1"></div>
+                    <div className="w-5/6 h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-vpa-olive-light/10 pt-3">
+                    <div className="w-24 h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                    <div className="flex space-x-2">
+                      <div className="w-14 h-6 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                      <div className="w-14 h-6 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : quizzes.map(quiz => (
               <div
                 key={quiz._id}
                 className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 transition-all hover:border-vpa-gold flex flex-col justify-between"
@@ -416,7 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
             ))}
-            {quizzes.length === 0 && (
+            {!loading && quizzes.length === 0 && (
               <div className="col-span-2 text-center py-12 text-gray-400">
                 <BookOpen size={48} className="mx-auto mb-2 opacity-50" />
                 <p className="text-xs uppercase tracking-wider">Chưa có đề thi được xuất bản</p>

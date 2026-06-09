@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, TrashIcon, PencilSimple } from '@phosphor-icons/react';
+import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, TrashIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
 
 interface QuizManagementProps {
@@ -58,6 +58,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [isImporting, setIsImporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAddingToBank, setIsAddingToBank] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  // AI generation state
+  const [aiCategory, setAiCategory] = useState('Khác');
+  const [aiNumQuestions, setAiNumQuestions] = useState(10);
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiProgressStep, setAiProgressStep] = useState(1);
+  const [quizzesLoading, setQuizzesLoading] = useState(true);
+  const [bankLoading, setBankLoading] = useState(true);
 
   // Manual quiz state
   const [title, setTitle] = useState('');
@@ -67,6 +77,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [passingScore, setPassingScore] = useState(50);
   const [isPublic, setIsPublic] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
+  const [documentHash, setDocumentHash] = useState<string | null>(null);
 
   // Import state
   const [importTitle, setImportTitle] = useState('');
@@ -141,16 +152,36 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setQuizPage(1);
   }, [searchQuiz, quizCategoryFilter]);
 
+  useEffect(() => {
+    let interval: any;
+    if (aiLoading) {
+      setAiProgressStep(1);
+      interval = setInterval(() => {
+        setAiProgressStep(prev => {
+          if (prev < 3) return prev + 1;
+          return prev;
+        });
+      }, 2500);
+    } else {
+      setAiProgressStep(1);
+    }
+    return () => clearInterval(interval);
+  }, [aiLoading]);
+
   const fetchQuizzes = async () => {
+    setQuizzesLoading(true);
     try {
       const res = await axios.get('/api/quizzes');
       setQuizzes(res.data);
     } catch (err) {
       console.error('Lỗi fetch đề thi:', err);
+    } finally {
+      setQuizzesLoading(false);
     }
   };
 
   const fetchBankQuestions = async () => {
+    setBankLoading(true);
     try {
       const res = await axios.get('/api/bank', {
         params: {
@@ -162,6 +193,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       setBankQuestions(res.data);
     } catch (err) {
       console.error('Lỗi fetch câu hỏi ngân hàng:', err);
+    } finally {
+      setBankLoading(false);
     }
   };
 
@@ -212,7 +245,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         duration,
         passingScorePercent: passingScore,
         isPublic,
-        questions
+        questions,
+        documentHash
       };
 
       if (editingQuizId) {
@@ -241,6 +275,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setPassingScore(quiz.passingScorePercent || 50);
     setIsPublic(quiz.isPublic || false);
     setQuestions(quiz.questions || []);
+    setDocumentHash(quiz.documentHash || null);
     setIsCreating(true);
   };
 
@@ -331,6 +366,88 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       await window.showAlert(err.response?.data?.message || 'Lỗi import đề thi.', 'Lỗi nhập đề thi');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // AI Generation Handlers
+  const handleAIFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setAiFile(e.target.files[0]);
+    }
+  };
+
+  const populateQuizPreview = (quiz: any, originalFileName?: string) => {
+    setTitle(quiz.title || `Đề thi AI - ${originalFileName ? originalFileName.split('.')[0] : 'Tài liệu'}`);
+    setDescription(quiz.description || `Đề thi tự động sinh từ tài liệu ${originalFileName || ''}`);
+    setCategory(quiz.category || aiCategory);
+    setDuration(quiz.duration || (quiz.questions?.length ? quiz.questions.length * 2 : 20));
+    setPassingScore(50);
+    setIsPublic(false);
+    setQuestions(quiz.questions || []);
+    setDocumentHash(quiz.documentHash || null);
+
+    // Switch to manual editing form
+    setIsCreating(true);
+    setIsGeneratingAI(false);
+    setAiFile(null);
+  };
+
+  const handleAIGenerateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiFile) return;
+
+    setAiLoading(true);
+    const originalName = aiFile.name;
+    const formData = new FormData();
+    formData.append('file', aiFile);
+    formData.append('numQuestions', aiNumQuestions.toString());
+    formData.append('category', aiCategory);
+
+    try {
+      const res = await axios.post('/api/quizzes/generate-from-file', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      // Cache hit (immediately returned)
+      if (res.status === 200) {
+        const { message, quiz } = res.data;
+        await window.showAlert(message || 'Đã lấy đề thi từ cache hệ thống!', 'Sinh đề AI');
+        populateQuizPreview(quiz, originalName);
+        setAiLoading(false);
+        return;
+      }
+
+      // Cache miss (queued)
+      const { jobId } = res.data;
+      
+      // Poll job status every 2 seconds
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await axios.get(`/api/quizzes/generate-status/${jobId}`);
+          const { status, quiz, message } = statusRes.data;
+
+          if (status === 'completed') {
+            clearInterval(pollInterval);
+            await window.showAlert('Đã sinh câu hỏi thành công bằng AI!', 'Sinh đề AI');
+            populateQuizPreview(quiz, originalName);
+            setAiLoading(false);
+          } else if (status === 'failed') {
+            clearInterval(pollInterval);
+            await window.showAlert(message || 'Tiến trình sinh đề thi thất bại.', 'Lỗi sinh đề thi AI');
+            setAiLoading(false);
+          }
+        } catch (pollErr: any) {
+          clearInterval(pollInterval);
+          const errMsg = pollErr.response?.data?.message || 'Lỗi kiểm tra tiến trình sinh đề AI.';
+          await window.showAlert(errMsg, 'Lỗi sinh đề thi AI');
+          setAiLoading(false);
+        }
+      }, 2000);
+
+    } catch (err: any) {
+      const errMsg = err.response?.data?.message || 'Lỗi sinh đề thi bằng AI.';
+      await window.showAlert(errMsg, 'Lỗi sinh đề thi AI');
+      setAiLoading(false);
     }
   };
 
@@ -450,6 +567,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setPassingScore(50);
     setIsPublic(false);
     setQuestions([]);
+    setDocumentHash(null);
   };
 
   const resetBankQForm = () => {
@@ -495,7 +613,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         </div>
 
         {/* Global tab choices */}
-        {!isCreating && !isImporting && !isGenerating && !isAddingToBank && (
+        {!isCreating && !isImporting && !isGenerating && !isAddingToBank && !isGeneratingAI && (
           <div className="flex border border-vpa-olive-light/50 font-mono text-xs">
             <button
               onClick={() => setCurrentTab('quizzes')}
@@ -527,12 +645,20 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       {currentTab === 'quizzes' && (
         <>
           {/* Main Quiz Actions Bar */}
-          {!isCreating && !isImporting && !isGenerating && (
+          {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
             <div className="flex justify-between items-center mb-6">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
+              {/* <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
                 Các đề thi có sẵn trên hệ thống
-              </span>
-              <div className="flex space-x-3">
+              </span> */}
+              <div className="flex space-x-3 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsGeneratingAI(true)}
+                  className="px-3 py-1.5 border border-vpa-gold text-vpa-gold hover:bg-vpa-gold/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
+                >
+                  <BrainIcon size={16} />
+                  <span>Tạo đề bằng AI</span>
+                </button>
                 <button
                   onClick={() => setIsGenerating(true)}
                   className="px-3 py-1.5 border border-vpa-gold text-vpa-gold-bright hover:bg-vpa-gold/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
@@ -559,7 +685,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           )}
 
           {/* Search & Filter Bar for Quizzes */}
-          {!isCreating && !isImporting && !isGenerating && (
+          {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 mb-6 shadow-sm flex flex-wrap gap-4 items-center">
               <div className="relative">
                 <input
@@ -569,7 +695,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   placeholder="Tìm kiếm đề thi..."
                   className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64"
                 />
-                <MagnifyingGlass size={14} className="absolute left-2.5 top-3 text-gray-500" />
+                <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
               </div>
               
               <div className="flex items-center space-x-1">
@@ -587,7 +713,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           )}
 
           {/* List Quizzes Table */}
-          {!isCreating && !isImporting && !isGenerating && (
+          {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -602,51 +728,78 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedQuizzes.map(quiz => (
-                      <tr key={quiz._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
-                        <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{quiz.title}</td>
-                        <td className="py-3 px-4">{quiz.category}</td>
-                        <td className="py-3 px-4">{quiz.questions.length} câu / {quiz.duration} phút ({quiz.passingScorePercent}% Đạt)</td>
-                        <td className="py-3 px-4">
-                          {quiz.isPublic ? (
-                            <span className="text-green-600 font-bold">CÔNG KHAI</span>
-                          ) : (
-                            <span className="text-gray-400">NỘI BỘ</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold text-vpa-gold">{quiz.shareCode}</td>
-                        <td className="py-3 px-4 text-right flex justify-end space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => handleViewQuiz(quiz)}
-                            className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
-                          >
-                            Xem đề
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEditQuiz(quiz)}
-                            className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
-                          >
-                            Sửa đề
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedQuizForExport(quiz); setShowExportPopup(true); }}
-                            className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
-                          >
-                            Xuất bản
-                          </button>
-                          <button
-                            onClick={() => handleDeleteQuiz(quiz._id)}
-                            className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
-                          >
-                            <TrashIcon size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {displayedQuizzes.length === 0 && (
+                    {quizzesLoading ? (
+                      Array.from({ length: 5 }).map((_, idx) => (
+                        <tr key={idx} className="border-b border-vpa-olive-light/10 animate-pulse">
+                          <td className="py-4 px-4">
+                            <div className="w-40 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-24 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-32 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-16 h-4 bg-vpa-olive-light/15 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-16 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded font-mono"></div>
+                          </td>
+                          <td className="py-4 px-4 text-right flex justify-end space-x-2">
+                            <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                            <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                            <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      displayedQuizzes.map(quiz => (
+                        <tr key={quiz._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
+                          <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{quiz.title}</td>
+                          <td className="py-3 px-4">{quiz.category}</td>
+                          <td className="py-3 px-4">{quiz.questions.length} câu / {quiz.duration} phút ({quiz.passingScorePercent}% Đạt)</td>
+                          <td className="py-3 px-4">
+                            {quiz.isPublic ? (
+                              <span className="text-green-600 font-bold">CÔNG KHAI</span>
+                            ) : (
+                              <span className="text-gray-400">NỘI BỘ</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-vpa-gold">{quiz.shareCode}</td>
+                          <td className="py-3 px-4 text-right flex justify-end space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => handleViewQuiz(quiz)}
+                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
+                            >
+                              Xem đề
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditQuiz(quiz)}
+                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
+                            >
+                              Sửa đề
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedQuizForExport(quiz); setShowExportPopup(true); }}
+                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
+                            >
+                              Xuất bản
+                            </button>
+                            <button
+                              onClick={() => handleDeleteQuiz(quiz._id)}
+                              className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
+                            >
+                              <TrashIcon size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                    {!quizzesLoading && displayedQuizzes.length === 0 && (
                       <tr>
                         <td colSpan={6} className="text-center py-8 text-gray-400">
                           {quizzes.length === 0
@@ -975,99 +1128,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             </form>
           )}
 
-          {/* Import file form */}
-          {isImporting && (
-            <form onSubmit={handleImportSubmit} className="space-y-6">
-              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
-                <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30">
-                  Cài đặt bộ đề nhập tệp (Import)
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tên đề thi sau khi nhập</label>
-                    <input
-                      type="text"
-                      required
-                      value={importTitle}
-                      onChange={e => setImportTitle(e.target.value)}
-                      placeholder="Đề thi trắc nghiệm quân sự tổng hợp"
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành</label>
-                    <select
-                      value={importCategory}
-                      onChange={e => setImportCategory(e.target.value)}
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
-                    >
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Thời gian làm bài (Phút)</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      value={importDuration}
-                      onChange={e => setImportDuration(parseInt(e.target.value))}
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Điểm đạt (%)</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={100}
-                      value={importPassingScore}
-                      onChange={e => setImportPassingScore(parseInt(e.target.value))}
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-2 border-dashed border-vpa-olive-light/50 p-8 text-center bg-vpa-sand/30 dark:bg-vpa-dark/30 hover:border-vpa-gold transition-colors relative cursor-pointer">
-                  <input
-                    type="file"
-                    required
-                    accept=".xlsx,.xls,.csv,.docx,.pdf"
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <UploadSimple size={36} className="mx-auto mb-2 text-vpa-olive-light" />
-                  <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
-                    {selectedFile ? `File đã chọn: ${selectedFile.name}` : 'Kéo thả tệp tin hoặc click để chọn'}
-                  </p>
-                  <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng: .xlsx, .csv, .docx, .pdf</p>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-4 border-t border-vpa-olive-light/30 pt-6">
-                <button
-                  type="button"
-                  onClick={() => { setIsImporting(false); setSelectedFile(null); }}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || !selectedFile}
-                  className="px-6 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright disabled:opacity-50"
-                >
-                  {loading ? 'Đang phân tích cấu trúc đề thi...' : 'Kích hoạt nạp đề'}
-                </button>
-              </div>
-            </form>
-          )}
-
           {/* C. AUTO GENERATION FORM */}
           {isGenerating && (
             <form onSubmit={handleAutoGenerateSubmit} className="space-y-6">
@@ -1215,6 +1275,245 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               </div>
             </form>
           )}
+
+          {/* Import file form */}
+          {isImporting && (
+            <form onSubmit={handleImportSubmit} className="space-y-6">
+              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
+                <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30">
+                  Cài đặt bộ đề nhập tệp (Import)
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tên đề thi sau khi nhập</label>
+                    <input
+                      type="text"
+                      required
+                      value={importTitle}
+                      onChange={e => setImportTitle(e.target.value)}
+                      placeholder="Đề thi trắc nghiệm quân sự tổng hợp"
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành</label>
+                    <select
+                      value={importCategory}
+                      onChange={e => setImportCategory(e.target.value)}
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                    >
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Thời gian làm bài (Phút)</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      value={importDuration}
+                      onChange={e => setImportDuration(parseInt(e.target.value))}
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Điểm đạt (%)</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      max={100}
+                      value={importPassingScore}
+                      onChange={e => setImportPassingScore(parseInt(e.target.value))}
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-2 border-dashed border-vpa-olive-light/50 p-8 text-center bg-vpa-sand/30 dark:bg-vpa-dark/30 hover:border-vpa-gold transition-colors relative cursor-pointer">
+                  <input
+                    type="file"
+                    required
+                    accept=".xlsx,.xls,.csv,.docx,.pdf"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <UploadSimple size={36} className="mx-auto mb-2 text-vpa-olive-light" />
+                  <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
+                    {selectedFile ? `File đã chọn: ${selectedFile.name}` : 'Kéo thả tệp tin hoặc click để chọn'}
+                  </p>
+                  <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng: .xlsx, .csv, .docx, .pdf</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 border-t border-vpa-olive-light/30 pt-6">
+                <button
+                  type="button"
+                  onClick={() => { setIsImporting(false); setSelectedFile(null); }}
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !selectedFile}
+                  className="px-6 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright disabled:opacity-50"
+                >
+                  {loading ? 'Đang phân tích cấu trúc đề thi...' : 'Kích hoạt nạp đề'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          
+
+          {/* AI Quiz Generation Form */}
+          {isGeneratingAI && (
+            <div className="space-y-6">
+              {aiLoading ? (
+                <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 shadow-md rounded-none flex flex-col items-center justify-center min-h-[380px] space-y-6">
+                  {/* Rotating AI/Brain Icon with pulsating light */}
+                  <div className="relative">
+                    <div className="absolute inset-0 animate-ping rounded-full bg-vpa-gold/15 filter blur-sm"></div>
+                    <div className="w-16 h-16 rounded-full border border-vpa-gold/50 flex items-center justify-center bg-vpa-olive/5 dark:bg-vpa-gold/5 text-vpa-gold animate-pulse">
+                      <Brain size={32} className="animate-bounce" />
+                    </div>
+                  </div>
+
+                  <div className="text-center space-y-1">
+                    <h4 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand tracking-widest font-mono">
+                      Hệ thống AI đang xử lý tài liệu & soạn đề
+                    </h4>
+                    <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
+                      Vui lòng giữ kết nối, quá trình này có thể mất từ 10 - 20 giây
+                    </p>
+                  </div>
+
+                  {/* Steps Progress Visualizer */}
+                  <div className="w-full max-w-md space-y-4 pt-4 border-t border-vpa-olive-light/20">
+                    {[
+                      { step: 1, text: "Tiếp nhận tệp và tải lên máy chủ quân sự" },
+                      { step: 2, text: "Trích xuất văn bản & chuyển đổi định dạng bằng Microsoft MarkItDown" },
+                      { step: 3, text: "Mô hình Google Gemini thiết lập & sinh câu hỏi trắc nghiệm tự động" },
+                      { step: 4, text: "Bản thảo đề thi hoàn chỉnh đã sẵn sàng duyệt" }
+                    ].map((item) => {
+                      const isActive = aiProgressStep === item.step;
+                      const isCompleted = aiProgressStep > item.step;
+                      
+                      return (
+                        <div key={item.step} className="flex items-center space-x-3 text-xs">
+                          {isCompleted ? (
+                            <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-[10px]">
+                              ✓
+                            </div>
+                          ) : isActive ? (
+                            <div className="w-5 h-5 rounded-full border border-vpa-gold bg-vpa-gold/10 text-vpa-gold flex items-center justify-center font-mono font-bold text-[10px] animate-pulse">
+                              ●
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border border-vpa-olive-light/30 text-gray-400 flex items-center justify-center font-mono text-[10px]">
+                              {item.step}
+                            </div>
+                          )}
+                          <span className={`font-mono text-[11px] ${
+                            isCompleted 
+                              ? 'text-green-600 line-through opacity-75' 
+                              : isActive 
+                              ? 'text-vpa-gold font-bold' 
+                              : 'text-gray-400'
+                          }`}>
+                            {item.text}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Progress Line */}
+                  <div className="w-full max-w-md h-1.5 bg-vpa-olive-light/20 relative overflow-hidden">
+                    <div 
+                      className="h-full bg-vpa-gold transition-all duration-1000 ease-out" 
+                      style={{ width: `${(aiProgressStep / 4) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleAIGenerateSubmit} className="space-y-6">
+                  <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
+                    <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30 flex items-center space-x-2">
+                      <Brain size={18} className="text-vpa-gold" />
+                      <span>Tạo đề trắc nghiệm bằng Trí tuệ Nhân tạo (AI)</span>
+                    </h3>
+
+                    <p className="text-xs text-gray-500 italic">
+                      Hệ thống đọc tài liệu và tạo câu hỏi trắc nghiệm.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành học tập</label>
+                        <select
+                          value={aiCategory}
+                          onChange={e => setAiCategory(e.target.value)}
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                        >
+                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Số lượng câu hỏi cần sinh</label>
+                        <input
+                          type="number"
+                          required
+                          min={5}
+                          max={50}
+                          value={aiNumQuestions}
+                          onChange={e => setAiNumQuestions(parseInt(e.target.value))}
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-2 border-dashed border-vpa-olive-light/50 p-8 text-center bg-vpa-sand/30 dark:bg-vpa-dark/30 hover:border-vpa-gold transition-colors relative cursor-pointer">
+                      <input
+                        type="file"
+                        required
+                        accept=".xlsx,.xls,.csv,.docx,.pdf,.txt"
+                        onChange={handleAIFileChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <UploadSimpleIcon size={36} className="mx-auto mb-2 text-vpa-olive-light" />
+                      <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
+                        {aiFile ? `Tài liệu đã chọn: ${aiFile.name}` : 'Kéo thả tài liệu ôn luyện hoặc click để chọn'}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng tài liệu: .pdf, .docx, .xlsx, .xls, .csv, .txt</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-4 border-t border-vpa-olive-light/30 pt-6">
+                    <button
+                      type="button"
+                      onClick={() => { setIsGeneratingAI(false); setAiFile(null); }}
+                      className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={aiLoading || !aiFile}
+                      className="px-6 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright disabled:opacity-50 flex items-center space-x-2"
+                    >
+                      <span>Bắt đầu tạo đề (AI)</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -1285,41 +1584,65 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedBankQuestions.map(q => (
-                      <tr key={q._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
-                        <td className="py-3 px-4 font-semibold text-vpa-olive dark:text-vpa-sand leading-relaxed">{q.questionText}</td>
-                        <td className="py-3 px-4">{q.category}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 border text-[9px] font-mono font-bold ${
-                            q.difficulty === 'Dễ' 
-                              ? 'border-green-500/30 bg-green-500/10 text-green-600'
-                              : q.difficulty === 'Trung bình'
-                              ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-600'
-                              : 'border-red-500/30 bg-red-500/10 text-red-600'
-                          }`}>
-                            {q.difficulty}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-gray-500">{q.creatorId?.fullName || ''}</td>
-                        <td className="py-3 px-4 text-right flex justify-end space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => handleEditBankQ(q)}
-                            className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark"
-                          >
-                            <PencilSimple size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteBankQ(q._id)}
-                            className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
-                          >
-                            <Trash size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {bankQuestions.length === 0 && (
+                    {bankLoading ? (
+                      Array.from({ length: 5 }).map((_, idx) => (
+                        <tr key={idx} className="border-b border-vpa-olive-light/10 animate-pulse">
+                          <td className="py-4 px-4 w-1/2">
+                            <div className="w-full h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded mb-2"></div>
+                            <div className="w-2/3 h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-24 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-16 h-4 bg-vpa-olive-light/15 dark:bg-vpa-gold/15 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-20 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4 text-right flex justify-end space-x-2">
+                            <div className="w-8 h-8 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                            <div className="w-8 h-8 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      displayedBankQuestions.map(q => (
+                        <tr key={q._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
+                          <td className="py-3 px-4 font-semibold text-vpa-olive dark:text-vpa-sand leading-relaxed">{q.questionText}</td>
+                          <td className="py-3 px-4">{q.category}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 border text-[9px] font-mono font-bold ${
+                              q.difficulty === 'Dễ' 
+                                ? 'border-green-500/30 bg-green-500/10 text-green-600'
+                                : q.difficulty === 'Trung bình'
+                                ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-600'
+                                : 'border-red-500/30 bg-red-500/10 text-red-600'
+                            }`}>
+                              {q.difficulty}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-500">{q.creatorId?.fullName || ''}</td>
+                          <td className="py-3 px-4 text-right flex justify-end space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditBankQ(q)}
+                              className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark"
+                            >
+                              <PencilSimple size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBankQ(q._id)}
+                              className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
+                            >
+                              <Trash size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                    {!bankLoading && bankQuestions.length === 0 && (
                       <tr>
                         <td colSpan={5} className="text-center py-8 text-gray-400">Ngân hàng câu hỏi trống hoặc không khớp bộ lọc.</td>
                       </tr>

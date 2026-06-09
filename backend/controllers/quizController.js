@@ -5,21 +5,66 @@ import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse';
 import { Packer } from 'docx';
 import { generateQuizDOCX } from '../utils/documentTemplates.js';
+import { spawn } from 'child_process';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { quizGenQueue } from '../utils/queue.js';
+
+const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
+
+const sanitizeQuizPayload = (category, questions) => {
+  let finalCategory = category;
+  if (category && !CATEGORIES.includes(category)) {
+    finalCategory = 'Khác';
+  }
+
+  let sanitizedQuestions = questions;
+  if (questions && Array.isArray(questions)) {
+    sanitizedQuestions = questions.map(q => {
+      let type = q.questionType;
+      if (type === 'multiple_choice') type = 'multiple-choice';
+      if (type === 'true_false') type = 'true-false';
+      if (type === 'fill_in_the_blank') type = 'fill-in-the-blank';
+      
+      let answers = q.correctAnswers;
+      if (!Array.isArray(answers)) {
+        answers = answers !== undefined && answers !== null ? [String(answers)] : [];
+      } else {
+        answers = answers.map(String);
+      }
+
+      return {
+        questionType: type,
+        questionText: q.questionText || '',
+        options: q.options || [],
+        correctAnswers: answers,
+        explanation: q.explanation || ''
+      };
+    });
+  }
+
+  return { finalCategory, sanitizedQuestions };
+};
 
 // 1. CREATE MANUAL QUIZ
 export const createQuiz = async (req, res) => {
   try {
-    const { title, description, category, duration, passingScorePercent, questions, isPublic } = req.body;
+    const { title, description, category, duration, passingScorePercent, questions, isPublic, documentHash } = req.body;
+
+    const { finalCategory, sanitizedQuestions } = sanitizeQuizPayload(category, questions);
 
     const quiz = await Quiz.create({
       title,
       description,
-      category,
+      category: finalCategory,
       creatorId: req.user.id,
       duration,
       passingScorePercent,
-      questions,
-      isPublic
+      questions: sanitizedQuestions,
+      isPublic,
+      documentHash: documentHash || null
     });
 
     res.status(201).json({
@@ -50,7 +95,7 @@ export const getQuizzes = async (req, res) => {
     }
     // master-admin and admin can see all quizzes in the database
 
-    const quizzes = await Quiz.find(query).populate('creatorId', 'fullName rank unit');
+    const quizzes = await Quiz.find(query).populate('creatorId', 'fullName rank unit').sort({ createdAt: -1 });
     res.status(200).json(quizzes);
   } catch (error) {
     console.error('Lỗi lấy danh sách đề thi:', error.message);
@@ -99,12 +144,14 @@ export const updateQuiz = async (req, res) => {
       return res.status(403).json({ message: 'Đồng chí không có quyền sửa đổi đề thi này' });
     }
 
+    const { finalCategory, sanitizedQuestions } = sanitizeQuizPayload(category, questions);
+
     if (title) quiz.title = title;
     if (description !== undefined) quiz.description = description;
-    if (category) quiz.category = category;
+    if (category) quiz.category = finalCategory;
     if (duration) quiz.duration = duration;
     if (passingScorePercent) quiz.passingScorePercent = passingScorePercent;
-    if (questions) quiz.questions = questions;
+    if (questions) quiz.questions = sanitizedQuestions;
     if (isPublic !== undefined) quiz.isPublic = isPublic;
 
     await quiz.save();
@@ -323,13 +370,15 @@ export const importQuiz = async (req, res) => {
       return res.status(400).json({ message: 'Không tìm thấy câu hỏi hợp lệ trong tài liệu' });
     }
 
+    const { finalCategory, sanitizedQuestions } = sanitizeQuizPayload(category, questions);
+
     const quiz = await Quiz.create({
       title: title || `Đề thi import - ${req.file.originalname}`,
-      category: category || 'Khác',
+      category: finalCategory || 'Khác',
       creatorId: req.user.id,
       duration: duration || 45,
       passingScorePercent: passingScorePercent || 50,
-      questions,
+      questions: sanitizedQuestions,
       isPublic: false
     });
 
@@ -340,5 +389,158 @@ export const importQuiz = async (req, res) => {
   } catch (error) {
     console.error('Lỗi import đề thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi import đề thi từ file' });
+  }
+};
+
+// Helper to run python script for markitdown conversion
+const extractMarkdownUsingMarkItDown = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn('python', [
+      path.join(process.cwd(), 'scripts/convert_to_md.py'),
+      filePath
+    ], {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
+
+    let result = '';
+    let error = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      result += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      error += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(error || `Python process exited with code ${code}`));
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};
+
+// 8. GENERATE QUIZ FROM FILE USING AI & MARKITDOWN
+export const generateQuizFromFile = async (req, res) => {
+  let tempFilePath = null;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Vui lòng cung cấp file tài liệu' });
+    }
+
+    // Calculate SHA-256 hash of the uploaded file
+    const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+    // Check DB cache for existing quiz with same hash
+    const cachedQuiz = await Quiz.findOne({ documentHash: fileHash });
+    if (cachedQuiz) {
+      return res.status(200).json({
+        message: 'Tài liệu này đã được sinh đề thi trước đó. Hệ thống đã tự động lấy từ bộ nhớ đệm.',
+        quiz: {
+          title: cachedQuiz.title,
+          description: cachedQuiz.description,
+          category: cachedQuiz.category,
+          duration: cachedQuiz.duration,
+          questions: cachedQuiz.questions,
+          documentHash: fileHash
+        }
+      });
+    }
+
+    const { numQuestions, category } = req.body;
+    const count = parseInt(numQuestions) || 10;
+    
+    // Save file to temporary path
+    const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+    const tempDir = path.join(process.cwd(), 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    tempFilePath = path.join(tempDir, `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExtension}`);
+    fs.writeFileSync(tempFilePath, req.file.buffer);
+
+    // 1. Run Python MarkItDown to convert to Markdown
+    let markdownText;
+    try {
+      markdownText = await extractMarkdownUsingMarkItDown(tempFilePath);
+    } catch (parseError) {
+      console.error('Lỗi chuyển đổi MarkItDown:', parseError.message);
+      return res.status(500).json({ 
+        message: `Lỗi phân tích tài liệu bằng MarkItDown: ${parseError.message}. Hãy đảm bảo bạn đã cài đặt python và thư viện 'markitdown' (chạy 'pip install markitdown').` 
+      });
+    } finally {
+      // 2. Clean up temp file
+      if (tempFilePath && fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+    }
+
+    if (!markdownText || markdownText.trim().length === 0) {
+      return res.status(400).json({ message: 'Không thể trích xuất văn bản từ tài liệu này' });
+    }
+
+    // 3. Queue the job instead of calling Gemini synchronously with auto-retry and backoff
+    const job = await quizGenQueue.add('generateAIQuiz', {
+      markdownText,
+      count,
+      category,
+      fileHash
+    }, {
+      attempts: 5, // Retry up to 5 times on failure (like 503 Service Unavailable)
+      backoff: {
+        type: 'exponential',
+        delay: 2000 // Wait 2s, then 4s, 8s, 16s...
+      }
+    });
+
+    res.status(202).json({
+      message: 'Đã gửi yêu cầu sinh đề thi lên hàng đợi xử lý của AI',
+      jobId: job.id
+    });
+
+  } catch (error) {
+    console.error('Lỗi tổng quát sinh đề thi AI:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi sinh câu hỏi từ tài liệu bằng AI' });
+  }
+};
+
+// 8.5. GET AI QUIZ GENERATION STATUS BY JOB ID
+export const getQuizGenStatus = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await quizGenQueue.getJob(jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: 'Không tìm thấy tiến trình sinh đề thi này' });
+    }
+
+    const state = await job.getState(); // 'completed' | 'failed' | 'active' | 'waiting'
+    
+    if (state === 'completed') {
+      return res.status(200).json({
+        status: 'completed',
+        quiz: job.returnvalue
+      });
+    }
+
+    if (state === 'failed') {
+      return res.status(500).json({
+        status: 'failed',
+        message: job.failedReason || 'Tiến trình sinh đề thi thất bại. Vui lòng thử lại.'
+      });
+    }
+
+    // Otherwise, it is still running or waiting
+    res.status(200).json({
+      status: state, // 'active' or 'waiting'
+      message: state === 'active' ? 'AI đang thiết lập cấu trúc câu hỏi...' : 'Yêu cầu đang nằm trong hàng đợi...'
+    });
+  } catch (error) {
+    console.error('Lỗi kiểm tra trạng thái sinh đề AI:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra trạng thái' });
   }
 };

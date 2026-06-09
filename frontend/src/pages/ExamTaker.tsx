@@ -30,6 +30,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
   const [violations, setViolations] = useState(0);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Đang chuẩn bị đề thi...');
   const [error, setError] = useState('');
 
   // Refs for tracking mutable states inside listeners
@@ -216,6 +217,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
   };
 
   const submitExamResults = async () => {
+    setLoadingMessage('Hệ thống đang chấm điểm bài thi của đồng chí...');
     setLoading(true);
     try {
       const response = await axios.post('/api/rooms/submit', {
@@ -226,23 +228,62 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
         antiCheatViolations: violations
       });
 
-      // Clear cached answers
-      localStorage.removeItem(`quiz-attempt-${quizId}`);
+      const { jobId, attempt } = response.data;
 
-      // Notify host via socket
-      if (socket && roomCode) {
-        socket.emit('submitExamFinished', {
-          roomCode,
-          userId: user.id,
-          score: response.data.attempt.score,
-          totalQuestions: response.data.attempt.totalQuestions
-        });
+      // In case it wasn't queued (e.g. practice mode fallback or direct response)
+      if (attempt) {
+        localStorage.removeItem(`quiz-attempt-${quizId}`);
+        if (socket && roomCode) {
+          socket.emit('submitExamFinished', {
+            roomCode,
+            userId: user.id,
+            score: attempt.score,
+            totalQuestions: attempt.totalQuestions
+          });
+        }
+        onFinished(attempt);
+        return;
       }
 
-      onFinished(response.data.attempt);
+      // If queued, poll the status endpoint
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await axios.get(`/api/rooms/submit-status/${jobId}`);
+          const { status, attempt: finalAttempt, message: statusMsg } = statusRes.data;
+
+          if (statusMsg) {
+            setLoadingMessage(statusMsg);
+          }
+
+          if (status === 'completed') {
+            clearInterval(pollInterval);
+            localStorage.removeItem(`quiz-attempt-${quizId}`);
+            
+            if (socket && roomCode) {
+              socket.emit('submitExamFinished', {
+                roomCode,
+                userId: user.id,
+                score: finalAttempt.score,
+                totalQuestions: finalAttempt.totalQuestions
+              });
+            }
+
+            onFinished(finalAttempt);
+          } else if (status === 'failed') {
+            clearInterval(pollInterval);
+            await window.showAlert(statusMsg || 'Nộp bài thi thất bại. Vui lòng liên hệ giám thị.', 'Lỗi nộp bài');
+            setLoading(false);
+          }
+        } catch (pollErr: any) {
+          clearInterval(pollInterval);
+          const errMsg = pollErr.response?.data?.message || 'Lỗi kiểm tra tiến trình nộp bài thi.';
+          await window.showAlert(errMsg, 'Lỗi nộp bài');
+          setLoading(false);
+        }
+      }, 1000);
+
     } catch (err: any) {
       await window.showAlert(err.response?.data?.message || 'Có lỗi xảy ra khi nộp bài.', 'Lỗi nộp bài');
-    } finally {
       setLoading(false);
     }
   };
@@ -256,10 +297,11 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-vpa-sand dark:bg-vpa-dark">
-        <p className="text-xs font-mono uppercase tracking-widest text-vpa-olive dark:text-vpa-sand animate-pulse-slow">
-          Đang khởi tạo bảo mật và tải đề thi...
-        </p>
+      <div className="max-w-4xl mx-auto px-6 py-12 flex flex-col items-center justify-center font-mono">
+        <div className="w-10 h-10 border-2 border-vpa-gold border-t-transparent animate-spin mb-4" />
+        <span className="text-[10px] text-gray-500 uppercase tracking-widest animate-pulse">
+          {loadingMessage}
+        </span>
       </div>
     );
   }

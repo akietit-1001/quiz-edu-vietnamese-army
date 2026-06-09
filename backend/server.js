@@ -13,6 +13,7 @@ import userRoutes from './routes/userRoutes.js';
 import quizRoutes from './routes/quizRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import bankRoutes from './routes/bankRoutes.js';
+import './utils/queue.js';
 
 // Models for Socket.io database operations
 import ExamRoom from './models/ExamRoom.js';

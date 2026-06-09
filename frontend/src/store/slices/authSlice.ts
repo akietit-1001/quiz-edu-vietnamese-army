@@ -16,7 +16,7 @@ const getInitialUser = () => {
 
 const initialState: AuthState = {
   user: getInitialUser(),
-  token: localStorage.getItem('accessToken'),
+  token: null, // Always null initially, loaded into RAM via silent refresh on start
 };
 
 const authSlice = createSlice({
@@ -26,7 +26,6 @@ const authSlice = createSlice({
     setAuth: (state, action: PayloadAction<{ user: any; accessToken: string }>) => {
       state.user = action.payload.user;
       state.token = action.payload.accessToken;
-      localStorage.setItem('accessToken', action.payload.accessToken);
       localStorage.setItem('user', JSON.stringify(action.payload.user));
     },
     updateUser: (state, action: PayloadAction<any>) => {
@@ -42,7 +41,6 @@ const authSlice = createSlice({
     clearAuth: (state) => {
       state.user = null;
       state.token = null;
-      localStorage.removeItem('accessToken');
       localStorage.removeItem('user');
     },
   },

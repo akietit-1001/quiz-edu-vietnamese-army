@@ -26,6 +26,7 @@ import { startRoomLobby, startExam, clearExam } from './store/slices/examSlice';
 
 export const App: React.FC = () => {
   const dispatch = useAppDispatch();
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   // Select states from Redux
   const { user, token } = useAppSelector((state) => state.auth);
@@ -125,13 +126,39 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // 2. Persistent authentication recovery & Header setup on mount
+  // 2. Persistent authentication recovery & Silent refresh on mount
   useEffect(() => {
-    if (token && user) {
+    const initAuth = async () => {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        try {
+          const res = await axios.post('/api/auth/refresh-token', {}, { withCredentials: true });
+          const { accessToken } = res.data;
+          const parsedUser = JSON.parse(savedUser);
+          dispatch(setAuth({ user: parsedUser, accessToken }));
+          axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+          dispatch(setCurrentView('dashboard'));
+        } catch (err) {
+          console.error('Không thể tự động khôi phục phiên đăng nhập:', err);
+          dispatch(clearAuth());
+          dispatch(setCurrentView('login'));
+        }
+      } else {
+        dispatch(setCurrentView('login'));
+      }
+      setCheckingAuth(false);
+    };
+    initAuth();
+  }, [dispatch]);
+
+  // Keep axios header in sync when token changes
+  useEffect(() => {
+    if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      dispatch(setCurrentView('dashboard'));
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
     }
-  }, [token, user, dispatch]);
+  }, [token]);
 
   const handleLoginSuccess = (userData: any, accessToken: string) => {
     dispatch(setAuth({ user: userData, accessToken }));
@@ -213,7 +240,6 @@ export const App: React.FC = () => {
             const res = await axios.post('/api/auth/refresh-token', {}, { withCredentials: true });
             const { accessToken } = res.data;
 
-            localStorage.setItem('accessToken', accessToken);
             dispatch(setAuth({ user, accessToken }));
             axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
             
@@ -271,6 +297,20 @@ export const App: React.FC = () => {
     dispatch(clearExam());
     dispatch(setCurrentView('dashboard'));
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#070a09] flex flex-col items-center justify-center font-mono">
+        <div className="w-12 h-12 border-2 border-[#e5a93b] border-t-transparent animate-spin mb-4" />
+        <h2 className="text-[#e5a93b] text-xs font-bold uppercase tracking-widest animate-pulse">
+          Hệ thống trắc nghiệm quân sự
+        </h2>
+        <span className="text-[10px] text-gray-500 uppercase mt-2">
+          Đang xác thực phiên làm việc...
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-vpa-sand dark:bg-vpa-dark transition-colors duration-300">
