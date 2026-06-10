@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -64,6 +66,18 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Đã xảy ra lỗi hệ thống phía server' });
 });
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+  });
+}
+
 
 // --- Socket.io Real-time Exam Room Logic ---
 io.on('connection', (socket) => {
@@ -199,18 +213,24 @@ io.on('connection', (socket) => {
   // 5. User leaves room voluntarily
   socket.on('leaveRoom', async ({ roomCode, userId }) => {
     try {
-      await ExamRoom.updateOne(
-        { roomCode: roomCode.toUpperCase(), 'participants.userId': userId },
-        { $set: { 'participants.$.status': 'left' } }
-      );
-      
-      const updatedRoom = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() })
-        .populate('participants.userId', 'fullName rank position unit avatarUrl');
+      // Check if there are other active socket connections for the same user in this room
+      const activeSockets = await io.in(roomCode).fetchSockets();
+      const isStillConnected = activeSockets.some(s => s.userId === userId && s.id !== socket.id);
 
-      io.to(roomCode).emit('roomData', {
-        status: updatedRoom.status,
-        participants: updatedRoom.participants
-      });
+      if (!isStillConnected) {
+        await ExamRoom.updateOne(
+          { roomCode: roomCode.toUpperCase(), 'participants.userId': userId },
+          { $set: { 'participants.$.status': 'left' } }
+        );
+        
+        const updatedRoom = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() })
+          .populate('participants.userId', 'fullName rank position unit avatarUrl');
+
+        io.to(roomCode).emit('roomData', {
+          status: updatedRoom.status,
+          participants: updatedRoom.participants
+        });
+      }
 
       socket.leave(roomCode);
       console.log(`User ${userId} left room ${roomCode}`);
@@ -224,20 +244,26 @@ io.on('connection', (socket) => {
     console.log(`Socket disconnected: ${socket.id}`);
     if (socket.roomCode && socket.userId) {
       try {
-        // Update user status as left or offline
-        await ExamRoom.updateOne(
-          { roomCode: socket.roomCode.toUpperCase(), 'participants.userId': socket.userId },
-          { $set: { 'participants.$.status': 'left' } }
-        );
+        // Check if there are other active socket connections for the same user in this room
+        const activeSockets = await io.in(socket.roomCode).fetchSockets();
+        const isStillConnected = activeSockets.some(s => s.userId === socket.userId && s.id !== socket.id);
 
-        const updatedRoom = await ExamRoom.findOne({ roomCode: socket.roomCode.toUpperCase() })
-          .populate('participants.userId', 'fullName rank position unit avatarUrl');
+        if (!isStillConnected) {
+          // Update user status as left or offline
+          await ExamRoom.updateOne(
+            { roomCode: socket.roomCode.toUpperCase(), 'participants.userId': socket.userId },
+            { $set: { 'participants.$.status': 'left' } }
+          );
 
-        if (updatedRoom) {
-          io.to(socket.roomCode).emit('roomData', {
-            status: updatedRoom.status,
-            participants: updatedRoom.participants
-          });
+          const updatedRoom = await ExamRoom.findOne({ roomCode: socket.roomCode.toUpperCase() })
+            .populate('participants.userId', 'fullName rank position unit avatarUrl');
+
+          if (updatedRoom) {
+            io.to(socket.roomCode).emit('roomData', {
+              status: updatedRoom.status,
+              participants: updatedRoom.participants
+            });
+          }
         }
       } catch (err) {
         console.error('Lỗi socket disconnect handler:', err.message);

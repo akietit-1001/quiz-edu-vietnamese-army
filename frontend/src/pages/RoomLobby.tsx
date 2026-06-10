@@ -128,10 +128,9 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     });
 
     return () => {
-      newSocket.emit('leaveRoom', { roomCode, userId: user.id });
       newSocket.disconnect();
     };
-  }, [roomId, hostDetails]);
+  }, [roomId]);
 
   // Host starts the exam room
   const handleStartExam = () => {

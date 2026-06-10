@@ -1,4 +1,11 @@
-import { Document, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
+import { Document, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, PageOrientation } from 'docx';
+
+const MARGIN_PRESETS = {
+  normal: { top: 1134, bottom: 1134, left: 1701, right: 1134 }, // Top 2.0cm, Bottom 2.0cm, Left 3.0cm, Right 2.0cm
+  narrow: { top: 850, bottom: 850, left: 1134, right: 850 },   // Top 1.5cm, Bottom 1.5cm, Left 2.0cm, Right 1.5cm
+  wide: { top: 1417, bottom: 1417, left: 1984, right: 1417 },   // Top 2.5cm, Bottom 2.5cm, Left 3.5cm, Right 2.5cm
+};
+
 
 /**
  * Helper to generate official VPA header section for docx documents
@@ -149,7 +156,7 @@ const createVPASignature = (position = 'TRƯỞNG PHÒNG ĐÀO TẠO', rank = '�
 /**
  * Generates a DOCX document for a quiz (Question Paper)
  */
-export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName) => {
+export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName, marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5, orientation = 'portrait') => {
   const finalPosition = position || adminUser.position || 'TRƯỞNG PHÒNG ĐÀO TẠO';
   const finalRank = signerRank || adminUser.rank || 'Đại tá';
   const finalName = signerName || adminUser.fullName || 'Nguyễn Văn A';
@@ -220,10 +227,25 @@ export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, provin
     paragraphs.push(createVPASignature(finalPosition, finalRank, finalName));
   }
 
+  const marginPreset = {
+    top: Math.round(parseFloat(marginTop) * 567),
+    bottom: Math.round(parseFloat(marginBottom) * 567),
+    left: Math.round(parseFloat(marginLeft) * 567),
+    right: Math.round(parseFloat(marginRight) * 567)
+  };
+  const pageSize = orientation === 'landscape'
+    ? { width: 16838, height: 11906, orientation: PageOrientation.LANDSCAPE }
+    : { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT };
+
   return new Document({
     sections: [
       {
-        properties: {},
+        properties: {
+          page: {
+            margin: marginPreset,
+            size: pageSize,
+          },
+        },
         children: paragraphs,
       },
     ],
@@ -233,7 +255,7 @@ export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, provin
 /**
  * Generates a DOCX document for Exam Results Report
  */
-export const generateResultsDOCX = (room, results, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName) => {
+export const generateResultsDOCX = (room, results, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName, marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5, orientation = 'portrait') => {
   const finalPosition = position || adminUser.position || 'TRƯỞNG PHÒNG ĐÀO TẠO';
   const finalRank = signerRank || adminUser.rank || 'Đại tá';
   const finalName = signerName || adminUser.fullName || 'Nguyễn Văn A';
@@ -302,10 +324,25 @@ export const generateResultsDOCX = (room, results, adminUser, upperUnit, current
     paragraphs.push(createVPASignature(finalPosition, finalRank, finalName));
   }
 
+  const marginPreset = {
+    top: Math.round(parseFloat(marginTop) * 567),
+    bottom: Math.round(parseFloat(marginBottom) * 567),
+    left: Math.round(parseFloat(marginLeft) * 567),
+    right: Math.round(parseFloat(marginRight) * 567)
+  };
+  const pageSize = orientation === 'landscape'
+    ? { width: 16838, height: 11906, orientation: PageOrientation.LANDSCAPE }
+    : { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT };
+
   return new Document({
     sections: [
       {
-        properties: {},
+        properties: {
+          page: {
+            margin: marginPreset,
+            size: pageSize,
+          },
+        },
         children: paragraphs,
       },
     ],

@@ -11,6 +11,12 @@ interface VPAExportPopupProps {
     signerRank: string;
     signerName: string;
     format: 'docx' | 'pdf' | 'xlsx' | 'csv';
+    marginTop: number;
+    marginBottom: number;
+    marginLeft: number;
+    marginRight: number;
+    mirrorMargins: boolean;
+    orientation?: 'portrait' | 'landscape';
   }) => void;
   onCancel: () => void;
   defaultUnit?: string;
@@ -40,6 +46,13 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   const [signerRank, setSignerRank] = useState(defaultRank);
   const [signerName, setSignerName] = useState(defaultName);
   
+  const [marginTop, setMarginTop] = useState<number>(2.5);
+  const [marginBottom, setMarginBottom] = useState<number>(2.0);
+  const [marginLeft, setMarginLeft] = useState<number>(3.0);
+  const [marginRight, setMarginRight] = useState<number>(1.5);
+  const [mirrorMargins, setMirrorMargins] = useState<boolean>(true);
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  
   // Choose format based on type: quiz -> docx/pdf, results -> xlsx/docx/pdf/csv
   const [format, setFormat] = useState<'docx' | 'pdf' | 'xlsx' | 'csv'>(
     type === 'quiz' ? 'docx' : 'xlsx'
@@ -52,6 +65,12 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       if (defaultPosition) setPosition(defaultPosition);
       if (defaultRank) setSignerRank(defaultRank);
       if (defaultName) setSignerName(defaultName);
+      setMarginTop(2.5);
+      setMarginBottom(2.0);
+      setMarginLeft(3.0);
+      setMarginRight(1.5);
+      setMirrorMargins(true);
+      setOrientation('portrait');
       setFormat(type === 'quiz' ? 'docx' : 'xlsx');
     }
   }, [isOpen, defaultUnit, defaultPosition, defaultRank, defaultName, type]);
@@ -67,7 +86,13 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       showSignature,
       signerRank,
       signerName,
-      format
+      format,
+      marginTop,
+      marginBottom,
+      marginLeft,
+      marginRight,
+      mirrorMargins,
+      orientation
     });
   };
 
@@ -327,6 +352,108 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
               </div>
             </div>
 
+            {/* Page Setup: Only show for Docx/PDF */}
+            {(format === 'docx' || format === 'pdf') && (
+              <div className="mb-5 p-3 border border-vpa-olive-light/25 bg-vpa-olive-light/5 space-y-3">
+                <div className="flex items-center space-x-2 border-b border-vpa-olive-light/10 pb-1.5 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand">Cấu hình trang in</span>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Hướng giấy</label>
+                    <div className="flex border border-vpa-olive-light/30">
+                      <button
+                        type="button"
+                        onClick={() => setOrientation('portrait')}
+                        className={`flex-1 text-[10px] py-1 text-center font-bold transition-all ${
+                          orientation === 'portrait'
+                            ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark'
+                            : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
+                        }`}
+                      >
+                        Dọc (Portrait)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrientation('landscape')}
+                        className={`flex-1 text-[10px] py-1 text-center font-bold transition-all ${
+                          orientation === 'landscape'
+                            ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark'
+                            : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
+                        }`}
+                      >
+                        Ngang (Landscape)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Căn lề (cm)</label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      <div>
+                        <span className="block text-[8px] text-gray-400 text-center mb-0.5">Trên (Top)</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={marginTop}
+                          onChange={e => setMarginTop(parseFloat(e.target.value) || 0)}
+                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                        />
+                      </div>
+                      <div>
+                        <span className="block text-[8px] text-gray-400 text-center mb-0.5">Dưới (Bot)</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={marginBottom}
+                          onChange={e => setMarginBottom(parseFloat(e.target.value) || 0)}
+                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                        />
+                      </div>
+                      <div>
+                        <span className="block text-[8px] text-gray-400 text-center mb-0.5">Trái (Left)</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={marginLeft}
+                          onChange={e => setMarginLeft(parseFloat(e.target.value) || 0)}
+                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                        />
+                      </div>
+                      <div>
+                        <span className="block text-[8px] text-gray-400 text-center mb-0.5">Phải (Right)</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={marginRight}
+                          onChange={e => setMarginRight(parseFloat(e.target.value) || 0)}
+                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div>
+                      <span className="block text-[10px] font-bold text-vpa-olive dark:text-vpa-sand">Đảo lề trang chẵn</span>
+                      <p className="text-[8px] text-gray-500">Đối xứng lề Trái/Phải cho trang chẵn khi in</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={mirrorMargins}
+                      onChange={e => setMirrorMargins(e.target.checked)}
+                      className="w-4 h-4 accent-vpa-gold rounded-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Signature Toggle */}
             <div className="mb-5 p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between">
               <div>
@@ -440,8 +567,20 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
           {(format === 'xlsx' || format === 'csv') ? (
             renderSpreadsheetPreview()
           ) : (
-            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed min-h-[350px] max-h-[550px] overflow-y-auto select-none rounded shadow-inner text-black">
-              <div className="bg-white p-6 min-h-full border border-gray-200 shadow-md">
+            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed min-h-[350px] max-h-[550px] overflow-y-auto select-none rounded shadow-inner text-black flex justify-center items-start">
+              <div 
+                className={`bg-white border border-gray-200 shadow-md transition-all duration-300 ${
+                  orientation === 'landscape' 
+                    ? 'w-full max-w-2xl aspect-[1.41/1]' 
+                    : 'w-full max-w-md aspect-[1/1.41]'
+                }`}
+                style={{
+                  paddingTop: `${marginTop * 14}px`,
+                  paddingBottom: `${marginBottom * 14}px`,
+                  paddingLeft: `${marginLeft * 14}px`,
+                  paddingRight: `${marginRight * 14}px`
+                }}
+              >
                 
                 {/* VPA Document Header block */}
                 <div className="flex justify-between items-start text-[10px] leading-tight mb-6 text-black font-serif">

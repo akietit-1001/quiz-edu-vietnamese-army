@@ -34,6 +34,12 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
     showSignature: boolean;
     signerRank: string;
     signerName: string;
+    marginTop?: number;
+    marginBottom?: number;
+    marginLeft?: number;
+    marginRight?: number;
+    mirrorMargins?: boolean;
+    orientation?: 'portrait' | 'landscape';
     room: any;
     attempts: any[];
   } | null>(null);
@@ -80,7 +86,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
     }
   };
 
-  const handleExportConfirm = (vpaData: {
+  const handleExportConfirm = async (vpaData: {
     upperUnit: string;
     currentUnit: string;
     position: string;
@@ -89,6 +95,12 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
     signerRank: string;
     signerName: string;
     format: 'docx' | 'pdf' | 'xlsx' | 'csv';
+    marginTop: number;
+    marginBottom: number;
+    marginLeft: number;
+    marginRight: number;
+    mirrorMargins: boolean;
+    orientation?: 'portrait' | 'landscape';
   }) => {
     setShowExportPopup(false);
     
@@ -101,6 +113,12 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
         showSignature: vpaData.showSignature,
         signerRank: vpaData.signerRank,
         signerName: vpaData.signerName,
+        marginTop: vpaData.marginTop,
+        marginBottom: vpaData.marginBottom,
+        marginLeft: vpaData.marginLeft,
+        marginRight: vpaData.marginRight,
+        mirrorMargins: vpaData.mirrorMargins,
+        orientation: vpaData.orientation,
         room,
         attempts: filteredAttempts
       });
@@ -109,7 +127,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
 
     // Construct export URL
     const token = localStorage.getItem('accessToken');
-    const url = `/api/rooms/${roomId}/results/export?` + 
+    let url = `/api/rooms/${roomId}/results/export?` + 
       `format=${vpaData.format}` +
       `&upperUnit=${encodeURIComponent(vpaData.upperUnit)}` +
       `&currentUnit=${encodeURIComponent(vpaData.currentUnit)}` +
@@ -119,6 +137,14 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
       `&signerRank=${encodeURIComponent(vpaData.signerRank)}` +
       `&signerName=${encodeURIComponent(vpaData.signerName)}` +
       `&token=${token}`; // Provide token as query param if download starts outside axios header context
+
+    url += `&marginTop=${vpaData.marginTop}`;
+    url += `&marginBottom=${vpaData.marginBottom}`;
+    url += `&marginLeft=${vpaData.marginLeft}`;
+    url += `&marginRight=${vpaData.marginRight}`;
+    if (vpaData.orientation) {
+      url += `&orientation=${vpaData.orientation}`;
+    }
 
     triggerBlobDownload(url, `Bao_cao_ket_qua_${room?.roomCode}.${vpaData.format}`);
   };
@@ -379,7 +405,55 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
 
       {/* Printable VPA Report Container */}
       {printData && createPortal(
-        <div className="print-area-only p-12 text-black bg-white leading-relaxed text-sm font-serif" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
+        <div 
+          className="print-area-only text-black bg-white leading-relaxed text-sm font-serif" 
+          style={{ 
+            fontFamily: "'Times New Roman', Times, serif",
+            padding: `${printData.marginTop || 2.5}cm ${printData.marginRight || 1.5}cm ${printData.marginBottom || 2.0}cm ${printData.marginLeft || 3.0}cm`
+          }}
+        >
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              @page {
+                size: A4 ${printData.orientation === 'landscape' ? 'landscape' : 'portrait'};
+              }
+              
+              ${printData.mirrorMargins ? `
+                /* Mirrored margins for double-sided printing */
+                @page :left {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginRight || 1.5}cm;
+                  margin-right: ${printData.marginLeft || 3.0}cm;
+                }
+                @page :right {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginLeft || 3.0}cm;
+                  margin-right: ${printData.marginRight || 1.5}cm;
+                }
+                @page :first {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginLeft || 3.0}cm;
+                  margin-right: ${printData.marginRight || 1.5}cm;
+                }
+              ` : `
+                /* Standard identical margins for all pages */
+                @page {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginLeft || 3.0}cm;
+                  margin-right: ${printData.marginRight || 1.5}cm;
+                }
+              `}
+
+              body {
+                background: white;
+                color: black;
+              }
+            }
+          `}} />
           {/* Header */}
           <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
             <div className="text-center w-[38%] font-serif">

@@ -195,7 +195,7 @@ export const deleteQuiz = async (req, res) => {
 export const exportQuizDocx = async (req, res) => {
   try {
     const { id } = req.params;
-    const { upperUnit, currentUnit, province, position, showSignature, signerRank, signerName } = req.query;
+    const { upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation } = req.query;
 
     const quiz = await Quiz.findById(id);
     if (!quiz) {
@@ -211,7 +211,12 @@ export const exportQuizDocx = async (req, res) => {
       position,
       showSignature !== 'false',
       signerRank,
-      signerName
+      signerName,
+      marginTop,
+      marginBottom,
+      marginLeft,
+      marginRight,
+      orientation
     );
 
     const buffer = await Packer.toBuffer(doc);
@@ -413,7 +418,8 @@ export const importQuiz = async (req, res) => {
 // Helper to run python script for markitdown conversion
 const extractMarkdownUsingMarkItDown = (filePath) => {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python', [
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const pythonProcess = spawn(pythonCmd, [
       path.join(process.cwd(), 'scripts/convert_to_md.py'),
       filePath
     ], {
@@ -431,6 +437,10 @@ const extractMarkdownUsingMarkItDown = (filePath) => {
       error += data.toString();
     });
 
+    pythonProcess.on('error', (err) => {
+      reject(err);
+    });
+
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
         reject(new Error(error || `Python process exited with code ${code}`));
@@ -440,6 +450,7 @@ const extractMarkdownUsingMarkItDown = (filePath) => {
     });
   });
 };
+
 
 // 8. GENERATE QUIZ FROM FILE USING AI & MARKITDOWN
 export const generateQuizFromFile = async (req, res) => {

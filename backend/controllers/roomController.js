@@ -187,7 +187,7 @@ export const getRoomResults = async (req, res) => {
 export const exportRoomResults = async (req, res) => {
   try {
     const { id } = req.params;
-    const { format = 'xlsx', upperUnit, currentUnit, province, position, showSignature, signerRank, signerName } = req.query;
+    const { format = 'xlsx', upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation } = req.query;
 
     const room = await ExamRoom.findById(id).populate('quizId', 'title');
     if (!room) {
@@ -244,7 +244,12 @@ export const exportRoomResults = async (req, res) => {
         position,
         showSignature !== 'false',
         signerRank,
-        signerName
+        signerName,
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        orientation
       );
 
       const buffer = await Packer.toBuffer(doc);

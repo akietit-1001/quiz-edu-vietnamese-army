@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # 1. Local Database: MongoDB
-  mongodb:
+  mongo:
     image: mongo:latest
     container_name: mongodb-quiz
     restart: always
@@ -25,11 +25,11 @@ services:
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
       ME_CONFIG_MONGODB_ADMINPASSWORD: adminpassword
-      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_SERVER: mongo
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: password123
     depends_on:
-      - mongodb
+      - mongo
 
   # 3. Message Queue Backend: Redis
   redis:
@@ -41,6 +41,31 @@ services:
     command: redis-server --requirepass 123456
     volumes:
       - redis_data:/data
+
+  # 4. Main Application Container
+  quiz-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quiz-app-container
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://admin:adminpassword@mongo:27017/quiz_edu?authSource=admin
+      - JWT_SECRET=supersecretjwtkey_vpa_style_2026
+      - JWT_REFRESH_SECRET=supersecretrefreshjwtkey_vpa_style_2026
+      - GMAIL_USER=ndakiet1001@gmail.com
+      - GMAIL_APP_PASSWORD=gvwftmyheblvwero
+      - GEMINI_API_KEY=AQ.Ab8RN6JxJd9xF9YDt6hy6GMZ6zEMMesxu7UTtp63oJBuxmsjMg
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=123456
+      - NODE_ENV=production
+    depends_on:
+      - mongo
+      - redis
 
 volumes:
   mongo_data:

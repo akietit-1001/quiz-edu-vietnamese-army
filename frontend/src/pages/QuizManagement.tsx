@@ -29,6 +29,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     showSignature: boolean;
     signerRank: string;
     signerName: string;
+    marginTop?: number;
+    marginBottom?: number;
+    marginLeft?: number;
+    marginRight?: number;
+    mirrorMargins?: boolean;
+    orientation?: 'portrait' | 'landscape';
     quiz: any;
   } | null>(null);
 
@@ -292,6 +298,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     signerRank: string;
     signerName: string;
     format: 'docx' | 'pdf' | 'xlsx' | 'csv';
+    marginTop: number;
+    marginBottom: number;
+    marginLeft: number;
+    marginRight: number;
+    mirrorMargins: boolean;
+    orientation?: 'portrait' | 'landscape';
   }) => {
     setShowExportPopup(false);
     if (!selectedQuizForExport) return;
@@ -305,6 +317,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         showSignature: vpaData.showSignature,
         signerRank: vpaData.signerRank,
         signerName: vpaData.signerName,
+        marginTop: vpaData.marginTop,
+        marginBottom: vpaData.marginBottom,
+        marginLeft: vpaData.marginLeft,
+        marginRight: vpaData.marginRight,
+        mirrorMargins: vpaData.mirrorMargins,
+        orientation: vpaData.orientation,
         quiz: selectedQuizForExport
       });
       return;
@@ -319,7 +337,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           position: vpaData.position,
           showSignature: vpaData.showSignature,
           signerRank: vpaData.signerRank,
-          signerName: vpaData.signerName
+          signerName: vpaData.signerName,
+          marginTop: vpaData.marginTop,
+          marginBottom: vpaData.marginBottom,
+          marginLeft: vpaData.marginLeft,
+          marginRight: vpaData.marginRight,
+          orientation: vpaData.orientation
         },
         responseType: 'blob'
       });
@@ -1992,7 +2015,55 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
       {/* Printable VPA Quiz Document Container */}
       {printData && createPortal(
-        <div className="print-area-only p-12 text-black bg-white leading-relaxed text-sm font-serif" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
+        <div 
+          className="print-area-only text-black bg-white leading-relaxed text-sm font-serif" 
+          style={{ 
+            fontFamily: "'Times New Roman', Times, serif",
+            padding: `${printData.marginTop || 2.5}cm ${printData.marginRight || 1.5}cm ${printData.marginBottom || 2.0}cm ${printData.marginLeft || 3.0}cm`
+          }}
+        >
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              @page {
+                size: A4 ${printData.orientation === 'landscape' ? 'landscape' : 'portrait'};
+              }
+              
+              ${printData.mirrorMargins ? `
+                /* Mirrored margins for double-sided printing */
+                @page :left {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginRight || 1.5}cm;
+                  margin-right: ${printData.marginLeft || 3.0}cm;
+                }
+                @page :right {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginLeft || 3.0}cm;
+                  margin-right: ${printData.marginRight || 1.5}cm;
+                }
+                @page :first {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginLeft || 3.0}cm;
+                  margin-right: ${printData.marginRight || 1.5}cm;
+                }
+              ` : `
+                /* Standard identical margins for all pages */
+                @page {
+                  margin-top: ${printData.marginTop || 2.5}cm;
+                  margin-bottom: ${printData.marginBottom || 2.0}cm;
+                  margin-left: ${printData.marginLeft || 3.0}cm;
+                  margin-right: ${printData.marginRight || 1.5}cm;
+                }
+              `}
+
+              body {
+                background: white;
+                color: black;
+              }
+            }
+          `}} />
           {/* Header */}
           <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
             <div className="text-center w-[38%] font-serif">

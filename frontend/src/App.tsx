@@ -126,17 +126,7 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // 1.5. Check URL parameters for direct room joining (from email invitations)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomCodeParam = urlParams.get('joinRoom');
-    if (roomCodeParam && token) {
-      // Clean URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      // Join room
-      handleJoinRoom(roomCodeParam);
-    }
-  }, [token]);
+
 
   // 2. Persistent authentication recovery & Silent refresh on mount
   useEffect(() => {
@@ -149,7 +139,15 @@ export const App: React.FC = () => {
           const parsedUser = JSON.parse(savedUser);
           dispatch(setAuth({ user: parsedUser, accessToken }));
           axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-          dispatch(setCurrentView('dashboard'));
+          
+          const urlParams = new URLSearchParams(window.location.search);
+          const roomCodeParam = urlParams.get('joinRoom');
+          if (roomCodeParam) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            handleJoinRoom(roomCodeParam);
+          } else {
+            dispatch(setCurrentView('dashboard'));
+          }
         } catch (err) {
           console.error('Không thể tự động khôi phục phiên đăng nhập:', err);
           dispatch(clearAuth());
@@ -175,7 +173,15 @@ export const App: React.FC = () => {
   const handleLoginSuccess = (userData: any, accessToken: string) => {
     dispatch(setAuth({ user: userData, accessToken }));
     axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-    dispatch(setCurrentView('dashboard'));
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCodeParam = urlParams.get('joinRoom');
+    if (roomCodeParam) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      handleJoinRoom(roomCodeParam);
+    } else {
+      dispatch(setCurrentView('dashboard'));
+    }
   };
 
   const handleLogout = async () => {
