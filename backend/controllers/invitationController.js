@@ -171,6 +171,14 @@ export const respondToInvitation = async (req, res) => {
         }
       }
       
+      // Notify host to update dashboard participant count
+      const io = req.app?.get('socketio');
+      if (io && room.hostId) {
+        io.to(`user_${room.hostId.toString()}`).emit('roomParticipantsChanged', {
+          roomCode: room.roomCode
+        });
+      }
+      
       return res.status(200).json({
         message: 'Đã chấp nhận lời mời tham gia phòng thi',
         action: 'join',

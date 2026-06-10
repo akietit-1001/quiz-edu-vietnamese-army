@@ -1,5 +1,5 @@
 import express from 'express';
-import { createRoom, getRoomByCode, startRoom, endRoom, getRoomResults, exportRoomResults, submitExam, getExamSubmitStatus, getMyRooms } from '../controllers/roomController.js';
+import { createRoom, getRoomByCode, startRoom, endRoom, getRoomResults, exportRoomResults, submitExam, getExamSubmitStatus, getMyRooms, deleteRoom, updateRoomDuration } from '../controllers/roomController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 
@@ -11,6 +11,8 @@ router.use(authMiddleware);
 router.post('/', roleMiddleware(['master-admin', 'admin']), createRoom);
 router.get('/', roleMiddleware(['master-admin', 'admin']), getMyRooms);
 router.get('/code/:code', getRoomByCode);
+router.delete('/:id', roleMiddleware(['master-admin', 'admin']), deleteRoom);
+router.put('/:id/duration', roleMiddleware(['master-admin', 'admin']), updateRoomDuration);
 
 // Start/End rooms (Host only)
 router.put('/:id/start', roleMiddleware(['master-admin', 'admin']), startRoom);

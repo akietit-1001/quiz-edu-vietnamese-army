@@ -42,6 +42,10 @@ const examRoomSchema = new mongoose.Schema({
     ref: 'Quiz',
     required: true
   },
+  duration: {
+    type: Number, // Overridden exam duration in minutes (defaults to quiz's duration if null)
+    default: null
+  },
   status: {
     type: String,
     enum: ['waiting', 'active', 'finished'],

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Play, Users, ShieldCheck, ArrowLeftIcon, WarningIcon } from '@phosphor-icons/react';
+import { Play, Users, ShieldCheck, ArrowLeftIcon, WarningIcon, Check, X, PencilSimple, Trash } from '@phosphor-icons/react';
 import axios from 'axios';
 
 interface RoomLobbyProps {
@@ -29,7 +29,23 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [startTime, setStartTime] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [userRoomRole, setUserRoomRole] = useState('examinee');
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [newDuration, setNewDuration] = useState<number | string>('');
   const userRoomRoleRef = React.useRef(userRoomRole);
+  interface ToastItem {
+    id: string;
+    message: string;
+  }
+
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const addToast = (message: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
 
   useEffect(() => {
     userRoomRoleRef.current = userRoomRole;
@@ -52,6 +68,9 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       setHostDetails(data.hostId);
       setStartTime(data.startTime);
       setUserRoomRole(data.userRoomRole || (data.hostId?._id === user.id ? 'host' : 'examinee'));
+      if (data.quizId?.duration) {
+        setNewDuration(data.quizId.duration);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Lỗi lấy thông tin phòng thi.');
     }
@@ -106,6 +125,19 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       if (currentRole === 'host' || currentRole === 'examiner') {
         window.showAlert?.(message, 'CẢNH BÁO GIÁM SÁT');
       }
+    });
+
+    newSocket.on('userLeftRoom', ({ message }) => {
+      // Only show toast to host or examiner (supervisors)
+      const currentRole = userRoomRoleRef.current;
+      if (currentRole === 'host' || currentRole === 'examiner') {
+        addToast(message);
+      }
+    });
+
+    newSocket.on('kickedFromRoom', async ({ message }) => {
+      await window.showAlert?.(message, 'TRỤC XUẤT KHỎI PHÒNG');
+      onLeave();
     });
 
     newSocket.on('userFinished', ({ userId, score, totalQuestions }) => {
@@ -165,6 +197,70 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     }
   };
 
+  const handleDeleteRoom = async () => {
+    const confirmDelete = await window.showConfirm?.(
+      'Đồng chí có chắc chắn muốn xóa phòng thi này không? Mọi lời mời liên quan cũng sẽ bị xóa bỏ.',
+      'XÓA PHÒNG THI'
+    );
+    if (confirmDelete === false) return;
+
+    try {
+      await axios.delete(`/api/rooms/${roomId}`);
+      await window.showAlert?.('Đã xóa phòng thi thành công!', 'THÔNG BÁO');
+      onLeave();
+    } catch (err: any) {
+      console.error('Lỗi xóa phòng thi:', err);
+      const errMsg = err.response?.data?.message || 'Lỗi khi xóa phòng thi.';
+      window.showAlert?.(errMsg, 'LỖI XÓA PHÒNG THI');
+    }
+  };
+
+  const handleExitLobby = async (confirmFirst = false) => {
+    if (confirmFirst) {
+      const confirmLeave = await window.showConfirm?.(
+        'Đồng chí có chắc chắn muốn rời khỏi hàng chờ phòng thi không?',
+        'RỜI PHÒNG THI'
+      );
+      if (confirmLeave === false) return;
+    }
+
+    if (!isHost && roomStatus === 'waiting' && socket) {
+      socket.emit('leaveRoom', { roomCode, userId: user.id });
+    }
+    onLeave();
+  };
+
+  const handleKickParticipant = async (userId: string, fullName: string) => {
+    const confirmKick = await window.showConfirm?.(
+      `Đồng chí có chắc chắn muốn trục xuất quân nhân ${fullName} ra khỏi phòng thi này không?`,
+      'TRỤC XUẤT QUÂN NHÂN'
+    );
+    if (confirmKick === false) return;
+
+    if (socket) {
+      socket.emit('kickParticipant', { roomCode, userId });
+    }
+  };
+
+  const handleUpdateDuration = async () => {
+    const parsed = parseInt(newDuration.toString());
+    if (isNaN(parsed) || parsed <= 0) {
+      window.showAlert?.('Thời gian làm bài phải là số nguyên dương phút.', 'LỖI CẬP NHẬT');
+      return;
+    }
+
+    try {
+      await axios.put(`/api/rooms/${roomId}/duration`, { duration: parsed });
+      await window.showAlert?.('Đã cập nhật thời gian làm bài phòng thi thành công!', 'THÔNG BÁO');
+      setIsEditingDuration(false);
+      fetchRoomDetails();
+    } catch (err: any) {
+      console.error('Lỗi cập nhật thời gian phòng thi:', err);
+      const errMsg = err.response?.data?.message || 'Lỗi khi cập nhật thời gian phòng thi.';
+      window.showAlert?.(errMsg, 'LỖI CẬP NHẬT');
+    }
+  };
+
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
@@ -193,8 +289,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     return () => clearInterval(interval);
   }, [roomStatus, startTime, quizDetails, isHost]);
 
-  const examinees = participants.filter(p => p.role !== 'examiner');
-  const examiners = participants.filter(p => p.role === 'examiner');
+  const examinees = participants.filter(p => p.role !== 'examiner' && p.status !== 'left');
+  const examiners = participants.filter(p => p.role === 'examiner' && p.status !== 'left');
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -202,7 +298,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-vpa-olive-light/30">
         <div className="flex items-center space-x-4">
           <button
-            onClick={onLeave}
+            onClick={() => handleExitLobby(false)}
             className="p-2 border border-vpa-olive-light/30 hover:bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand transition-colors"
           >
             <ArrowLeftIcon size={18} />
@@ -218,14 +314,23 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
         </div>
 
         {isHost && roomStatus === 'waiting' && (
-          <button
-            onClick={handleStartExam}
-            disabled={examinees.length === 0}
-            className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2 disabled:opacity-50"
-          >
-            <Play size={16} />
-            <span>Khai mạc cuộc thi (Bắt đầu)</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleDeleteRoom}
+              className="px-4 py-2 bg-vpa-red hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded-none"
+            >
+              <Trash size={16} />
+              <span>Xóa phòng thi</span>
+            </button>
+            <button
+              onClick={handleStartExam}
+              disabled={examinees.length === 0}
+              className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2 disabled:opacity-50"
+            >
+              <Play size={16} />
+              <span>Khai mạc cuộc thi (Bắt đầu)</span>
+            </button>
+          </div>
         )}
 
         {isHost && roomStatus === 'active' && (
@@ -267,6 +372,51 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               <ul className="space-y-3 text-xs text-gray-700 dark:text-gray-300">
                 <li><span className="font-semibold text-gray-500">Chỉ huy phòng:</span>  {hostDetails?.rank} {hostDetails?.fullName} </li>
                 <li><span className="font-semibold text-gray-500">Đơn vị host:</span> {hostDetails?.unit}</li>
+                <li>
+                  <span className="font-semibold text-gray-500">Thời gian làm bài:</span>{' '}
+                  {isEditingDuration ? (
+                    <span className="inline-flex items-center space-x-1">
+                      <input
+                        type="number"
+                        value={newDuration}
+                        onChange={(e) => setNewDuration(e.target.value)}
+                        className="w-16 px-1.5 py-0.5 bg-transparent border border-vpa-olive-light text-xs focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand text-center font-mono"
+                        min="1"
+                      />
+                      <span className="text-[10px] text-gray-500 font-mono font-bold">phút</span>
+                      <button
+                        onClick={handleUpdateDuration}
+                        className="p-1 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright"
+                        title="Lưu"
+                      >
+                        <Check size={10} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingDuration(false);
+                          setNewDuration(quizDetails?.duration || '');
+                        }}
+                        className="p-1 bg-vpa-red text-white hover:bg-red-700"
+                        title="Hủy"
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ) : (
+                    <span>
+                      {quizDetails?.duration} phút
+                      {isHost && roomStatus === 'waiting' && (
+                        <button
+                          onClick={() => setIsEditingDuration(true)}
+                          className="ml-2 p-0.5 text-vpa-olive dark:text-vpa-sand hover:text-vpa-gold border border-vpa-olive-light/30 hover:border-vpa-gold rounded-none inline-flex items-center"
+                          title="Sửa thời gian"
+                        >
+                          <PencilSimple size={10} />
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </li>
                 <li><span className="font-semibold text-gray-500">Trạng thái:</span> {roomStatus === 'waiting' ? 'Đang chờ thí sinh...' : roomStatus === 'active' ? 'Đang diễn ra thi...' : 'Đã kết thúc thi'}</li>
                 {roomStatus === 'active' && timeLeft !== null && (
                   <li className="flex items-center space-x-2 text-vpa-red dark:text-vpa-gold font-bold">
@@ -288,6 +438,14 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                   ? 'Cuộc thi đang diễn ra. Chỉ huy phòng đang giám sát trực tuyến...'
                   : 'Cuộc thi đã kết thúc. Chỉ huy phòng đang kết xuất báo cáo kết quả.'}
               </p>
+              {!isHost && roomStatus === 'waiting' && (
+                <button
+                  onClick={() => handleExitLobby(true)}
+                  className="w-full mt-4 py-2 border border-vpa-red/40 hover:bg-vpa-red text-vpa-red hover:text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-none"
+                >
+                  Rời phòng thi
+                </button>
+              )}
             </div>
 
           </div>
@@ -324,17 +482,29 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                         </div>
                       </div>
 
-                      <span className={`text-[8px] font-mono px-2 py-0.5 border ${
-                        part.status === 'finished' 
-                          ? 'border-green-500 bg-green-500/10 text-green-600'
-                          : part.status === 'taking'
-                          ? 'border-yellow-500 bg-yellow-500/10 text-yellow-600'
-                          : part.status === 'left'
-                          ? 'border-red-500 bg-red-500/10 text-red-600 font-bold'
-                          : 'border-vpa-olive-light text-gray-500 bg-vpa-olive/5'
-                      }`}>
-                        {part.status.toUpperCase()}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-[8px] font-mono px-2 py-0.5 border ${
+                          part.status === 'finished' 
+                            ? 'border-green-500 bg-green-500/10 text-green-600'
+                            : part.status === 'taking'
+                            ? 'border-yellow-500 bg-yellow-500/10 text-yellow-600'
+                            : part.status === 'left'
+                            ? 'border-red-500 bg-red-500/10 text-red-600 font-bold'
+                            : 'border-vpa-olive-light text-gray-500 bg-vpa-olive/5'
+                        }`}>
+                          {part.status.toUpperCase()}
+                        </span>
+                        
+                        {isHost && roomStatus !== 'finished' && (
+                          <button
+                            onClick={() => handleKickParticipant(part.userId._id, part.userId.fullName)}
+                            className="p-1 border border-vpa-red/30 hover:bg-vpa-red text-vpa-red hover:text-white rounded-none transition-colors flex items-center justify-center"
+                            title="Trục xuất"
+                          >
+                            <X size={10} weight="bold" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {examinees.length === 0 && (
@@ -370,9 +540,21 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                         </div>
                       </div>
 
-                      <span className="text-[8px] font-mono px-2 py-0.5 border border-green-500 bg-green-500/10 text-green-600">
-                        ONLINE
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[8px] font-mono px-2 py-0.5 border border-green-500 bg-green-500/10 text-green-600">
+                          ONLINE
+                        </span>
+                        
+                        {isHost && roomStatus !== 'finished' && (
+                          <button
+                            onClick={() => handleKickParticipant(part.userId._id, part.userId.fullName)}
+                            className="p-1 border border-vpa-red/30 hover:bg-vpa-red text-vpa-red hover:text-white rounded-none transition-colors flex items-center justify-center"
+                            title="Trục xuất"
+                          >
+                            <X size={10} weight="bold" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {examiners.length === 0 && (
@@ -383,6 +565,22 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 
             </div>
           </div>
+        </div>
+      )}
+
+      {toasts.length > 0 && (
+        <div className="fixed top-6 right-6 z-[9999] flex flex-col space-y-2 max-w-sm pointer-events-none">
+          {toasts.map(t => (
+            <div
+              key={t.id}
+              className="bg-vpa-sand-light dark:bg-vpa-dark-card border border-vpa-olive-light/20 border-l-4 border-l-vpa-gold p-4 shadow-2xl flex items-center space-x-3 pointer-events-auto animate-scale-up"
+            >
+              <div className="w-2 h-2 bg-vpa-gold rounded-full animate-ping shrink-0" />
+              <span className="text-xs font-mono font-bold uppercase text-vpa-olive dark:text-vpa-sand leading-relaxed">
+                {t.message}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>

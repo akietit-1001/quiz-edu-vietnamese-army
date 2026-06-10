@@ -146,6 +146,13 @@ io.on('connection', (socket) => {
         startTime: updatedRoom.startTime
       });
 
+      // Notify host to update dashboard participant count
+      if (updatedRoom && updatedRoom.hostId) {
+        io.to(`user_${updatedRoom.hostId.toString()}`).emit('roomParticipantsChanged', {
+          roomCode: updatedRoom.roomCode
+        });
+      }
+
       console.log(`User ${user.fullName} joined room ${roomCode}`);
     } catch (err) {
       console.error('Lỗi socket joinRoom:', err.message);
@@ -218,6 +225,10 @@ io.on('connection', (socket) => {
       const isStillConnected = activeSockets.some(s => s.userId === userId && s.id !== socket.id);
 
       if (!isStillConnected) {
+        const room = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() });
+        const participant = room?.participants.find(p => p.userId.toString() === userId);
+        const hasFinished = participant?.status === 'finished';
+
         await ExamRoom.updateOne(
           { roomCode: roomCode.toUpperCase(), 'participants.userId': userId },
           { $set: { 'participants.$.status': 'left' } }
@@ -230,12 +241,80 @@ io.on('connection', (socket) => {
           status: updatedRoom.status,
           participants: updatedRoom.participants
         });
+
+        // Notify host to update dashboard participant count
+        if (updatedRoom && updatedRoom.hostId) {
+          io.to(`user_${updatedRoom.hostId.toString()}`).emit('roomParticipantsChanged', {
+            roomCode: updatedRoom.roomCode
+          });
+        }
+
+        if (participant && !hasFinished) {
+          const user = await User.findById(userId).select('fullName');
+          if (user) {
+            io.to(roomCode).emit('userLeftRoom', {
+              userId,
+              fullName: user.fullName,
+              message: `Đồng chí ${user.fullName} đã rời khỏi phòng thi.`
+            });
+          }
+        }
       }
 
       socket.leave(roomCode);
       console.log(`User ${userId} left room ${roomCode}`);
     } catch (err) {
       console.error('Lỗi socket leaveRoom:', err.message);
+    }
+  });
+
+  // 5.5. Kick Participant (Triggered by Host Admin)
+  socket.on('kickParticipant', async ({ roomCode, userId }) => {
+    try {
+      const room = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() });
+      if (!room) return;
+
+      // Verify sender is host
+      if (room.hostId.toString() !== socket.userId) {
+        socket.emit('error', 'Chỉ có chủ phòng mới có quyền trục xuất quân nhân.');
+        return;
+      }
+
+      // Remove from database participants
+      await ExamRoom.updateOne(
+        { roomCode: roomCode.toUpperCase() },
+        { $pull: { participants: { userId: userId } } }
+      );
+
+      // Clean up related invitations
+      const Invitation = (await import('./models/Invitation.js')).default;
+      await Invitation.deleteOne({ roomId: room._id, recipientId: userId });
+
+      // Get updated room data
+      const updatedRoom = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() })
+        .populate('participants.userId', 'fullName rank position unit avatarUrl');
+
+      // Notify remaining participants in the room
+      io.to(roomCode).emit('roomData', {
+        status: updatedRoom.status,
+        participants: updatedRoom.participants,
+        startTime: updatedRoom.startTime
+      });
+
+      // Notify host's dashboard
+      io.to(`user_${room.hostId.toString()}`).emit('roomParticipantsChanged', {
+        roomCode: room.roomCode
+      });
+
+      // Notify the kicked user directly
+      io.to(`user_${userId}`).emit('kickedFromRoom', {
+        roomCode,
+        message: 'Đồng chí đã bị chỉ huy trục xuất khỏi phòng thi này.'
+      });
+      
+      console.log(`User ${userId} was kicked from room ${roomCode}`);
+    } catch (err) {
+      console.error('Lỗi socket kickParticipant:', err.message);
     }
   });
 
@@ -249,6 +328,10 @@ io.on('connection', (socket) => {
         const isStillConnected = activeSockets.some(s => s.userId === socket.userId && s.id !== socket.id);
 
         if (!isStillConnected) {
+          const room = await ExamRoom.findOne({ roomCode: socket.roomCode.toUpperCase() });
+          const participant = room?.participants.find(p => p.userId.toString() === socket.userId);
+          const hasFinished = participant?.status === 'finished';
+
           // Update user status as left or offline
           await ExamRoom.updateOne(
             { roomCode: socket.roomCode.toUpperCase(), 'participants.userId': socket.userId },
@@ -263,6 +346,24 @@ io.on('connection', (socket) => {
               status: updatedRoom.status,
               participants: updatedRoom.participants
             });
+
+            // Notify host to update dashboard participant count
+            if (updatedRoom.hostId) {
+              io.to(`user_${updatedRoom.hostId.toString()}`).emit('roomParticipantsChanged', {
+                roomCode: updatedRoom.roomCode
+              });
+            }
+
+            if (participant && !hasFinished) {
+              const user = await User.findById(socket.userId).select('fullName');
+              if (user) {
+                io.to(socket.roomCode).emit('userLeftRoom', {
+                  userId: socket.userId,
+                  fullName: user.fullName,
+                  message: `Đồng chí ${user.fullName} đã rời khỏi phòng thi.`
+                });
+              }
+            }
           }
         }
       } catch (err) {

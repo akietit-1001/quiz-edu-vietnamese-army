@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
-import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, PencilSimple, Lock, UserPlus, Check, X, Eye, Users } from '@phosphor-icons/react';
+import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users } from '@phosphor-icons/react';
 
 interface DashboardProps {
   user: any;
@@ -11,9 +11,6 @@ interface DashboardProps {
   onNavigateToUserMgmt: () => void;
   onStartPractice: (quizId: string, mode: 'practice' | 'mock') => void;
 }
-
-const RANKS = ['Binh nhì', 'Binh nhất', 'Hạ sĩ', 'Trung sĩ', 'Thượng sĩ', 'Thiếu úy', 'Trung úy', 'Thượng úy', 'Đại úy', 'Thiếu tá', 'Trung tá', 'Thượng tá', 'Đại tá', 'Thiếu tướng', 'Trung tướng', 'Thượng tướng', 'Đại tướng'];
-const POSITIONS = ['Chiến sĩ', 'Tiểu đội trưởng', 'Trung đội phó', 'Trung đội trưởng', 'Đại đội phó', 'Đại đội trưởng', 'Tiểu đoàn phó', 'Tiểu đoàn trưởng', 'Chính trị viên', 'Học viên', 'Giảng viên', 'Khác'];
 
 export const Dashboard: React.FC<DashboardProps> = ({
   user,
@@ -28,25 +25,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
   
-  // Edit Profile states
-  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [profileName, setProfileName] = useState(user?.fullName || '');
-  const [profileDOB, setProfileDOB] = useState(user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '');
-  const [profileRank, setProfileRank] = useState(user?.rank || 'Binh nhì');
-  const [profilePosition, setProfilePosition] = useState(user?.position || 'Chiến sĩ');
-  const [profileUnit, setProfileUnit] = useState(user?.unit || '');
-  const [profileAddress, setProfileAddress] = useState(user?.address || '');
-  const [profileError, setProfileError] = useState('');
-  const [profileSuccess, setProfileSuccess] = useState('');
-  
-  // Change Password states
-  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [pwError, setPwError] = useState('');
-  const [pwSuccess, setPwSuccess] = useState('');
-  const [pwLoading, setPwLoading] = useState(false);
+
   
   // 2FA states in UI
   const [otp2FA, setOtp2FA] = useState('');
@@ -125,6 +104,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       fetchInvitations();
     });
 
+    socket.on('roomParticipantsChanged', () => {
+      fetchMyRooms();
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -139,77 +122,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       console.error('Lỗi lấy danh sách đề thi:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleOpenEditProfile = () => {
-    setProfileName(user?.fullName || '');
-    setProfileDOB(user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '');
-    setProfileRank(user?.rank || 'Binh nhì');
-    setProfilePosition(user?.position || 'Chiến sĩ');
-    setProfileUnit(user?.unit || '');
-    setProfileAddress(user?.address || '');
-    setProfileError('');
-    setProfileSuccess('');
-    setShowEditProfileModal(true);
-  };
-
-  const handleUpdateProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProfileError('');
-    setProfileSuccess('');
-    try {
-      const res = await axios.put('/api/users/profile', {
-        fullName: profileName,
-        dateOfBirth: profileDOB,
-        rank: profileRank,
-        position: profilePosition,
-        unit: profileUnit,
-        address: profileAddress
-      });
-      
-      setUser(res.data.user);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      setProfileSuccess('Cập nhật hồ sơ cá nhân thành công!');
-      
-      setTimeout(() => {
-        setShowEditProfileModal(false);
-      }, 1000);
-    } catch (err: any) {
-      setProfileError(err.response?.data?.message || 'Không thể cập nhật thông tin cá nhân.');
-    }
-  };
-
-  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPwError('');
-    setPwSuccess('');
-    if (newPassword !== confirmNewPassword) {
-      setPwError('Mật khẩu xác nhận không chính xác.');
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPwError('Mật khẩu mới phải có ít nhất 6 ký tự.');
-      return;
-    }
-    setPwLoading(true);
-    try {
-      const response = await axios.put('/api/users/change-password', {
-        currentPassword,
-        newPassword
-      });
-      setPwSuccess(response.data.message || 'Đổi mật khẩu thành công!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-      setTimeout(() => {
-        setShowChangePasswordModal(false);
-        setPwSuccess('');
-      }, 1500);
-    } catch (err: any) {
-      setPwError(err.response?.data?.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.');
-    } finally {
-      setPwLoading(false);
     }
   };
 
@@ -384,29 +296,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Welcome Banner */}
       <div className="relative border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 mb-8 overflow-hidden rounded-none shadow-md">
         <div className="absolute top-0 right-0 w-48 h-48 bg-vpa-olive/5 dark:bg-vpa-gold/5 rounded-full filter blur-3xl" />
-        <div className="absolute top-4 right-4 z-10 flex space-x-2">
-          <button
-            onClick={handleOpenEditProfile}
-            className="px-3 py-1.5 border border-vpa-olive-light/40 text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light/10 transition-colors flex items-center space-x-1"
-          >
-            <PencilSimple size={12} />
-            <span>Sửa hồ sơ</span>
-          </button>
-          <button
-            onClick={() => {
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmNewPassword('');
-              setPwError('');
-              setPwSuccess('');
-              setShowChangePasswordModal(true);
-            }}
-            className="px-3 py-1.5 border border-vpa-olive-light/40 text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light/10 transition-colors flex items-center space-x-1"
-          >
-            <Lock size={12} />
-            <span>Đổi mật khẩu</span>
-          </button>
-        </div>
+
         <h1 className="text-xl md:text-2xl font-extrabold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider">
           Xin chào, {user?.rank ? `${user.rank} ` : ''}{user?.fullName || 'Đồng chí'}
         </h1>
@@ -624,7 +514,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         Đề: {room.quizId?.title || 'Đề thi trắc nghiệm'}
                       </h4>
                       <p className="text-[10px] text-gray-500 font-mono">
-                        Thời gian: {room.quizId?.duration || 45} phút | Quân số tham gia: {room.participants?.length || 0}
+                        Thời gian: {room.quizId?.duration || 45} phút | Quân số tham gia: {room.participants?.filter((p: any) => p.status !== 'left').length || 0}
                       </p>
                     </div>
 
@@ -855,197 +745,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   className="w-1/2 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold disabled:opacity-50"
                 >
                   Tạo phòng thi
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Profile Modal */}
-      {showEditProfileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn max-h-[90vh] overflow-y-auto">
-            {/* Header decoration */}
-            <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-gold-bright rounded-none" />
-              <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand">
-                Cập nhật hồ sơ cá nhân
-              </h3>
-            </div>
-
-            <form onSubmit={handleUpdateProfileSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Họ và tên của đồng chí</label>
-                <input
-                  type="text"
-                  value={profileName}
-                  onChange={e => setProfileName(e.target.value)}
-                  required
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold uppercase"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cấp bậc</label>
-                  <select
-                    value={profileRank}
-                    onChange={e => setProfileRank(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
-                  >
-                    {RANKS.map(rk => (
-                      <option key={rk} value={rk} className="dark:bg-vpa-dark">{rk}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ</label>
-                  <select
-                    value={profilePosition}
-                    onChange={e => setProfilePosition(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
-                  >
-                    {POSITIONS.map(ps => (
-                      <option key={ps} value={ps} className="dark:bg-vpa-dark">{ps}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị</label>
-                <input
-                  type="text"
-                  value={profileUnit}
-                  onChange={e => setProfileUnit(e.target.value)}
-                  required
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Ngày sinh</label>
-                  <input
-                    type="date"
-                    value={profileDOB}
-                    onChange={e => setProfileDOB(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Quê quán</label>
-                  <input
-                    type="text"
-                    value={profileAddress}
-                    onChange={e => setProfileAddress(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
-                  />
-                </div>
-              </div>
-
-              {profileSuccess && (
-                <p className="text-green-600 text-[10px] font-bold uppercase tracking-wider bg-green-500/10 p-2 border border-green-500/20">{profileSuccess}</p>
-              )}
-
-              {profileError && (
-                <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">{profileError}</p>
-              )}
-
-              <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowEditProfileModal(false)}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
-                >
-                  Cập nhật
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* CHANGE PASSWORD MODAL */}
-      {showChangePasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn">
-            {/* Header decoration */}
-            <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-red rounded-none" />
-              <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
-                Thay đổi mật khẩu quân nhân
-              </h3>
-            </div>
-
-            <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Mật khẩu hiện tại</label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={e => setCurrentPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Mật khẩu mới</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Xác nhận mật khẩu mới</label>
-                <input
-                  type="password"
-                  value={confirmNewPassword}
-                  onChange={e => setConfirmNewPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
-                />
-              </div>
-
-              {pwSuccess && (
-                <p className="text-green-600 text-[10px] font-bold uppercase tracking-wider bg-green-500/10 p-2 border border-green-500/20">{pwSuccess}</p>
-              )}
-
-              {pwError && (
-                <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">{pwError}</p>
-              )}
-
-              <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowChangePasswordModal(false)}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={pwLoading}
-                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
-                >
-                  {pwLoading ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
                 </button>
               </div>
             </form>

@@ -99,6 +99,12 @@ export const getRoomByCode = async (req, res) => {
     const roomObj = room.toObject();
     roomObj.userRoomRole = userRoomRole;
 
+    if (roomObj.duration !== null && roomObj.duration !== undefined) {
+      if (roomObj.quizId) {
+        roomObj.quizId.duration = roomObj.duration;
+      }
+    }
+
     res.status(200).json(roomObj);
   } catch (error) {
     console.error('Lỗi tìm phòng thi:', error.message);
@@ -356,5 +362,61 @@ export const getMyRooms = async (req, res) => {
   } catch (error) {
     console.error('Lỗi lấy danh sách phòng thi của tôi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách phòng thi' });
+  }
+};
+
+// 8. DELETE EXAM ROOM
+export const deleteRoom = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const room = await ExamRoom.findById(id);
+
+    if (!room) {
+      return res.status(404).json({ message: 'Không tìm thấy phòng thi cần xóa' });
+    }
+
+    if (room.hostId.toString() !== req.user.id && req.user.role !== 'master-admin') {
+      return res.status(403).json({ message: 'Đồng chí không có quyền xóa phòng thi này' });
+    }
+
+    await ExamRoom.findByIdAndDelete(id);
+
+    // Clean up related invitations
+    const Invitation = (await import('../models/Invitation.js')).default;
+    await Invitation.deleteMany({ roomId: id });
+
+    res.status(200).json({ message: 'Đã xóa phòng thi thành công' });
+  } catch (error) {
+    console.error('Lỗi xóa phòng thi:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi xóa phòng thi' });
+  }
+};
+
+// 9. UPDATE EXAM ROOM DURATION
+export const updateRoomDuration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { duration } = req.body;
+
+    if (duration === undefined || isNaN(parseInt(duration)) || parseInt(duration) <= 0) {
+      return res.status(400).json({ message: 'Thời gian làm bài không hợp lệ' });
+    }
+
+    const room = await ExamRoom.findById(id);
+    if (!room) {
+      return res.status(404).json({ message: 'Không tìm thấy phòng thi' });
+    }
+
+    if (room.hostId.toString() !== req.user.id && req.user.role !== 'master-admin') {
+      return res.status(403).json({ message: 'Đồng chí không có quyền chỉnh sửa thời gian phòng thi này' });
+    }
+
+    room.duration = parseInt(duration);
+    await room.save();
+
+    res.status(200).json({ message: 'Cập nhật thời gian làm bài phòng thi thành công', room });
+  } catch (error) {
+    console.error('Lỗi cập nhật thời gian phòng thi:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật thời gian phòng thi' });
   }
 };

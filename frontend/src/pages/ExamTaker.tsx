@@ -45,8 +45,25 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
   const fetchQuiz = async () => {
     try {
       const res = await axios.get(`/api/quizzes/${quizId}`);
-      setQuiz(res.data);
-      setTimeLeft(res.data.duration * 60);
+      let quizData = res.data;
+
+      // If we are taking an exam in a room, retrieve custom room duration
+      if (mode === 'exam' && roomCode) {
+        try {
+          const roomRes = await axios.get(`/api/rooms/code/${roomCode}`);
+          if (roomRes.data.duration !== null && roomRes.data.duration !== undefined) {
+            quizData = {
+              ...quizData,
+              duration: roomRes.data.duration
+            };
+          }
+        } catch (roomErr) {
+          console.warn('Lỗi lấy thời gian tùy chỉnh của phòng thi:', roomErr);
+        }
+      }
+
+      setQuiz(quizData);
+      setTimeLeft(quizData.duration * 60);
 
       // Check offline recovery from localStorage
       const cached = localStorage.getItem(`quiz-attempt-${quizId}`);
@@ -58,10 +75,10 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
           violationsRef.current = cachedData.violations;
           if (cachedData.timeLeft) setTimeLeft(cachedData.timeLeft);
         } catch (e) {
-          initializeEmptyAnswers(res.data.questions);
+          initializeEmptyAnswers(quizData.questions);
         }
       } else {
-        initializeEmptyAnswers(res.data.questions);
+        initializeEmptyAnswers(quizData.questions);
       }
       setLoading(false);
     } catch (err) {
