@@ -81,7 +81,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     if (!roomId) return;
 
     // Connect to server (point to same host or port 5000 in dev)
-    const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/';
+    const socketUrl = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/');
     const newSocket = io(socketUrl);
     setSocket(newSocket);
 

@@ -111,7 +111,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
   // 3. Socket.io integration for real-time monitoring
   useEffect(() => {
     if (!roomCode || mode !== 'exam') return;
-    const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/';
+    const socketUrl = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/');
     const newSocket = io(socketUrl);
     setSocket(newSocket);
 

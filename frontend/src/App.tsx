@@ -1,6 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 
+if (import.meta.env.VITE_API_URL) {
+  axios.defaults.baseURL = import.meta.env.VITE_API_URL;
+}
+
 declare global {
   interface Window {
     showAlert: (message: string, title?: string) => Promise<void>;
