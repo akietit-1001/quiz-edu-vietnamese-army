@@ -546,6 +546,7 @@ export const generateQuizFromFile = async (req, res) => {
       return res.status(400).json({ message: 'Không thể trích xuất văn bản từ tài liệu này' });
     }
 
+    /*
     // 3. Queue the job instead of calling Gemini synchronously with auto-retry and backoff
     const job = await quizGenQueue.add('generateAIQuiz', {
       markdownText,
@@ -564,6 +565,69 @@ export const generateQuizFromFile = async (req, res) => {
       message: 'Đã gửi yêu cầu sinh đề thi lên hàng đợi xử lý của AI',
       jobId: job.id
     });
+    */
+
+    // --- PHẦN SINH ĐỀ AI TRỰC TIẾP (KHÔNG DÙNG HÀNG ĐỢI REDIS KHI DEPLOY FIREBASE) ---
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ message: 'Hệ thống chưa được cấu hình API Key của Gemini.' });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-flash-latest',
+      generationConfig: { responseMimeType: 'application/json' }
+    });
+
+    const prompt = `
+      Bạn là một trợ lý giảng dạy quân sự chuyên nghiệp tại Học viện Kỹ thuật Quân sự.
+      Hãy đọc tài liệu định dạng Markdown dưới đây và tạo ra một đề thi trắc nghiệm gồm chính xác \${count} câu hỏi chất lượng cao dựa trên nội dung tài liệu.
+
+      Nội dung tài liệu:
+      \${markdownText}
+
+      Yêu cầu đầu ra bắt buộc phải tuân thủ schema JSON định dạng sau (không viết bất cứ văn bản dẫn giải nào ngoài JSON này):
+      {
+        "title": "Tiêu đề đề thi sinh ra tự động",
+        "description": "Mô tả ngắn gọn về đề thi",
+        "duration": \${count * 2},
+        "category": "\${category || 'Khác'}",
+        "questions": [
+          {
+            "questionType": "multiple-choice",
+            "questionText": "Nội dung câu hỏi trắc nghiệm?",
+            "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
+            "correctAnswers": ["0"],
+            "explanation": "Giải thích chi tiết vì sao đáp án này đúng dựa trên tài liệu"
+          }
+        ]
+      }
+
+      Lưu ý quan trọng:
+      - Trường "correctAnswers" phải là một mảng chứa 1 chuỗi số, đại diện cho chỉ mục của đáp án đúng trong mảng options (ví dụ: ["0"] cho đáp án đầu tiên, ["1"] cho đáp án thứ hai...).
+      - Đảm bảo các câu hỏi có tính thực tế, rõ ràng và bám sát chính xác tài liệu đã cho.
+    `;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    let quizData = JSON.parse(responseText);
+
+    const quiz = await Quiz.create({
+      title: quizData.title || `Đề thi AI - \${req.file.originalname}`,
+      description: quizData.description || 'Đề thi trắc nghiệm được sinh bởi AI.',
+      category: category || 'Khác',
+      creatorId: req.user.id,
+      duration: quizData.duration || count * 2,
+      passingScorePercent: 50,
+      questions: quizData.questions,
+      isPublic: false,
+      documentHash: fileHash
+    });
+
+    res.status(200).json({
+      message: 'Sinh đề thi thành công bằng AI!',
+      quiz
+    });
 
   } catch (error) {
     console.error('Lỗi tổng quát sinh đề thi AI:', error.message);
@@ -575,6 +639,8 @@ export const generateQuizFromFile = async (req, res) => {
 export const getQuizGenStatus = async (req, res) => {
   try {
     const { jobId } = req.params;
+    
+    /*
     const job = await quizGenQueue.getJob(jobId);
 
     if (!job) {
@@ -602,6 +668,9 @@ export const getQuizGenStatus = async (req, res) => {
       status: state, // 'active' or 'waiting'
       message: state === 'active' ? 'AI đang thiết lập cấu trúc câu hỏi...' : 'Yêu cầu đang nằm trong hàng đợi...'
     });
+    */
+
+    res.status(501).json({ message: 'Hàng đợi Redis đã tắt do hệ thống chuyển sang chế độ Firebase Cloud Functions.' });
   } catch (error) {
     console.error('Lỗi kiểm tra trạng thái sinh đề AI:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra trạng thái' });

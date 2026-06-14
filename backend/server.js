@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './config/db.js';
+import { onRequest } from 'firebase-functions/v2/https';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -16,7 +17,6 @@ import quizRoutes from './routes/quizRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import bankRoutes from './routes/bankRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
-import './utils/queue.js';
 
 // Models for Socket.io database operations
 import ExamRoom from './models/ExamRoom.js';
@@ -27,11 +27,21 @@ setServers(["1.1.1.1", "8.8.8.8"]);
 // Connect to Database
 connectDB();
 
-const app = express();
-const server = http.createServer(app);
+// Dynamic import for Redis queue, only loaded when not running on Firebase
+if (!process.env.FIREBASE_CONFIG) {
+  import('./utils/queue.js').then(() => {
+    console.log('=== [Queue] Hàng đợi BullMQ đã được khởi tạo ===');
+  }).catch(err => {
+    console.error('=== [Queue] Lỗi khởi tạo hàng đợi:', err.message, '===');
+  });
+}
 
-// Socket.io initialization with CORS
-const io = new Server(server, {
+const app = express();
+const isFirebase = !!process.env.FIREBASE_CONFIG;
+const server = isFirebase ? null : http.createServer(app);
+
+// Socket.io initialization with CORS (only for non-Firebase)
+const io = isFirebase ? null : new Server(server, {
   cors: {
     origin: '*', // In production, replace with your frontend URL
     methods: ['GET', 'POST']
@@ -80,6 +90,7 @@ if (process.env.NODE_ENV === 'production') {
 
 
 // --- Socket.io Real-time Exam Room Logic ---
+if (io) {
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
@@ -372,8 +383,15 @@ io.on('connection', (socket) => {
     }
   });
 });
+} // End of if (io)
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (server) {
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// --- XUẤT EXPRESS APP CHO FIREBASE CLOUD FUNCTIONS ---
+export { app };
+export const api = onRequest({ cors: true, timeoutSeconds: 120, memory: '1GiB' }, app);

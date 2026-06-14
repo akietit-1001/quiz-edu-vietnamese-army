@@ -290,6 +290,7 @@ export const submitExam = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi tương ứng' });
     }
 
+    /*
     // Queue the submission instead of synchronously calculating and saving to DB with auto-retry on temporary DB locks
     const job = await examSubmitQueue.add('submitAnswers', {
       userId,
@@ -310,6 +311,71 @@ export const submitExam = async (req, res) => {
       message: 'Đã nhận bài thi. Tiến trình chấm điểm đang chạy...',
       jobId: job.id
     });
+    */
+
+    // --- CHẤM ĐIỂM TRỰC TIẾP (KHÔNG QUA HÀNG ĐỢI REDIS) ---
+    // Evaluate answers
+    let correctCount = 0;
+    const evaluatedAnswers = answers.map(ans => {
+      const question = quiz.questions[ans.questionIndex];
+      if (!question) return ans;
+
+      // Sort and trim arrays to compare
+      const userAnswers = (ans.selectedAnswers || []).map(a => a.trim().toLowerCase()).sort();
+      const actualAnswers = (question.correctAnswers || []).map(a => a.trim().toLowerCase()).sort();
+
+      const isCorrect = userAnswers.length === actualAnswers.length && 
+                        userAnswers.every((val, index) => val === actualAnswers[index]);
+
+      if (isCorrect) correctCount++;
+
+      return ans;
+    });
+
+    const totalQuestions = quiz.questions.length;
+    const scorePercent = (correctCount / totalQuestions) * 100;
+    const isPassed = scorePercent >= quiz.passingScorePercent;
+
+    // Determine Rank
+    let rank = 'Yếu';
+    if (isPassed) {
+      if (scorePercent >= 90) rank = 'Xuất sắc';
+      else if (scorePercent >= 80) rank = 'Giỏi';
+      else if (scorePercent >= 65) rank = 'Khá';
+      else rank = 'Trung bình';
+    }
+
+    const attempt = await ExamAttempt.create({
+      userId,
+      roomId: roomId || null,
+      quizId,
+      mode: mode || 'exam',
+      answers: evaluatedAnswers,
+      score: correctCount,
+      totalQuestions,
+      isPassed,
+      rank,
+      antiCheatViolations: antiCheatViolations || 0
+    });
+
+    // Update participant status in the room if applicable
+    if (roomId) {
+      await ExamRoom.updateOne(
+        { _id: roomId, 'participants.userId': userId },
+        { 
+          $set: { 
+            'participants.$.status': 'finished',
+            'participants.$.attemptId': attempt._id 
+          } 
+        }
+      );
+    }
+
+    res.status(200).json({
+      message: 'Nộp bài và chấm điểm thành công!',
+      attempt
+    });
+
   } catch (error) {
     console.error('Lỗi nộp bài thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi nộp bài thi' });
@@ -320,6 +386,7 @@ export const submitExam = async (req, res) => {
 export const getExamSubmitStatus = async (req, res) => {
   try {
     const { jobId } = req.params;
+    /*
     const job = await examSubmitQueue.getJob(jobId);
 
     if (!job) {
@@ -346,6 +413,8 @@ export const getExamSubmitStatus = async (req, res) => {
       status: state,
       message: 'Hệ thống đang chấm điểm bài thi của đồng chí...'
     });
+    */
+    res.status(501).json({ message: 'Hàng đợi Redis đã tắt do hệ thống chuyển sang chế độ Firebase Cloud Functions.' });
   } catch (error) {
     console.error('Lỗi kiểm tra trạng thái nộp bài:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra trạng thái nộp bài' });
