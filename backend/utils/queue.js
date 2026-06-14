@@ -92,7 +92,7 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
       'X-Title': 'Quiz-Edu'
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash:free',
+      model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'user',
@@ -101,7 +101,8 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
       ],
       response_format: {
         type: 'json_object'
-      }
+      },
+      max_tokens: 4096
     })
   });
 
