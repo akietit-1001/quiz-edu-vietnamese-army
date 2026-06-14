@@ -3,3 +3,4 @@ backend/scripts/migrate-db.js
 db_import_file/bank_questions_import.json
 db_import_file/quizzes_import.json
 db_import_file/users_import.json
+.env
