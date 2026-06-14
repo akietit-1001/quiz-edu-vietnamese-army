@@ -58,7 +58,7 @@ services:
       - JWT_REFRESH_SECRET=supersecretrefreshjwtkey_vpa_style_2026
       - GMAIL_USER=ndakiet1001@gmail.com
       - GMAIL_APP_PASSWORD=gvwftmyheblvwero
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=123456

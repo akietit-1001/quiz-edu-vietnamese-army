@@ -26,8 +26,6 @@ export const examSubmitQueue = new Queue('examSubmit', { connection });
 
 export const quizGenWorker = new Worker('quizGen', async (job) => {
   const { markdownText, count, category, fileHash } = job.data;
-  
-  /* COMMENTED OUT GEMINI CONFIG
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -39,7 +37,6 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
     model: 'gemini-flash-latest',
     generationConfig: { responseMimeType: 'application/json' }
   });
-  */
 
   const prompt = `
     Bạn là một trợ lý giảng dạy quân sự chuyên nghiệp tại Học viện Kỹ thuật Quân sự.
@@ -70,54 +67,10 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
     - Đảm bảo các câu hỏi có tính thực tế, rõ ràng và bám sát chính xác tài liệu đã cho.
   `;
 
-  /* COMMENTED OUT GEMINI EXECUTION
   const result = await model.generateContent(prompt);
   const responseText = result.response.text();
   
   let quizData = JSON.parse(responseText);
-  */
-
-  // OPENROUTER INTEGRATION
-  const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-  if (!openrouterApiKey) {
-    throw new Error('Hệ thống chưa được cấu hình API Key của OpenRouter (OPENROUTER_API_KEY).');
-  }
-
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openrouterApiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'http://localhost:5000',
-      'X-Title': 'Quiz-Edu'
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      response_format: {
-        type: 'json_object'
-      },
-      max_tokens: 4096
-    })
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`OpenRouter API error: ${response.statusText}. Details: ${JSON.stringify(errorData)}`);
-  }
-
-  const responseData = await response.json();
-  const content = responseData.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('Không nhận được phản hồi nội dung từ OpenRouter.');
-  }
-
-  let quizData = JSON.parse(content);
 
   return {
     ...quizData,
