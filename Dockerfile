@@ -8,11 +8,12 @@ RUN npm run build
 
 # --- Stage 2: Run the Express backend ---
 FROM node:20-slim
-# Install Python 3, pip, and venv for markitdown support
+# Install Python 3, pip, venv, and LibreOffice for markitdown and document conversion support
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
+    libreoffice \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up virtual environment and install markitdown
