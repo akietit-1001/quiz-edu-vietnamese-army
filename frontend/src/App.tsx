@@ -241,6 +241,8 @@ export const App: React.FC = () => {
   useEffect(() => {
     const initAuth = async () => {
       const savedUser = localStorage.getItem('user');
+      const path = window.location.pathname;
+      
       if (savedUser) {
         try {
           const res = await axios.post('/api/auth/refresh-token', {}, { withCredentials: true });
@@ -255,7 +257,20 @@ export const App: React.FC = () => {
             window.history.replaceState({}, document.title, window.location.pathname);
             handleJoinRoom(roomCodeParam);
           } else {
-            dispatch(setCurrentView('dashboard'));
+            // Restore view based on current browser path
+            if (path === '/quiz-mgmt') {
+              dispatch(setCurrentView('quiz-mgmt'));
+            } else if (path === '/user-mgmt') {
+              dispatch(setCurrentView('user-mgmt'));
+            } else if (path === '/lobby') {
+              dispatch(setCurrentView('lobby'));
+            } else if (path === '/taker') {
+              dispatch(setCurrentView('taker'));
+            } else if (path === '/results') {
+              dispatch(setCurrentView('results'));
+            } else {
+              dispatch(setCurrentView('dashboard'));
+            }
           }
         } catch (err) {
           console.error('Không thể tự động khôi phục phiên đăng nhập:', err);
@@ -263,11 +278,75 @@ export const App: React.FC = () => {
           dispatch(setCurrentView('login'));
         }
       } else {
-        dispatch(setCurrentView('login'));
+        if (path === '/register') {
+          dispatch(setCurrentView('register'));
+        } else {
+          dispatch(setCurrentView('login'));
+        }
       }
       setCheckingAuth(false);
     };
     initAuth();
+  }, [dispatch]);
+
+  // Sync currentView with browser URL address bar
+  useEffect(() => {
+    if (checkingAuth) return;
+    
+    let path = '/';
+    switch (currentView) {
+      case 'login':
+        path = '/login';
+        break;
+      case 'register':
+        path = '/register';
+        break;
+      case 'dashboard':
+        path = '/';
+        break;
+      case 'quiz-mgmt':
+        path = '/quiz-mgmt';
+        break;
+      case 'user-mgmt':
+        path = '/user-mgmt';
+        break;
+      case 'lobby':
+        path = '/lobby';
+        break;
+      case 'taker':
+        path = '/taker';
+        break;
+      case 'results':
+        path = '/results';
+        break;
+      default:
+        path = '/';
+    }
+    
+    if (window.location.pathname !== path) {
+      window.history.pushState({ view: currentView }, '', path);
+    }
+  }, [currentView, checkingAuth]);
+
+  // Handle browser Back/Forward navigation (popstate event)
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      let view: 'login' | 'register' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'lobby' | 'taker' | 'results' = 'dashboard';
+      
+      if (path === '/login') view = 'login';
+      else if (path === '/register') view = 'register';
+      else if (path === '/quiz-mgmt') view = 'quiz-mgmt';
+      else if (path === '/user-mgmt') view = 'user-mgmt';
+      else if (path === '/lobby') view = 'lobby';
+      else if (path === '/taker') view = 'taker';
+      else if (path === '/results') view = 'results';
+      
+      dispatch(setCurrentView(view));
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [dispatch]);
 
   // Keep axios header in sync when token changes

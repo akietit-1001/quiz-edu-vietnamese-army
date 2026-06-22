@@ -56,14 +56,15 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
           "questionType": "multiple-choice",
           "questionText": "Nội dung câu hỏi trắc nghiệm?",
           "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-          "correctAnswers": ["0"],
+          "correctAnswers": ["2"],
           "explanation": "Giải thích chi tiết vì sao đáp án này đúng dựa trên tài liệu"
         }
       ]
     }
 
     Lưu ý quan trọng:
-    - Trường "correctAnswers" phải là một mảng chứa 1 chuỗi số, đại diện cho chỉ mục của đáp án đúng trong mảng options (ví dụ: ["0"] cho đáp án đầu tiên, ["1"] cho đáp án thứ hai...).
+    - Trường "correctAnswers" phải là một mảng chứa 1 chuỗi số, đại diện cho chỉ mục của đáp án đúng trong mảng options (ví dụ: ["0"] cho đáp án A, ["1"] cho đáp án B, ["2"] cho đáp án C, ["3"] cho đáp án D...).
+    - PHẢI PHÂN BỐ NGẪU NHIÊN VÀ ĐỀU VỊ TRÍ ĐÁP ÁN ĐÚNG giữa các lựa chọn A, B, C, D (chỉ mục "0", "1", "2", "3"). Tuyệt đối không được luôn luôn đặt đáp án đúng ở vị trí đầu tiên (đáp án A / chỉ mục "0"). Hãy xáo trộn ngẫu nhiên và bám sát chính xác nội dung thực tế của tài liệu.
     - Đảm bảo các câu hỏi có tính thực tế, rõ ràng và bám sát chính xác tài liệu đã cho.
   `;
 

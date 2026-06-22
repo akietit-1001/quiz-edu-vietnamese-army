@@ -69,7 +69,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   // AI generation state
   const [aiCategory, setAiCategory] = useState('Khác');
   const [aiNumQuestions, setAiNumQuestions] = useState(10);
-  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiFiles, setAiFiles] = useState<File[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProgressStep, setAiProgressStep] = useState(1);
   const [quizzesLoading, setQuizzesLoading] = useState(true);
@@ -394,8 +394,75 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   // AI Generation Handlers
   const handleAIFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setAiFile(e.target.files[0]);
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      
+      setAiFiles(prev => {
+        const combined = [...prev];
+        newFiles.forEach(nf => {
+          const isDuplicate = combined.some(f => f.name === nf.name && f.size === nf.size);
+          if (!isDuplicate) {
+            combined.push(nf);
+          }
+        });
+
+        const totalSize = combined.reduce((acc, f) => acc + f.size, 0);
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
+        if (totalSize > MAX_SIZE) {
+          window.showAlert(`Tổng dung lượng các tệp tin đã chọn vượt quá giới hạn 10MB. Dung lượng sau khi thêm: ${(totalSize / (1024 * 1024)).toFixed(2)}MB.`, 'Lỗi chọn tệp');
+          return prev;
+        }
+
+        return combined;
+      });
+
+      // Reset value to allow selecting the same file again if removed
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveFile = (indexToRemove: number) => {
+    setAiFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (extension?: string) => {
+    switch (extension) {
+      case 'pdf':
+        return (
+          <div className="w-8 h-8 flex items-center justify-center bg-red-100 dark:bg-red-950/40 rounded text-red-600 dark:text-red-400 flex-shrink-0 font-bold text-[9px] border border-red-200 dark:border-red-900/50">
+            PDF
+          </div>
+        );
+      case 'doc':
+      case 'docx':
+        return (
+          <div className="w-8 h-8 flex items-center justify-center bg-blue-100 dark:bg-blue-950/40 rounded text-blue-600 dark:text-blue-400 flex-shrink-0 font-bold text-[9px] border border-blue-200 dark:border-blue-900/50">
+            DOC
+          </div>
+        );
+      case 'xls':
+      case 'xlsx':
+      case 'csv':
+        return (
+          <div className="w-8 h-8 flex items-center justify-center bg-emerald-100 dark:bg-emerald-950/40 rounded text-emerald-600 dark:text-emerald-400 flex-shrink-0 font-bold text-[9px] border border-emerald-200 dark:border-emerald-900/50">
+            EXCEL
+          </div>
+        );
+      default:
+        return (
+          <div className="w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 flex-shrink-0 font-bold text-[9px] border border-gray-200 dark:border-gray-700">
+            TXT
+          </div>
+        );
     }
   };
 
@@ -412,17 +479,19 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     // Switch to manual editing form
     setIsCreating(true);
     setIsGeneratingAI(false);
-    setAiFile(null);
+    setAiFiles([]);
   };
 
   const handleAIGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!aiFile) return;
+    if (aiFiles.length === 0) return;
 
     setAiLoading(true);
-    const originalName = aiFile.name;
+    const originalName = aiFiles[0].name + (aiFiles.length > 1 ? ` (+ ${aiFiles.length - 1} tệp khác)` : '');
     const formData = new FormData();
-    formData.append('file', aiFile);
+    aiFiles.forEach(file => {
+      formData.append('files', file);
+    });
     formData.append('numQuestions', aiNumQuestions.toString());
     formData.append('category', aiCategory);
 
@@ -431,16 +500,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      // Cache hit (immediately returned)
+      // Cache hit / Direct response (Firebase / synchronous backend)
       if (res.status === 200) {
         const { message, quiz } = res.data;
-        await window.showAlert(message || 'Đã lấy đề thi từ cache hệ thống!', 'Sinh đề AI');
+        await window.showAlert(message || 'Đã sinh đề thi thành công bằng AI!', 'Sinh đề AI');
         populateQuizPreview(quiz, originalName);
         setAiLoading(false);
         return;
       }
 
-      // Cache miss (queued)
+      // Cache miss / Queue fallback (if running locally with Redis)
       const { jobId } = res.data;
       
       // Poll job status every 2 seconds
@@ -1417,51 +1486,53 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </div>
 
                   {/* Steps Progress Visualizer */}
-                  <div className="w-full max-w-md space-y-4 pt-4 border-t border-vpa-olive-light/20">
-                    {[
-                      { step: 1, text: "Tiếp nhận tệp" },
-                      { step: 2, text: "Tải lên máy chủ và trích xuất văn bản" },
-                      { step: 3, text: "Đang xử lý tạo đề thi trắc nghiệm" },
-                      { step: 4, text: "Bản thảo đề thi hoàn chỉnh đã sẵn sàng duyệt" }
-                    ].map((item) => {
-                      const isActive = aiProgressStep === item.step;
-                      const isCompleted = aiProgressStep > item.step;
+                  <div className="w-full max-w-2xl pt-8 border-t border-vpa-olive-light/20">
+                    <div className="relative flex items-center justify-between w-full">
+                      {/* Connector Line Container */}
+                      <div className="absolute left-[12.5%] right-[12.5%] top-5 h-1 bg-vpa-olive-light/25 dark:bg-vpa-olive-light/10 -translate-y-1/2 z-0 rounded-full" />
                       
-                      return (
-                        <div key={item.step} className="flex items-center space-x-3 text-xs">
-                          {isCompleted ? (
-                            <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-[10px]">
-                              ✓
+                      {/* Active Progress Connector Line */}
+                      <div 
+                        className="absolute left-[12.5%] top-5 h-1 bg-vpa-gold -translate-y-1/2 z-0 transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(229,169,59,0.5)] rounded-full" 
+                        style={{ width: `${((Math.min(aiProgressStep, 4) - 1) / 3) * 100}%` }}
+                      />
+                      
+                      {[
+                        { step: 1, text: "Tiếp nhận tệp" },
+                        { step: 2, text: "Tải lên & trích xuất" },
+                        { step: 3, text: "Xử lý tạo đề thi" },
+                        { step: 4, text: "Hoàn tất bản thảo" }
+                      ].map((item) => {
+                        const isActive = aiProgressStep === item.step;
+                        const isCompleted = aiProgressStep > item.step;
+                        
+                        return (
+                          <div key={item.step} className="flex flex-col items-center flex-1 relative z-10">
+                            {/* Circle Indicator */}
+                            <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-mono font-extrabold text-sm transition-all duration-500 ${
+                              isCompleted 
+                                ? 'bg-green-600 border-green-600 text-white shadow-[0_0_12px_rgba(22,163,74,0.45)]' 
+                                : isActive 
+                                ? 'border-vpa-gold bg-vpa-sand-light dark:bg-vpa-dark-card text-vpa-gold shadow-[0_0_15px_rgba(229,169,59,0.6)] scale-110 animate-pulse' 
+                                : 'border-vpa-olive-light/35 bg-vpa-sand-light/50 dark:bg-vpa-dark/50 text-gray-400 dark:text-gray-600'
+                            }`}>
+                              {isCompleted ? '✓' : item.step}
                             </div>
-                          ) : isActive ? (
-                            <div className="w-5 h-5 rounded-full border border-vpa-gold bg-vpa-gold/10 text-vpa-gold flex items-center justify-center font-mono font-bold text-[10px] animate-pulse">
-                              ●
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 rounded-full border border-vpa-olive-light/30 text-gray-400 flex items-center justify-center font-mono text-[10px]">
-                              {item.step}
-                            </div>
-                          )}
-                          <span className={`font-mono text-[11px] ${
-                            isCompleted 
-                              ? 'text-green-600 line-through opacity-75' 
-                              : isActive 
-                              ? 'text-vpa-gold font-bold' 
-                              : 'text-gray-400'
-                          }`}>
-                            {item.text}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Progress Line */}
-                  <div className="w-full max-w-md h-1.5 bg-vpa-olive-light/20 relative overflow-hidden">
-                    <div 
-                      className="h-full bg-vpa-gold transition-all duration-1000 ease-out" 
-                      style={{ width: `${(aiProgressStep / 4) * 100}%` }}
-                    ></div>
+                            
+                            {/* Text label */}
+                            <span className={`mt-3.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-center max-w-[85px] sm:max-w-[130px] transition-all duration-500 leading-tight ${
+                              isCompleted 
+                                ? 'text-green-600 dark:text-green-500 font-bold' 
+                                : isActive 
+                                ? 'text-vpa-gold font-bold scale-105' 
+                                : 'text-gray-400 dark:text-gray-600 font-semibold'
+                            }`}>
+                              {item.text}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1476,7 +1547,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       Hệ thống đọc tài liệu và tạo câu hỏi trắc nghiệm.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành học tập</label>
                         <select
@@ -1499,35 +1570,94 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
                         />
                       </div>
-                    </div>
+                  </div>
 
-                    <div className="border-2 border-dashed border-vpa-olive-light/50 p-8 text-center bg-vpa-sand/30 dark:bg-vpa-dark/30 hover:border-vpa-gold transition-colors relative cursor-pointer">
+                  <div className="space-y-4">
+                    {/* Upload Box */}
+                    <div className="border-2 border-dashed border-vpa-olive-light/50 p-6 text-center bg-vpa-sand/30 dark:bg-vpa-dark/30 hover:border-vpa-gold transition-colors relative cursor-pointer">
                       <input
                         type="file"
-                        required
+                        required={aiFiles.length === 0}
+                        multiple
                         accept=".xlsx,.xls,.csv,.doc,.docx,.pdf,.txt"
                         onChange={handleAIFileChange}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
-                      <UploadSimpleIcon size={36} className="mx-auto mb-2 text-vpa-olive-light" />
+                      <UploadSimpleIcon size={32} className="mx-auto mb-2 text-vpa-olive-light" />
                       <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
-                        {aiFile ? `Tài liệu đã chọn: ${aiFile.name}` : 'Kéo thả tài liệu ôn luyện hoặc click để chọn'}
+                        {aiFiles.length > 0 ? 'Thêm tài liệu ôn luyện khác' : 'Kéo thả tài liệu ôn luyện hoặc click để chọn'}
                       </p>
-                      <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng tài liệu: .pdf, .doc, .docx, .xlsx, .xls, .csv, .txt</p>
+                      <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ: .pdf, .doc, .docx, .xlsx, .xls, .csv, .txt (Tổng tối đa 10MB)</p>
                     </div>
+
+                    {/* Selected files list with thumbnails */}
+                    {aiFiles.length > 0 && (
+                      <div className="space-y-2 text-left">
+                        <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-vpa-olive-light dark:text-vpa-sand font-bold">
+                          <span>Tài liệu đã chọn ({aiFiles.length})</span>
+                          <span>{formatBytes(aiFiles.reduce((acc, f) => acc + f.size, 0))} / 10 MB</span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full bg-vpa-olive-light/20 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              aiFiles.reduce((acc, f) => acc + f.size, 0) > 8 * 1024 * 1024 
+                                ? 'bg-red-500' 
+                                : 'bg-vpa-olive dark:bg-vpa-gold'
+                            }`}
+                            style={{ width: `${Math.min((aiFiles.reduce((acc, f) => acc + f.size, 0) / (10 * 1024 * 1024)) * 100, 100)}%` }}
+                          />
+                        </div>
+
+                        {/* Cards Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto pr-1">
+                          {aiFiles.map((file, idx) => {
+                            const ext = file.name.split('.').pop()?.toLowerCase();
+                            return (
+                              <div key={idx} className="flex items-center justify-between p-2 border border-vpa-olive-light/30 bg-vpa-sand/10 dark:bg-vpa-dark/40 rounded hover:border-vpa-gold transition-colors">
+                                <div className="flex items-center space-x-2.5 overflow-hidden">
+                                  {getFileIcon(ext)}
+                                  <div className="overflow-hidden">
+                                    <p className="text-[11px] font-bold text-vpa-olive dark:text-vpa-sand truncate max-w-[150px] sm:max-w-[200px]" title={file.name}>
+                                      {file.name}
+                                    </p>
+                                    <p className="text-[9px] text-gray-500">{formatBytes(file.size)}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleRemoveFile(idx);
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                                  title="Loại bỏ tài liệu này"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   </div>
 
                   <div className="flex justify-end space-x-4 border-t border-vpa-olive-light/30 pt-6">
                     <button
                       type="button"
-                      onClick={() => { setIsGeneratingAI(false); setAiFile(null); }}
+                      onClick={() => { setIsGeneratingAI(false); setAiFiles([]); }}
                       className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
                     >
                       Hủy bỏ
                     </button>
                     <button
                       type="submit"
-                      disabled={aiLoading || !aiFile}
+                      disabled={aiLoading || aiFiles.length === 0}
                       className="px-6 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright disabled:opacity-50 flex items-center space-x-2"
                     >
                       <span>Bắt đầu tạo đề (AI)</span>

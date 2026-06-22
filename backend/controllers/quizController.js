@@ -453,45 +453,94 @@ const extractMarkdownUsingMarkItDown = (filePath) => {
 
 
 // 8. GENERATE QUIZ FROM FILE USING AI & MARKITDOWN
-export const generateQuizFromFile = async (req, res) => {
-  let tempFilePath = null;
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'Vui lòng cung cấp file tài liệu' });
-    }
+// Helper to parse a single uploaded tệp (PDF, DOCX, DOC, TXT)
+const parseFileToText = async (file) => {
+  let fileBuffer = file.buffer;
+  let originalName = file.originalname;
+  let fileExtension = originalName.split('.').pop().toLowerCase();
 
-    let fileExtension = req.file.originalname.split('.').pop().toLowerCase();
-    if (fileExtension === 'doc') {
-      try {
-        console.log('[generateQuizFromFile] Converting uploaded .doc file to .docx...');
-        const docxBuffer = await convertDocToDocx(req.file.buffer);
-        req.file.buffer = docxBuffer;
-        req.file.originalname = req.file.originalname.substring(0, req.file.originalname.lastIndexOf('.')) + '.docx';
-        fileExtension = 'docx';
-        console.log('[generateQuizFromFile] Conversion successful!');
-      } catch (convErr) {
-        console.error('[generateQuizFromFile] Conversion failed:', convErr.message);
-        return res.status(400).json({
-          message: `Lỗi tự động chuyển đổi từ .doc sang .docx: ${convErr.message}. Vui lòng tự chuyển đổi bằng cách chọn "Lưu dưới dạng" (Save As) thành định dạng .docx rồi tải lại.`
-        });
+  // Nếu là file .doc cũ, chuyển đổi sang .docx trước bằng LibreOffice
+  if (fileExtension === 'doc') {
+    console.log(`[parseFileToText] Converting legacyl .doc file to .docx: ${originalName}`);
+    fileBuffer = await convertDocToDocx(fileBuffer);
+    fileExtension = 'docx';
+  }
+
+  const tempDir = path.join(process.cwd(), 'temp');
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+
+  const tempFilePath = path.join(tempDir, `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExtension}`);
+  fs.writeFileSync(tempFilePath, fileBuffer);
+
+  try {
+    // 1. Chạy Python MarkItDown để trích xuất Markdown
+    try {
+      return await extractMarkdownUsingMarkItDown(tempFilePath);
+    } catch (parseError) {
+      console.warn(`[parseFileToText] MarkItDown thất bại cho ${originalName}, chuyển sang bộ phân tích dự phòng. Lỗi:`, parseError.message);
+      
+      // Bộ phân tích dự phòng local JS
+      if (fileExtension === 'docx') {
+        const docxResult = await mammoth.extractRawText({ buffer: fileBuffer });
+        return docxResult.value;
+      } else if (fileExtension === 'pdf') {
+        const pdfResult = await pdfParse(fileBuffer);
+        return pdfResult.text;
+      } else if (fileExtension === 'txt' || fileExtension === 'md') {
+        return fileBuffer.toString('utf-8');
+      } else {
+        throw new Error(`Định dạng đuôi file '.${fileExtension}' của tệp ${originalName} không được hỗ trợ bởi bộ phân tích dự phòng.`);
       }
     }
+  } finally {
+    // Dọn dẹp file tạm
+    if (fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (err) {
+        console.error(`[parseFileToText] Lỗi xóa file tạm: ${tempFilePath}`, err.message);
+      }
+    }
+  }
+};
 
-    // Calculate SHA-256 hash of the uploaded file
-    const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+// 8. GENERATE QUIZ FROM FILE USING AI & MARKITDOWN (Hỗ trợ nhiều file, giới hạn dung lượng)
+export const generateQuizFromFile = async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length === 0) {
+      return res.status(400).json({ message: 'Vui lòng cung cấp ít nhất một file tài liệu.' });
+    }
 
-    // Check DB cache for existing quiz with same hash
-    const cachedQuiz = await Quiz.findOne({ documentHash: fileHash });
+    // 1. Giới hạn tổng dung lượng các file tải lên (Tối đa 10MB) để tránh quá tải
+    const totalSizeBytes = files.reduce((acc, f) => acc + f.size, 0);
+    const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10MB
+    if (totalSizeBytes > MAX_TOTAL_SIZE) {
+      return res.status(400).json({
+        message: `Tổng dung lượng các tệp tải lên vượt quá giới hạn cho phép (Tối đa 10MB). Tổng dung lượng hiện tại: ${(totalSizeBytes / (1024 * 1024)).toFixed(2)}MB.`
+      });
+    }
+
+    // 2. Tính toán Hash kết hợp của tất cả các file để kiểm tra cache
+    const fileHashes = files.map(file => {
+      return crypto.createHash('sha256').update(file.buffer).digest('hex');
+    });
+    const combinedHash = crypto.createHash('sha256').update(fileHashes.sort().join('|')).digest('hex');
+
+    // Kiểm tra DB xem đề thi đã từng được sinh từ các tài liệu này chưa
+    const cachedQuiz = await Quiz.findOne({ documentHash: combinedHash });
     if (cachedQuiz) {
       return res.status(200).json({
-        message: 'Tài liệu này đã được sinh đề thi trước đó. Hệ thống đã tự động lấy từ bộ nhớ đệm.',
+        message: 'Tổ hợp tài liệu này đã được sinh đề thi trước đó. Hệ thống đã tự động lấy từ bộ nhớ đệm.',
         quiz: {
           title: cachedQuiz.title,
           description: cachedQuiz.description,
           category: cachedQuiz.category,
           duration: cachedQuiz.duration,
           questions: cachedQuiz.questions,
-          documentHash: fileHash
+          documentHash: combinedHash
         }
       });
     }
@@ -499,73 +548,36 @@ export const generateQuizFromFile = async (req, res) => {
     const { numQuestions, category } = req.body;
     const count = parseInt(numQuestions) || 10;
 
-    const tempDir = path.join(process.cwd(), 'temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    tempFilePath = path.join(tempDir, `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExtension}`);
-    fs.writeFileSync(tempFilePath, req.file.buffer);
+    // 3. Trích xuất chữ của tất cả các file
+    let combinedMarkdownText = '';
+    const fileListNames = files.map(f => f.originalname).join(', ');
 
-    // 1. Run Python MarkItDown to convert to Markdown
-    let markdownText;
-    try {
-      markdownText = await extractMarkdownUsingMarkItDown(tempFilePath);
-    } catch (parseError) {
-      console.error('Lỗi chuyển đổi MarkItDown:', parseError.message);
-      console.log('-> Đang chuyển sang bộ phân tích dự phòng (Local JS Parser fallback)... File extension:', fileExtension);
-      
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       try {
-        if (fileExtension === 'docx') {
-          const docxResult = await mammoth.extractRawText({ buffer: req.file.buffer });
-          markdownText = docxResult.value;
-        } else if (fileExtension === 'pdf') {
-          const pdfResult = await pdfParse(req.file.buffer);
-          markdownText = pdfResult.text;
-        } else if (fileExtension === 'txt' || fileExtension === 'md') {
-          markdownText = req.file.buffer.toString('utf-8');
-        } else {
-          // If no fallback parser is available for this file extension, throw original error
-          throw new Error(`Định dạng đuôi file '.${fileExtension}' không được bộ phân tích dự phòng hỗ trợ.`);
+        const text = await parseFileToText(file);
+        if (text && text.trim().length > 0) {
+          combinedMarkdownText += `\n\n--- BẮT ĐẦU TÀI LIỆU ${i + 1}: ${file.originalname} ---\n${text}\n--- KẾT THÚC TÀI LIỆU ${i + 1} ---\n`;
         }
-        console.log('-> Bộ phân tích dự phòng đã trích xuất văn bản thành công!');
-      } catch (fallbackError) {
-        console.error('Lỗi phân tích dự phòng thất bại:', fallbackError);
-        return res.status(500).json({ 
-          message: `Lỗi phân tích tài liệu: ${parseError.message}. Chi tiết lỗi dự phòng: ${fallbackError.message}. Vui lòng kiểm tra lại định dạng tệp của đồng chí.` 
+      } catch (err) {
+        console.error(`Lỗi phân tích file ${file.originalname}:`, err.message);
+        return res.status(400).json({
+          message: `Lỗi phân tích file "${file.originalname}": ${err.message}. Vui lòng kiểm tra lại tệp tin.`
         });
       }
-    } finally {
-      // 2. Clean up temp file
-      if (tempFilePath && fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
     }
 
-    if (!markdownText || markdownText.trim().length === 0) {
-      return res.status(400).json({ message: 'Không thể trích xuất văn bản từ tài liệu này' });
+    if (!combinedMarkdownText || combinedMarkdownText.trim().length === 0) {
+      return res.status(400).json({ message: 'Không thể trích xuất văn bản từ các tài liệu đã tải lên.' });
     }
 
-    /*
-    // 3. Queue the job instead of calling Gemini synchronously with auto-retry and backoff
-    const job = await quizGenQueue.add('generateAIQuiz', {
-      markdownText,
-      count,
-      category,
-      fileHash
-    }, {
-      attempts: 5, // Retry up to 5 times on failure (like 503 Service Unavailable)
-      backoff: {
-        type: 'exponential',
-        delay: 2000 // Wait 2s, then 4s, 8s, 16s...
-      }
-    });
-
-    res.status(202).json({
-      message: 'Đã gửi yêu cầu sinh đề thi lên hàng đợi xử lý của AI',
-      jobId: job.id
-    });
-    */
+    // 4. Giới hạn độ dài văn bản trích xuất (Tối đa 100,000 ký tự ~ 35-40 trang) để tối ưu chi phí và token
+    const MAX_EXTRACTED_CHARACTERS = 100000;
+    if (combinedMarkdownText.length > MAX_EXTRACTED_CHARACTERS) {
+      return res.status(400).json({
+        message: `Tổng nội dung chữ trích xuất từ các tài liệu quá lớn (${combinedMarkdownText.length.toLocaleString()} ký tự). Vui lòng rút gọn tài liệu lại dưới ${MAX_EXTRACTED_CHARACTERS.toLocaleString()} ký tự để tránh vượt ngưỡng Token và phí API Google Cloud.`
+      });
+    }
 
     // --- PHẦN SINH ĐỀ AI TRỰC TIẾP (KHÔNG DÙNG HÀNG ĐỢI REDIS KHI DEPLOY FIREBASE) ---
     const apiKey = process.env.GEMINI_API_KEY;
@@ -581,30 +593,33 @@ export const generateQuizFromFile = async (req, res) => {
 
     const prompt = `
       Bạn là một trợ lý giảng dạy quân sự chuyên nghiệp tại Học viện Kỹ thuật Quân sự.
-      Hãy đọc tài liệu định dạng Markdown dưới đây và tạo ra một đề thi trắc nghiệm gồm chính xác \${count} câu hỏi chất lượng cao dựa trên nội dung tài liệu.
+      Hãy đọc các tài liệu định dạng dưới đây và tạo ra một đề thi trắc nghiệm gồm chính xác ${count} câu hỏi chất lượng cao dựa trên nội dung tài liệu.
+      Bạn cần tổng hợp kiến thức từ tất cả các tài liệu được cung cấp ở trên một cách hài hòa, phù hợp.
+      Mức độ từ dễ đến khó nên được phân bổ đều, đảm bảo có sự đa dạng về chủ đề và nội dung câu hỏi dựa trên các tài liệu đã cho.
 
-      Nội dung tài liệu:
-      \${markdownText}
+      Nội dung các tài liệu:
+      ${combinedMarkdownText}
 
       Yêu cầu đầu ra bắt buộc phải tuân thủ schema JSON định dạng sau (không viết bất cứ văn bản dẫn giải nào ngoài JSON này):
       {
         "title": "Tiêu đề đề thi sinh ra tự động",
         "description": "Mô tả ngắn gọn về đề thi",
-        "duration": \${count * 2},
-        "category": "\${category || 'Khác'}",
+        "duration": ${count * 2},
+        "category": "${category || 'Khác'}",
         "questions": [
           {
             "questionType": "multiple-choice",
             "questionText": "Nội dung câu hỏi trắc nghiệm?",
             "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-            "correctAnswers": ["0"],
+            "correctAnswers": ["2"],
             "explanation": "Giải thích chi tiết vì sao đáp án này đúng dựa trên tài liệu"
           }
         ]
       }
 
       Lưu ý quan trọng:
-      - Trường "correctAnswers" phải là một mảng chứa 1 chuỗi số, đại diện cho chỉ mục của đáp án đúng trong mảng options (ví dụ: ["0"] cho đáp án đầu tiên, ["1"] cho đáp án thứ hai...).
+      - Trường "correctAnswers" phải là một mảng chứa 1 chuỗi số, đại diện cho chỉ mục của đáp án đúng trong mảng options (ví dụ: ["0"] cho đáp án A, ["1"] cho đáp án B, ["2"] cho đáp án C, ["3"] cho đáp án D...).
+      - PHẢI PHÂN BỐ NGẪU NHIÊN VÀ ĐỀU VỊ TRÍ ĐÁP ÁN ĐÚNG giữa các lựa chọn A, B, C, D (chỉ mục "0", "1", "2", "3"). Tuyệt đối không được luôn luôn đặt đáp án đúng ở vị trí đầu tiên (đáp án A / chỉ mục "0"). Hãy xáo trộn ngẫu nhiên và bám sát chính xác nội dung thực tế của tài liệu.
       - Đảm bảo các câu hỏi có tính thực tế, rõ ràng và bám sát chính xác tài liệu đã cho.
     `;
 
@@ -612,17 +627,14 @@ export const generateQuizFromFile = async (req, res) => {
     const responseText = result.response.text();
     let quizData = JSON.parse(responseText);
 
-    const quiz = await Quiz.create({
-      title: quizData.title || `Đề thi AI - \${req.file.originalname}`,
-      description: quizData.description || 'Đề thi trắc nghiệm được sinh bởi AI.',
+    const quiz = {
+      title: quizData.title || `Đề thi AI - ${files[0].originalname} + ${files.length - 1} tài liệu khác`,
+      description: quizData.description || `Đề thi được sinh tự động bằng AI từ danh sách tài liệu: ${fileListNames}`,
       category: category || 'Khác',
-      creatorId: req.user.id,
       duration: quizData.duration || count * 2,
-      passingScorePercent: 50,
       questions: quizData.questions,
-      isPublic: false,
-      documentHash: fileHash
-    });
+      documentHash: combinedHash
+    };
 
     res.status(200).json({
       message: 'Sinh đề thi thành công bằng AI!',
@@ -631,7 +643,7 @@ export const generateQuizFromFile = async (req, res) => {
 
   } catch (error) {
     console.error('Lỗi tổng quát sinh đề thi AI:', error.message);
-    res.status(500).json({ message: 'Lỗi máy chủ khi sinh câu hỏi từ tài liệu bằng AI' });
+    res.status(500).json({ message: 'Lỗi máy chủ khi sinh câu hỏi từ tài liệu bằng AI: ' + error.message });
   }
 };
 

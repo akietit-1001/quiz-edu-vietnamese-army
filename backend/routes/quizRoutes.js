@@ -18,7 +18,7 @@ router.delete('/:id', deleteQuiz);
 // Export/Import routes
 router.get('/:id/export', exportQuizDocx);
 router.post('/import', upload.single('file'), importQuiz);
-router.post('/generate-from-file', upload.single('file'), generateQuizFromFile);
+router.post('/generate-from-file', upload.array('files', 10), generateQuizFromFile);
 router.get('/generate-status/:jobId', getQuizGenStatus);
 
 export default router;
