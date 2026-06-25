@@ -46,26 +46,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showResult, setShowResult] = useState(true);
 
   // Filter quizzes for select box
-  const filteredQuizzesForSelect = quizzes.filter(q => {
-    const isChild = !!q.parentQuizId;
-    if (isChild) return false;
+  const filteredQuizzesForSelect = React.useMemo(() => {
+    return quizzes.filter(q => {
+      const isChild = !!q.parentQuizId;
+      if (isChild) return false;
 
-    // Find all variants to compile all associated exam codes
-    const variants = quizzes.filter((v: any) => v.parentQuizId === q._id);
-    const allCodes = [q.examCode || (variants.length > 0 ? '001' : ''), ...variants.map((v: any) => v.examCode)].filter(Boolean);
+      // Find all variants to compile all associated exam codes
+      const variants = quizzes.filter((v: any) => v.parentQuizId === q._id);
+      const allCodes = [q.examCode || (variants.length > 0 ? '001' : ''), ...variants.map((v: any) => v.examCode)].filter(Boolean);
 
-    if (selectedCategoryFilter && q.category !== selectedCategoryFilter) return false;
-    
-    if (!searchQuizQuery) return true;
-    const term = searchQuizQuery.toLowerCase();
-    
-    const matchTitle = q.title.toLowerCase().includes(term);
-    const matchShareCode = (q.shareCode || '').toLowerCase().includes(term);
-    const matchExamCode = allCodes.some(code => code.toLowerCase().includes(term));
-    const matchCreator = (q.creatorId?.fullName || '').toLowerCase().includes(term);
-    
-    return matchTitle || matchShareCode || matchExamCode || matchCreator;
-  });
+      if (selectedCategoryFilter && q.category !== selectedCategoryFilter) return false;
+      
+      if (!searchQuizQuery) return true;
+      const term = searchQuizQuery.toLowerCase();
+      
+      const matchTitle = q.title.toLowerCase().includes(term);
+      const matchShareCode = (q.shareCode || '').toLowerCase().includes(term);
+      const matchExamCode = allCodes.some(code => code.toLowerCase().includes(term));
+      const matchCreator = (q.creatorId?.fullName || '').toLowerCase().includes(term);
+      
+      return matchTitle || matchShareCode || matchExamCode || matchCreator;
+    });
+  }, [quizzes, selectedCategoryFilter, searchQuizQuery]);
 
   // Invitations & Rooms state
   const [invitations, setInvitations] = useState<any[]>([]);
@@ -383,13 +385,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const filteredUsers = inviteEmail.trim() === ''
-    ? managedUsers
-    : managedUsers.filter(u =>
-        u.fullName.toLowerCase().includes(inviteEmail.toLowerCase()) ||
-        u.email.toLowerCase().includes(inviteEmail.toLowerCase()) ||
-        (u.rank && u.rank.toLowerCase().includes(inviteEmail.toLowerCase()))
-      );
+  const filteredUsers = React.useMemo(() => {
+    return inviteEmail.trim() === ''
+      ? managedUsers
+      : managedUsers.filter(u =>
+          u.fullName.toLowerCase().includes(inviteEmail.toLowerCase()) ||
+          u.email.toLowerCase().includes(inviteEmail.toLowerCase()) ||
+          (u.rank && u.rank.toLowerCase().includes(inviteEmail.toLowerCase()))
+        );
+  }, [inviteEmail, managedUsers]);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">

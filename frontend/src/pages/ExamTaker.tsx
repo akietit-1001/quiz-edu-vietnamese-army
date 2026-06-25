@@ -651,9 +651,9 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
         <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none flex flex-col justify-between">
           <div>
             <h3 className="text-[10px] font-mono font-bold uppercase tracking-wider border-b border-vpa-olive-light/30 pb-2 mb-4">
-              Mạng sa bàn câu hỏi
+              Câu hỏi
             </h3>
-            <div className="grid grid-cols-5 gap-2 max-h-[220px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-5 gap-2 max-h overflow-y-auto pr-1">
               {quiz.questions.map((_: any, idx: number) => {
                 const hasAnswer = answers[idx]?.selectedAnswers.length > 0 && answers[idx]?.selectedAnswers[0] !== '';
                 const isActive = idx === currentIdx;
