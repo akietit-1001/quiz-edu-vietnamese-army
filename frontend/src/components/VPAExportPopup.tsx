@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { X } from '@phosphor-icons/react';
 
 interface VPAExportPopupProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface VPAExportPopupProps {
     marginRight: number;
     mirrorMargins: boolean;
     orientation?: 'portrait' | 'landscape';
+    selectedQuizIds?: string[];
   }) => void;
   onCancel: () => void;
   defaultUnit?: string;
@@ -53,6 +55,9 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   const [mirrorMargins, setMirrorMargins] = useState<boolean>(true);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   
+  const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>([]);
+  const [activePreviewTab, setActivePreviewTab] = useState<string>('parent');
+
   // Choose format based on type: quiz -> docx/pdf, results -> xlsx/docx/pdf/csv
   const [format, setFormat] = useState<'docx' | 'pdf' | 'xlsx' | 'csv'>(
     type === 'quiz' ? 'docx' : 'xlsx'
@@ -72,8 +77,18 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       setMirrorMargins(true);
       setOrientation('portrait');
       setFormat(type === 'quiz' ? 'docx' : 'xlsx');
+      setActivePreviewTab('parent');
+
+      // Initialize selectedQuizIds with the parent and all variant IDs
+      if (previewData) {
+        const initialIds = [previewData._id];
+        if (previewData.variants && Array.isArray(previewData.variants)) {
+          previewData.variants.forEach((v: any) => initialIds.push(v._id));
+        }
+        setSelectedQuizIds(initialIds);
+      }
     }
-  }, [isOpen, defaultUnit, defaultPosition, defaultRank, defaultName, type]);
+  }, [isOpen, defaultUnit, defaultPosition, defaultRank, defaultName, type, previewData]);
 
   if (!isOpen) return null;
 
@@ -92,7 +107,8 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       marginLeft,
       marginRight,
       mirrorMargins,
-      orientation
+      orientation,
+      selectedQuizIds
     });
   };
 
@@ -122,34 +138,36 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   };
 
   // Render Quiz questions in preview
-  const renderQuizPreviewContent = () => {
-    if (!previewData || !previewData.questions) return null;
-    const questions = previewData.questions.slice(0, previewData.questions.length); // Show first 2 questions
+  const renderQuizPreviewContent = (currentQuiz: any) => {
+    if (!currentQuiz || !currentQuiz.questions) return null;
+    const questions = currentQuiz.questions;
     return (
       <div className="mt-4 text-left border-t border-gray-300 pt-4 font-serif text-[11px] text-gray-800">
-        <h4 className="text-center font-bold text-[12px] uppercase mb-1">ĐỀ THI</h4>
-        <p className="text-center font-bold mb-1">MÔN THI: {(previewData.title || '').toUpperCase()}</p>
-        <p className="text-center italic mb-4">Thời gian làm bài: {previewData.duration || 45} phút (Không kể giao đề)</p>
+        <h4 className="text-center font-bold text-[12px] uppercase mb-1 font-serif">ĐỀ THI</h4>
+        <p className="text-center font-bold mb-1 font-serif">MÔN THI: {(currentQuiz.title || '').toUpperCase()}</p>
+        <p className="text-center italic mb-4 font-serif">Thời gian làm bài: {currentQuiz.duration || 45} phút (Không kể giao đề)</p>
+        {currentQuiz.examCode && (
+          <div className="text-center mb-3">
+            <span className="inline-block border border-black font-mono font-bold px-3 py-0.5 text-[9px] text-black">
+              Mã đề: {currentQuiz.examCode}
+            </span>
+          </div>
+        )}
         
         {questions.map((q: any, idx: number) => (
           <div key={idx} className="mb-3 font-serif">
-            <p className="font-bold">Câu {idx + 1}: {q.questionText}</p>
+            <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
             {q.questionType === 'fill-in-the-blank' ? (
-              <p className="pl-4 italic text-gray-500">Đáp án: ..........................................................................</p>
+              <p className="pl-4 italic text-gray-500 font-serif">Đáp án: ..........................................................................</p>
             ) : (
-              <div className="grid grid-cols-2 gap-x-2 pl-4 mt-1">
+              <div className="grid grid-cols-2 gap-x-2 pl-4 mt-1 font-serif">
                 {(q.options || []).map((opt: string, oIdx: number) => (
-                  <p key={oIdx}>{String.fromCharCode(65 + oIdx)}. {opt}</p>
+                  <p key={oIdx} className="font-serif">{String.fromCharCode(65 + oIdx)}. {opt}</p>
                 ))}
               </div>
             )}
           </div>
         ))}
-        {/* {previewData.questions.length > 2 && (
-          <p className="text-center italic text-gray-500 border-t border-dashed border-gray-300 pt-1 mt-2 font-serif">
-            [...còn tiếp {previewData.questions.length - 2} câu hỏi khác...]
-          </p>
-        )} */}
       </div>
     );
   };
@@ -273,12 +291,48 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
     );
   };
 
+  const allVersions: any[] = [];
+  if (type === 'quiz' && previewData) {
+    allVersions.push({
+      id: 'parent',
+      label: `Mã đề ${previewData.examCode || 'Gốc / 001'}`,
+      quiz: previewData,
+      checked: selectedQuizIds.includes(previewData._id)
+    });
+    if (previewData.variants && Array.isArray(previewData.variants)) {
+      [...previewData.variants]
+        .sort((a: any, b: any) => (a.examCode || '').localeCompare(b.examCode || ''))
+        .forEach((v: any) => {
+          allVersions.push({
+            id: v._id,
+            label: `Mã đề ${v.examCode || 'N/A'}`,
+            quiz: v,
+            checked: selectedQuizIds.includes(v._id)
+          });
+        });
+    }
+  }
+
+  const currentQuizToShow = type === 'quiz'
+    ? (allVersions.find(v => v.id === activePreviewTab)?.quiz || previewData)
+    : previewData;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn max-h-[95vh] overflow-y-auto">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn lg:h-[85vh] lg:max-h-[850px] max-h-[95vh] overflow-y-auto lg:overflow-hidden relative">
         
+        {/* Absolute Close Button (X) */}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="absolute top-4 right-4 text-vpa-olive-light hover:text-vpa-red dark:text-vpa-sand/50 dark:hover:text-vpa-red transition-colors p-1.5 z-50 rounded-none border border-transparent hover:border-vpa-red/20 hover:bg-vpa-red/5"
+          title="Đóng"
+        >
+          <X size={18} weight="bold" />
+        </button>
+
         {/* Left Column: Form & Settings (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-vpa-olive-light/20 pb-6 lg:pb-0 lg:pr-6">
+        <div className="lg:col-span-5 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-vpa-olive-light/20 pb-6 lg:pb-0 lg:pr-6 lg:h-full lg:max-h-full lg:overflow-y-auto pr-1 min-h-0">
           <div>
             {/* Header decoration */}
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
@@ -351,6 +405,58 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Quiz Codes/Variants Selector */}
+            {type === 'quiz' && previewData && previewData.variants && previewData.variants.length > 0 && (
+              <div className="mb-5 p-3 border border-vpa-olive-light/25 bg-vpa-olive-light/5 space-y-2">
+                <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-1">
+                  Chọn mã đề thi muốn xuất bản
+                </label>
+                <div className="space-y-2">
+                  {/* Parent Quiz */}
+                  <label className="flex items-center space-x-2 cursor-pointer p-1.5 hover:bg-vpa-olive-light/10 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedQuizIds.includes(previewData._id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedQuizIds(prev => [...prev, previewData._id]);
+                        } else {
+                          setSelectedQuizIds(prev => prev.filter(id => id !== previewData._id));
+                        }
+                      }}
+                      className="w-4 h-4 accent-vpa-gold rounded-none cursor-pointer"
+                    />
+                    <span className="text-xs text-vpa-olive dark:text-vpa-sand">
+                      Mã đề {previewData.examCode || 'Gốc'}
+                    </span>
+                  </label>
+                  {/* Variants */}
+                  {[...previewData.variants]
+                    .sort((a: any, b: any) => (a.examCode || '').localeCompare(b.examCode || ''))
+                    .map((v: any) => (
+                      <label key={v._id} className="flex items-center space-x-2 cursor-pointer p-1.5 hover:bg-vpa-olive-light/10 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedQuizIds.includes(v._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedQuizIds(prev => [...prev, v._id]);
+                            } else {
+                              setSelectedQuizIds(prev => prev.filter(id => id !== v._id));
+                            }
+                          }}
+                          className="w-4 h-4 accent-vpa-gold rounded-none cursor-pointer"
+                        />
+                        <span className="text-xs text-vpa-olive dark:text-vpa-sand">
+                          Mã đề {v.examCode || 'N/A'}
+                        </span>
+                      </label>
+                    ))
+                  }
+                </div>
+              </div>
+            )}
 
             {/* Page Setup: Only show for Docx/PDF */}
             {(format === 'docx' || format === 'pdf') && (
@@ -542,16 +648,11 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-6">
+          <div className="flex justify-end border-t border-vpa-olive-light/20 pt-4 mt-6">
             <button
-              onClick={onCancel}
-              className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
-            >
-              Hủy bỏ
-            </button>
-            <button
+              type="button"
               onClick={handleConfirmClick}
-              className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
+              className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold w-full md:w-auto text-center"
             >
               {format === 'pdf' ? 'Xác nhận in PDF' : 'Xác nhận tải tệp'}
             </button>
@@ -559,15 +660,39 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
         </div>
 
         {/* Right Column: Premium Document Live Preview (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col">
-          <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2">
+        <div className="lg:col-span-7 flex flex-col lg:h-full lg:max-h-full min-h-0">
+          <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 mb-2 flex-shrink-0">
             Xem trước
           </label>
+          
+          {type === 'quiz' && allVersions.length > 1 && (
+            <div className="flex border-b border-vpa-olive-light/20 mb-3 bg-vpa-sand/20 dark:bg-vpa-dark/20 p-1 gap-1.5 flex-wrap flex-shrink-0">
+              {allVersions.map((ver) => (
+                <button
+                  key={ver.id}
+                  type="button"
+                  onClick={() => setActivePreviewTab(ver.id)}
+                  className={`px-3 py-1 text-[10px] font-bold transition-all uppercase rounded-none flex items-center space-x-1.5 ${
+                    activePreviewTab === ver.id
+                      ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark shadow'
+                      : 'text-vpa-olive-light dark:text-vpa-sand hover:bg-vpa-sand-light dark:hover:bg-vpa-dark-card/50'
+                  } ${!ver.checked ? 'opacity-50' : ''}`}
+                >
+                  <span>{ver.label}</span>
+                  {!ver.checked && (
+                    <span className="text-[8px] bg-gray-400 text-white dark:bg-gray-700 px-1 py-0.2 lowercase font-normal">
+                      (không xuất)
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
           
           {(format === 'xlsx' || format === 'csv') ? (
             renderSpreadsheetPreview()
           ) : (
-            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed min-h-[350px] max-h-[550px] overflow-y-auto select-none rounded shadow-inner text-black flex justify-center items-start">
+            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed flex-1 overflow-y-auto select-none rounded shadow-inner text-black flex justify-center items-start min-h-[350px]">
               <div 
                 className={`bg-white border border-gray-200 shadow-md transition-all duration-300 ${
                   orientation === 'landscape' 
@@ -601,7 +726,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 </div>
 
                 {/* Dynamic Content block */}
-                {type === 'quiz' ? renderQuizPreviewContent() : renderResultsPreviewContent()}
+                {type === 'quiz' ? renderQuizPreviewContent(currentQuizToShow) : renderResultsPreviewContent()}
 
                 {/* Signature block preview */}
                 {showSignature && (

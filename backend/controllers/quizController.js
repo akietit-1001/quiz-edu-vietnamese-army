@@ -50,14 +50,91 @@ const sanitizeQuizPayload = (category, questions) => {
 };
 
 // 1. CREATE MANUAL QUIZ
+// Helper function to shuffle array in place
+const shuffleArray = (array) => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
+// Helper function to shuffle questions and options
+const shuffleQuestionsAndOptions = (questions) => {
+  // Deep copy questions array
+  const shuffled = JSON.parse(JSON.stringify(questions));
+
+  // 1. Shuffle the order of questions
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // 2. Shuffle options for each multiple-choice question
+  shuffled.forEach(q => {
+    if (q.questionType === 'multiple-choice' && q.options && q.options.length > 0) {
+      const originalOptions = [...q.options];
+      const originalCorrect = [...q.correctAnswers];
+
+      // Store pairs of (option, originalIndex)
+      const optionsWithIndex = originalOptions.map((opt, idx) => ({ opt, originalIndex: idx }));
+      
+      // Shuffle choices
+      const shuffledOptionsWithIndex = shuffleArray(optionsWithIndex);
+      
+      // Assign shuffled options
+      q.options = shuffledOptionsWithIndex.map(x => x.opt);
+
+      // Re-map correct answers
+      const originalCorrectValues = originalCorrect.map(idxStr => originalOptions[parseInt(idxStr)]);
+      const newCorrectAnswers = [];
+      shuffledOptionsWithIndex.forEach((item, newIdx) => {
+        if (originalCorrectValues.includes(item.opt)) {
+          newCorrectAnswers.push(String(newIdx));
+        }
+      });
+      q.correctAnswers = newCorrectAnswers;
+    }
+  });
+
+  return shuffled;
+};
+
 export const createQuiz = async (req, res) => {
   try {
-    const { title, description, category, duration, passingScorePercent, questions, isPublic, documentHash } = req.body;
+    const { title, description, category, duration, passingScorePercent, questions, isPublic, documentHash, numCodes } = req.body;
 
     const { finalCategory, sanitizedQuestions } = sanitizeQuizPayload(category, questions);
 
-    const quiz = await Quiz.create({
-      title,
+    const codesCount = parseInt(numCodes) || 1;
+    
+    if (codesCount <= 1) {
+      // Create a single standard quiz without code
+      const quiz = await Quiz.create({
+        title,
+        description,
+        category: finalCategory,
+        creatorId: req.user.id,
+        duration,
+        passingScorePercent,
+        questions: sanitizedQuestions,
+        isPublic,
+        documentHash: documentHash || null
+      });
+
+      return res.status(201).json({
+        message: 'Đăng đề thi mới thành công',
+        quiz
+      });
+    }
+
+    // If codesCount is 2, 3, or 4
+    const finalCodesCount = Math.min(4, Math.max(2, codesCount));
+    
+    // Create the first version (Mã đề 001) as the master/parent quiz
+    const firstQuiz = await Quiz.create({
+      title: `${title} - Mã đề 001`,
       description,
       category: finalCategory,
       creatorId: req.user.id,
@@ -65,16 +142,40 @@ export const createQuiz = async (req, res) => {
       passingScorePercent,
       questions: sanitizedQuestions,
       isPublic,
-      documentHash: documentHash || null
+      documentHash: documentHash || null,
+      examCode: '001'
     });
 
+    const createdQuizzes = [firstQuiz];
+
+    for (let i = 2; i <= finalCodesCount; i++) {
+      const codeStr = String(i).padStart(3, '0');
+      const shuffledQuestions = shuffleQuestionsAndOptions(sanitizedQuestions);
+      
+      const variantQuiz = await Quiz.create({
+        title: `${title} - Mã đề ${codeStr}`,
+        description: description || '',
+        category: finalCategory,
+        creatorId: req.user.id,
+        duration,
+        passingScorePercent,
+        questions: shuffledQuestions,
+        isPublic,
+        documentHash: documentHash || null,
+        parentQuizId: firstQuiz._id,
+        examCode: codeStr
+      });
+      createdQuizzes.push(variantQuiz);
+    }
+
     res.status(201).json({
-      message: 'Đăng đề thi mới thành công',
-      quiz
+      message: `Tạo thành công ${finalCodesCount} mã đề thi (${createdQuizzes.map(q => q.examCode).join(', ')})!`,
+      quiz: firstQuiz,
+      versions: createdQuizzes.slice(1)
     });
   } catch (error) {
     console.error('Lỗi tạo đề thi:', error.message);
-    res.status(500).json({ message: 'Lỗi máy chủ khi tạo đề thi' });
+    res.status(500).json({ message: 'Lỗi máy chủ khi tạo đề thi: ' + error.message });
   }
 };
 
@@ -182,6 +283,9 @@ export const deleteQuiz = async (req, res) => {
     if (quiz.creatorId.toString() !== currentUser.id && currentUser.role === 'user') {
       return res.status(403).json({ message: 'Đồng chí không có quyền xóa đề thi này' });
     }
+
+    // Delete all child variant codes associated with this parent quiz
+    await Quiz.deleteMany({ parentQuizId: id });
 
     await Quiz.findByIdAndDelete(id);
     res.status(200).json({ message: 'Đã xóa đề thi khỏi hệ thống thành công' });

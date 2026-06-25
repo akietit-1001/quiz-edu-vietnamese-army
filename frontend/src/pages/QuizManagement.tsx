@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, TrashIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon } from '@phosphor-icons/react';
+import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
 
 interface QuizManagementProps {
@@ -17,6 +17,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [currentTab, setCurrentTab] = useState<'quizzes' | 'bank'>('quizzes');
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   const [viewingQuiz, setViewingQuiz] = useState<any | null>(null);
+  const [activeVersionTab, setActiveVersionTab] = useState<string>('parent');
 
   // VPA Export configurations
   const [showExportPopup, setShowExportPopup] = useState(false);
@@ -35,13 +36,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     marginRight?: number;
     mirrorMargins?: boolean;
     orientation?: 'portrait' | 'landscape';
-    quiz: any;
+    quizzes: any[];
   } | null>(null);
 
   useEffect(() => {
     if (printData) {
       const originalTitle = document.title;
-      const cleanTitle = (printData.quiz?.title || 'De_thi')
+      const firstQuiz = printData.quizzes && printData.quizzes.length > 0 ? printData.quizzes[0] : null;
+      const cleanTitle = (firstQuiz?.title || 'De_thi')
         .replace(/[^a-zA-Z0-9\s-_]/g, '')
         .trim()
         .replace(/\s+/g, '_');
@@ -84,6 +86,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [isPublic, setIsPublic] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
   const [documentHash, setDocumentHash] = useState<string | null>(null);
+  const [numCodes, setNumCodes] = useState<number>(1);
 
   // Import state
   const [importTitle, setImportTitle] = useState('');
@@ -92,18 +95,64 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [importPassingScore, setImportPassingScore] = useState(50);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeDropdownQuizId, setActiveDropdownQuizId] = useState<string | null>(null);
 
   // Question Bank state
   const [bankQuestions, setBankQuestions] = useState<any[]>([]);
   const [searchBank, setSearchBank] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [bankPage, setBankPage] = useState(1);
   const bankPageSize = 10;
 
-  const totalBankPages = Math.ceil(bankQuestions.length / bankPageSize);
+  // Sorting state for Question Bank
+  const [bankSortField, setBankSortField] = useState<string>('createdAt');
+  const [bankSortOrder, setBankSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleBankSort = (field: string) => {
+    if (bankSortField === field) {
+      setBankSortOrder(bankSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setBankSortField(field);
+      setBankSortOrder('asc');
+    }
+  };
+
+  const sortedBankQuestions = [...bankQuestions].sort((a, b) => {
+    let aVal: any = a[bankSortField];
+    let bVal: any = b[bankSortField];
+
+    if (bankSortField === 'author') {
+      aVal = a.creatorId?.fullName || '';
+      bVal = b.creatorId?.fullName || '';
+    } else if (bankSortField === 'difficulty') {
+      const difficultyOrder: { [key: string]: number } = {
+        'Dễ': 1,
+        'Trung bình': 2,
+        'Khó': 3
+      };
+      aVal = difficultyOrder[a.difficulty] || 99;
+      bVal = difficultyOrder[b.difficulty] || 99;
+    }
+
+    if (aVal === undefined || aVal === null) aVal = '';
+    if (bVal === undefined || bVal === null) bVal = '';
+
+    if (typeof aVal === 'string') {
+      return bankSortOrder === 'asc' 
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    } else {
+      return bankSortOrder === 'asc'
+        ? (aVal > bVal ? 1 : -1)
+        : (bVal > aVal ? 1 : -1);
+    }
+  });
+
+  const totalBankPages = Math.ceil(sortedBankQuestions.length / bankPageSize);
   const startIndex = (bankPage - 1) * bankPageSize;
-  const displayedBankQuestions = bankQuestions.slice(startIndex, startIndex + bankPageSize);
+  const displayedBankQuestions = sortedBankQuestions.slice(startIndex, startIndex + bankPageSize);
 
   // Quizzes list states for search and pagination
   const [searchQuiz, setSearchQuiz] = useState('');
@@ -111,17 +160,77 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [quizPage, setQuizPage] = useState(1);
   const quizPageSize = 10;
 
+  // Sorting state for Quizzes
+  const [quizSortField, setQuizSortField] = useState<string>('createdAt');
+  const [quizSortOrder, setQuizSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleQuizSort = (field: string) => {
+    if (quizSortField === field) {
+      setQuizSortOrder(quizSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setQuizSortField(field);
+      setQuizSortOrder('asc');
+    }
+  };
+
+  const renderSortIndicator = (field: string, currentField: string, order: 'asc' | 'desc') => {
+    if (currentField !== field) {
+      return <span className="inline-block ml-1 opacity-30 select-none cursor-pointer">↕</span>;
+    }
+    return (
+      <span className="inline-block ml-1 text-vpa-gold font-bold select-none">
+        {order === 'asc' ? '↑' : '↓'}
+      </span>
+    );
+  };
+
   const filteredQuizzes = quizzes.filter(quiz => {
+    const createdDateStr = quiz.createdAt ? new Date(quiz.createdAt).toLocaleDateString('vi-VN') : '';
+    const createdTimeStr = quiz.createdAt ? new Date(quiz.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+    const fullDateStr = `${createdTimeStr} ${createdDateStr}`;
+
     const matchSearch = quiz.title.toLowerCase().includes(searchQuiz.toLowerCase()) || 
                         (quiz.description || '').toLowerCase().includes(searchQuiz.toLowerCase()) ||
-                        (quiz.shareCode || '').toLowerCase().includes(searchQuiz.toLowerCase());
+                        (quiz.shareCode || '').toLowerCase().includes(searchQuiz.toLowerCase()) ||
+                        (quiz.creatorId?.fullName || '').toLowerCase().includes(searchQuiz.toLowerCase()) ||
+                        fullDateStr.includes(searchQuiz);
     const matchCategory = quizCategoryFilter ? quiz.category === quizCategoryFilter : true;
-    return matchSearch && matchCategory;
+    const isChild = !!quiz.parentQuizId;
+    return matchSearch && matchCategory && !isChild;
   });
 
-  const totalQuizPages = Math.ceil(filteredQuizzes.length / quizPageSize);
+  const sortedQuizzes = [...filteredQuizzes].sort((a, b) => {
+    let aVal: any = a[quizSortField];
+    let bVal: any = b[quizSortField];
+
+    if (quizSortField === 'author') {
+      aVal = a.creatorId?.fullName || '';
+      bVal = b.creatorId?.fullName || '';
+    } else if (quizSortField === 'questionsCount') {
+      aVal = a.questions?.length || 0;
+      bVal = b.questions?.length || 0;
+    } else if (quizSortField === 'duration') {
+      aVal = a.duration || 0;
+      bVal = b.duration || 0;
+    }
+
+    if (aVal === undefined || aVal === null) aVal = '';
+    if (bVal === undefined || bVal === null) bVal = '';
+
+    if (typeof aVal === 'string') {
+      return quizSortOrder === 'asc' 
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    } else {
+      return quizSortOrder === 'asc'
+        ? (aVal > bVal ? 1 : -1)
+        : (bVal > aVal ? 1 : -1);
+    }
+  });
+
+  const totalQuizPages = Math.ceil(sortedQuizzes.length / quizPageSize);
   const startQuizIndex = (quizPage - 1) * quizPageSize;
-  const displayedQuizzes = filteredQuizzes.slice(startQuizIndex, startQuizIndex + quizPageSize);
+  const displayedQuizzes = sortedQuizzes.slice(startQuizIndex, startQuizIndex + quizPageSize);
 
   // Single bank question state (for adding to bank)
   const [bankQText, setBankQText] = useState('');
@@ -152,7 +261,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       setBankPage(1);
       fetchBankQuestions();
     }
-  }, [currentTab, categoryFilter, difficultyFilter, searchBank]);
+  }, [currentTab, categoryFilter, difficultyFilter, typeFilter, searchBank]);
 
   useEffect(() => {
     setQuizPage(1);
@@ -193,6 +302,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         params: {
           category: categoryFilter || undefined,
           difficulty: difficultyFilter || undefined,
+          questionType: typeFilter || undefined,
           search: searchBank || undefined
         }
       });
@@ -252,7 +362,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         passingScorePercent: passingScore,
         isPublic,
         questions,
-        documentHash
+        documentHash,
+        numCodes: editingQuizId ? 1 : numCodes
       };
 
       if (editingQuizId) {
@@ -287,6 +398,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   const handleViewQuiz = (quiz: any) => {
     setViewingQuiz(quiz);
+    setActiveVersionTab('parent');
   };
 
   const handleExportConfirm = async (vpaData: {
@@ -304,9 +416,24 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     marginRight: number;
     mirrorMargins: boolean;
     orientation?: 'portrait' | 'landscape';
+    selectedQuizIds?: string[];
   }) => {
     setShowExportPopup(false);
     if (!selectedQuizForExport) return;
+
+    // Resolve list of quizzes to export
+    const targetIds = vpaData.selectedQuizIds && vpaData.selectedQuizIds.length > 0
+      ? vpaData.selectedQuizIds
+      : [selectedQuizForExport._id];
+
+    // Find the actual quiz objects for each ID
+    const quizListToExport = targetIds.map((id: string) => {
+      if (id === selectedQuizForExport._id) return selectedQuizForExport;
+      const foundVariant = quizzes.find((q: any) => q._id === id);
+      return foundVariant || null;
+    }).filter(Boolean);
+
+    if (quizListToExport.length === 0) return;
 
     if (vpaData.format === 'pdf') {
       setPrintData({
@@ -323,36 +450,44 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         marginRight: vpaData.marginRight,
         mirrorMargins: vpaData.mirrorMargins,
         orientation: vpaData.orientation,
-        quiz: selectedQuizForExport
+        quizzes: quizListToExport
       });
       return;
     }
 
     try {
-      const response = await axios.get(`/api/quizzes/${selectedQuizForExport._id}/export`, {
-        params: {
-          upperUnit: vpaData.upperUnit,
-          currentUnit: vpaData.currentUnit,
-          province: vpaData.province,
-          position: vpaData.position,
-          showSignature: vpaData.showSignature,
-          signerRank: vpaData.signerRank,
-          signerName: vpaData.signerName,
-          marginTop: vpaData.marginTop,
-          marginBottom: vpaData.marginBottom,
-          marginLeft: vpaData.marginLeft,
-          marginRight: vpaData.marginRight,
-          orientation: vpaData.orientation
-        },
-        responseType: 'blob'
-      });
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.setAttribute('download', `De_thi_${selectedQuizForExport.shareCode}.docx`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+      for (let i = 0; i < quizListToExport.length; i++) {
+        const currentQuiz = quizListToExport[i];
+        const response = await axios.get(`/api/quizzes/${currentQuiz._id}/export`, {
+          params: {
+            upperUnit: vpaData.upperUnit,
+            currentUnit: vpaData.currentUnit,
+            province: vpaData.province,
+            position: vpaData.position,
+            showSignature: vpaData.showSignature,
+            signerRank: vpaData.signerRank,
+            signerName: vpaData.signerName,
+            marginTop: vpaData.marginTop,
+            marginBottom: vpaData.marginBottom,
+            marginLeft: vpaData.marginLeft,
+            marginRight: vpaData.marginRight,
+            orientation: vpaData.orientation
+          },
+          responseType: 'blob'
+        });
+        const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.setAttribute('download', `De_thi_${currentQuiz.shareCode || currentQuiz.examCode || 'code'}.docx`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+
+        if (i < quizListToExport.length - 1) {
+          await delay(600); // 600ms gap to prevent browser blocking multiple downloads
+        }
+      }
     } catch (err) {
       await window.showAlert('Không thể tải tệp xuất bản đề thi.', 'Lỗi xuất đề thi');
     }
@@ -660,6 +795,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setIsPublic(false);
     setQuestions([]);
     setDocumentHash(null);
+    setNumCodes(1);
   };
 
   const resetBankQForm = () => {
@@ -811,11 +947,27 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                      <th className="py-3 px-4">Tên đề thi</th>
-                      <th className="py-3 px-4">Chuyên ngành</th>
-                      <th className="py-3 px-4">Thông tin đề</th>
-                      <th className="py-3 px-4">Trạng thái</th>
-                      <th className="py-3 px-4">Mã chia sẻ</th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('title')}>
+                        Tên đề thi {renderSortIndicator('title', quizSortField, quizSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('category')}>
+                        Chuyên ngành {renderSortIndicator('category', quizSortField, quizSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('duration')}>
+                        Thông tin đề {renderSortIndicator('duration', quizSortField, quizSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('author')}>
+                        Đồng chí soạn {renderSortIndicator('author', quizSortField, quizSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('createdAt')}>
+                        Thời gian tạo {renderSortIndicator('createdAt', quizSortField, quizSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('isPublic')}>
+                        Trạng thái {renderSortIndicator('isPublic', quizSortField, quizSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('shareCode')}>
+                        Mã chia sẻ {renderSortIndicator('shareCode', quizSortField, quizSortOrder)}
+                      </th>
                       <th className="py-3 px-4 text-right">Thao tác</th>
                     </tr>
                   </thead>
@@ -831,6 +983,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           </td>
                           <td className="py-4 px-4">
                             <div className="w-32 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-24 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="w-24 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="w-16 h-4 bg-vpa-olive-light/15 dark:bg-vpa-gold/10 rounded"></div>
@@ -851,6 +1009,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{quiz.title}</td>
                           <td className="py-3 px-4">{quiz.category}</td>
                           <td className="py-3 px-4">{quiz.questions.length} câu / {quiz.duration} phút ({quiz.passingScorePercent}% Đạt)</td>
+                          <td className="py-3 px-4 font-bold text-vpa-olive/80 dark:text-vpa-sand/80">{quiz.creatorId?.fullName || 'Hệ thống'}</td>
+                          <td className="py-3 px-4 font-mono text-[11px]">
+                            {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('vi-VN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            }) : 'N/A'}
+                          </td>
                           <td className="py-3 px-4">
                             {quiz.isPublic ? (
                               <span className="text-green-600 font-bold">CÔNG KHAI</span>
@@ -859,34 +1027,59 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                             )}
                           </td>
                           <td className="py-3 px-4 font-mono font-bold text-vpa-gold">{quiz.shareCode}</td>
-                          <td className="py-3 px-4 text-right flex justify-end space-x-2">
-                            <button
-                              type="button"
-                              onClick={() => handleViewQuiz(quiz)}
-                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
-                            >
-                              Xem đề
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleEditQuiz(quiz)}
-                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
-                            >
-                              Sửa đề
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setSelectedQuizForExport(quiz); setShowExportPopup(true); }}
-                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-bold"
-                            >
-                              Xuất bản
-                            </button>
-                            <button
-                              onClick={() => handleDeleteQuiz(quiz._id)}
-                              className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
-                            >
-                              <TrashIcon size={14} />
-                            </button>
+                          <td className="py-3 px-4 text-right relative">
+                            <div className="inline-block text-left">
+                              <button
+                                type="button"
+                                onClick={() => setActiveDropdownQuizId(activeDropdownQuizId === quiz._id ? null : quiz._id)}
+                                className="px-3 py-1.5 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-mono font-bold tracking-wider transition-colors inline-flex items-center space-x-1"
+                              >
+                                <span>Thao tác</span>
+                                <span className="text-[8px]">▼</span>
+                              </button>
+                              
+                              {activeDropdownQuizId === quiz._id && (
+                                <>
+                                  {/* Transparent click catcher backdrop */}
+                                  <div 
+                                    className="fixed inset-0 z-10 cursor-default" 
+                                    onClick={() => setActiveDropdownQuizId(null)}
+                                  />
+                                  
+                                  {/* Dropdown Menu Box */}
+                                  <div className="absolute right-0 mt-1.5 w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-20 rounded-none flex flex-col py-1 animate-fadeIn">
+                                    <button
+                                      type="button"
+                                      onClick={() => { setActiveDropdownQuizId(null); handleViewQuiz(quiz); }}
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                    >
+                                      Xem đề
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                    >
+                                      Sửa đề
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setActiveDropdownQuizId(null); setSelectedQuizForExport(quiz); setShowExportPopup(true); }}
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                    >
+                                      Xuất bản
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz._id); }}
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                                    >
+                                      Xóa đề
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1037,6 +1230,25 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     <label htmlFor="isPublic" className="text-xs font-semibold text-vpa-olive dark:text-vpa-sand">Công khai đề thi cho ôn luyện</label>
                   </div>
                 </div>
+
+                {!editingQuizId && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-vpa-olive-light/20 pt-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Xáo trộn và sinh nhiều mã đề thi (Tối đa 4 mã đề)</label>
+                      <select
+                        value={numCodes}
+                        onChange={e => setNumCodes(parseInt(e.target.value))}
+                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand font-bold"
+                      >
+                        <option value={1} className="dark:bg-vpa-dark">Không xáo trộn (Chỉ tạo 1 đề)</option>
+                        <option value={2} className="dark:bg-vpa-dark">Tạo 2 mã đề</option>
+                        <option value={3} className="dark:bg-vpa-dark">Tạo 3 mã đề</option>
+                        <option value={4} className="dark:bg-vpa-dark">Tạo 4 mã đề</option>
+                      </select>
+                      <span className="text-[9px] text-gray-400 mt-1 block">Hệ thống sẽ tự động xáo trộn ngẫu nhiên thứ tự câu hỏi và thứ tự đáp án (A, B, C, D) cho từng mã đề thi khi đồng chí bấm Lưu.</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Soạn danh sách câu hỏi */}
@@ -1214,7 +1426,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   type="submit"
                   className="px-6 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright"
                 >
-                  Lưu đề thi quân sự
+                  Lưu đề thi
                 </button>
               </div>
             </form>
@@ -1547,7 +1759,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       Hệ thống đọc tài liệu và tạo câu hỏi trắc nghiệm.
                     </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành học tập</label>
                         <select
@@ -1559,7 +1771,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Số lượng câu hỏi cần sinh</label>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Số lượng câu hỏi cần tạo</label>
                         <input
                           type="number"
                           required
@@ -1569,6 +1781,19 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           onChange={e => setAiNumQuestions(parseInt(e.target.value))}
                           className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tạo nhiều mã đề thi</label>
+                        <select
+                          value={numCodes}
+                          onChange={e => setNumCodes(parseInt(e.target.value))}
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand font-bold"
+                        >
+                          <option value={1} className="dark:bg-vpa-dark">Không xáo trộn (Chỉ 1 đề)</option>
+                          <option value={2} className="dark:bg-vpa-dark">Tạo 2 mã đề</option>
+                          <option value={3} className="dark:bg-vpa-dark">Tạo 3 mã đề</option>
+                          <option value={4} className="dark:bg-vpa-dark">Tạo 4 mã đề</option>
+                        </select>
                       </div>
                   </div>
 
@@ -1710,6 +1935,17 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <option value="">Tất cả độ khó</option>
                   {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
+
+                <select
+                  value={typeFilter}
+                  onChange={e => setTypeFilter(e.target.value)}
+                  className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
+                >
+                  <option value="">Tất cả dạng câu hỏi</option>
+                  <option value="multiple-choice">Trắc nghiệm</option>
+                  <option value="true-false">Đúng / Sai</option>
+                  <option value="fill-in-the-blank">Điền vào ô trống</option>
+                </select>
               </div>
 
               <button
@@ -1729,10 +1965,18 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                      <th className="py-3 px-4 w-1/2">Nội dung câu hỏi</th>
-                      <th className="py-3 px-4">Chuyên ngành</th>
-                      <th className="py-3 px-4">Độ khó</th>
-                      <th className="py-3 px-4">Đồng chí soạn</th>
+                      <th className="py-3 px-4 w-1/2 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('questionText')}>
+                        Nội dung câu hỏi {renderSortIndicator('questionText', bankSortField, bankSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('category')}>
+                        Chuyên ngành {renderSortIndicator('category', bankSortField, bankSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('difficulty')}>
+                        Độ khó {renderSortIndicator('difficulty', bankSortField, bankSortOrder)}
+                      </th>
+                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('author')}>
+                        Đồng chí soạn {renderSortIndicator('author', bankSortField, bankSortOrder)}
+                      </th>
                       <th className="py-3 px-4 text-right">Thao tác</th>
                     </tr>
                   </thead>
@@ -2048,87 +2292,124 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       )}
 
       {/* --- C. VIEW QUIZ DETAILS MODAL --- */}
-      {viewingQuiz && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-4xl border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none max-h-[85vh] overflow-y-auto relative">
-            
-            {/* Header */}
-            <div className="flex justify-between items-center border-b border-vpa-olive-light pb-3 mb-6">
-              <div>
-                <span className="text-[10px] font-mono text-vpa-gold uppercase font-bold mr-2">Chi tiết đề thi</span>
-                <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand inline-block">
-                  {viewingQuiz.title}
-                </h3>
-              </div>
-              <button
-                onClick={() => setViewingQuiz(null)}
-                className="text-xs uppercase font-bold hover:underline text-vpa-red"
-              >
-                Đóng lại
-              </button>
-            </div>
+      {viewingQuiz && (() => {
+        const variants = quizzes.filter((q: any) => q.parentQuizId === viewingQuiz._id);
+        const sortedVariants = [...variants].sort((a: any, b: any) => (a.examCode || '').localeCompare(b.examCode || ''));
+        const allVersions = [
+          { id: 'parent', label: viewingQuiz.examCode ? `Mã đề ${viewingQuiz.examCode}` : 'Đề gốc / 001', quiz: viewingQuiz },
+          ...sortedVariants.map((v: any) => ({
+            id: v._id,
+            label: `Mã đề ${v.examCode || '001'}`,
+            quiz: v
+          }))
+        ];
+        const currentQuizToShow = allVersions.find(v => v.id === activeVersionTab)?.quiz || viewingQuiz;
 
-            {/* General parameters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 pb-6 border-b border-dashed border-vpa-olive-light/30 text-xs">
-              <div><span className="text-gray-500 uppercase">Chuyên ngành:</span> <span className="font-bold">{viewingQuiz.category}</span></div>
-              <div><span className="text-gray-500 uppercase">Thời gian làm bài:</span> <span className="font-bold">{viewingQuiz.duration} phút</span></div>
-              <div><span className="text-gray-500 uppercase">Điểm vượt qua:</span> <span className="font-bold">{viewingQuiz.passingScorePercent}%</span></div>
-            </div>
-
-            {/* Questions list */}
-            <div className="space-y-6">
-              {viewingQuiz.questions.map((q: any, qIdx: number) => (
-                <div key={q._id || qIdx} className="border border-vpa-olive-light/30 bg-vpa-sand/35 dark:bg-vpa-dark/30 p-4">
-                  <h4 className="text-xs font-bold text-vpa-olive dark:text-vpa-sand mb-3 leading-relaxed">
-                    Câu {qIdx + 1}: {q.questionText}
-                  </h4>
-
-                  {q.questionType === 'multiple-choice' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-4 mb-3 text-xs">
-                      {q.options.map((opt: string, oIdx: number) => {
-                        const letter = String.fromCharCode(65 + oIdx);
-                        const isCorrect = q.correctAnswers.includes(oIdx.toString());
-
-                        return (
-                          <div
-                            key={oIdx}
-                            className={`p-2 border ${
-                              isCorrect 
-                                ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400 font-bold' 
-                                : 'border-vpa-olive-light/20 text-gray-500'
-                            }`}
-                          >
-                            {letter}. {opt}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {q.questionType === 'true-false' && (
-                    <div className="flex space-x-6 pl-4 mb-3 text-xs">
-                      <div className={`p-2 px-4 border ${q.correctAnswers.includes('0') ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400 font-bold' : 'border-vpa-olive-light/20'}`}>Đúng</div>
-                      <div className={`p-2 px-4 border ${q.correctAnswers.includes('1') ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400 font-bold' : 'border-vpa-olive-light/20'}`}>Sai</div>
-                    </div>
-                  )}
-
-                  {q.questionType === 'fill-in-the-blank' && (
-                    <div className="pl-4 mb-3 text-xs">
-                      <span className="text-gray-500">Đáp án điền:</span> <span className="font-bold text-green-700 dark:text-green-400">{q.correctAnswers[0]}</span>
-                    </div>
-                  )}
-
-                  {q.explanation && (
-                    <div className="mt-2 text-[10px] text-gray-400 italic">
-                      Giải thích: {q.explanation}
-                    </div>
-                  )}
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-4xl h-[90vh] max-h-[900px] border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none flex flex-col relative">
+              
+              {/* Header */}
+              <div className="flex justify-between items-center border-b border-vpa-olive-light pb-3 mb-6 flex-shrink-0">
+                <div>
+                  <span className="text-[10px] font-mono text-vpa-gold uppercase font-bold mr-2">Chi tiết đề thi</span>
+                  <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand inline-block">
+                    {currentQuizToShow.title}
+                  </h3>
                 </div>
-              ))}
+                <button
+                  onClick={() => setViewingQuiz(null)}
+                  className="text-xs uppercase font-bold hover:underline text-vpa-red"
+                >
+                  Đóng lại
+                </button>
+              </div>
+
+              {/* Version Tabs Selection (Only if variants exist) */}
+              {variants.length > 0 && (
+                <div className="flex border-b border-vpa-olive-light/20 mb-6 bg-vpa-sand/20 dark:bg-vpa-dark/20 p-1.5 gap-2 flex-shrink-0">
+                  {allVersions.map((ver) => (
+                    <button
+                      key={ver.id}
+                      type="button"
+                      onClick={() => setActiveVersionTab(ver.id)}
+                      className={`px-4 py-1.5 text-xs font-bold transition-all uppercase rounded-none ${
+                        activeVersionTab === ver.id
+                          ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark shadow'
+                          : 'text-vpa-olive-light dark:text-vpa-sand hover:bg-vpa-sand-light dark:hover:bg-vpa-dark-card/50'
+                      }`}
+                    >
+                      {ver.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* General parameters */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 pb-6 border-b border-dashed border-vpa-olive-light/30 text-xs flex-shrink-0">
+                <div><span className="text-gray-500 uppercase">Chuyên ngành:</span> <span className="font-bold">{currentQuizToShow.category}</span></div>
+                <div><span className="text-gray-500 uppercase">Thời gian làm bài:</span> <span className="font-bold">{currentQuizToShow.duration} phút</span></div>
+                <div><span className="text-gray-500 uppercase">Điểm vượt qua:</span> <span className="font-bold">{currentQuizToShow.passingScorePercent}%</span></div>
+                {currentQuizToShow.examCode && (
+                  <div><span className="text-gray-500 uppercase">Ký hiệu mã đề:</span> <span className="font-bold text-vpa-gold font-mono">{currentQuizToShow.examCode}</span></div>
+                )}
+              </div>
+
+              {/* Questions list */}
+              <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+                {currentQuizToShow.questions.map((q: any, qIdx: number) => (
+                  <div key={q._id || qIdx} className="border border-vpa-olive-light/30 bg-vpa-sand/35 dark:bg-vpa-dark/30 p-4">
+                    <h4 className="text-xs font-bold text-vpa-olive dark:text-vpa-sand mb-3 leading-relaxed">
+                      Câu {qIdx + 1}: {q.questionText}
+                    </h4>
+
+                    {q.questionType === 'multiple-choice' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-4 mb-3 text-xs">
+                        {q.options.map((opt: string, oIdx: number) => {
+                          const letter = String.fromCharCode(65 + oIdx);
+                          const isCorrect = q.correctAnswers.includes(oIdx.toString());
+
+                          return (
+                            <div
+                              key={oIdx}
+                              className={`p-2 border ${
+                                isCorrect 
+                                  ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400 font-bold' 
+                                  : 'border-vpa-olive-light/20 text-gray-500'
+                              }`}
+                            >
+                              {letter}. {opt}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {q.questionType === 'true-false' && (
+                      <div className="flex space-x-6 pl-4 mb-3 text-xs">
+                        <div className={`p-2 px-4 border ${q.correctAnswers.includes('0') ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400 font-bold' : 'border-vpa-olive-light/20'}`}>Đúng</div>
+                        <div className={`p-2 px-4 border ${q.correctAnswers.includes('1') ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400 font-bold' : 'border-vpa-olive-light/20'}`}>Sai</div>
+                      </div>
+                    )}
+
+                    {q.questionType === 'fill-in-the-blank' && (
+                      <div className="pl-4 mb-3 text-xs">
+                        <span className="text-gray-500">Đáp án điền:</span> <span className="font-bold text-green-700 dark:text-green-400">{q.correctAnswers[0]}</span>
+                      </div>
+                    )}
+
+                    {q.explanation && (
+                      <div className="mt-2 text-[10px] text-gray-400 italic">
+                        Giải thích: {q.explanation}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* VPA Output custom settings popup */}
       <VPAExportPopup
@@ -2138,7 +2419,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         defaultRank={user?.rank}
         defaultName={user?.fullName}
         type="quiz"
-        previewData={selectedQuizForExport}
+        previewData={
+          selectedQuizForExport
+            ? {
+                ...selectedQuizForExport,
+                variants: quizzes.filter((q: any) => q.parentQuizId === selectedQuizForExport._id)
+              }
+            : null
+        }
         onCancel={() => { setShowExportPopup(false); setSelectedQuizForExport(null); }}
         onConfirm={handleExportConfirm}
       />
@@ -2188,73 +2476,93 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 }
               `}
 
+              .print-page-break {
+                page-break-after: always;
+                box-sizing: border-box;
+                width: 100%;
+              }
+
+              .print-page-break:last-child {
+                page-break-after: avoid;
+              }
+
               body {
                 background: white;
                 color: black;
               }
             }
           `}} />
-          {/* Header */}
-          <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
-            <div className="text-center w-[38%] font-serif">
-              <p className="uppercase font-serif">{printData.upperUnit}</p>
-              <p className="font-bold uppercase font-serif">{printData.currentUnit}</p>
-              <p className="font-bold mt-0.5">---------</p>
-            </div>
-            <div className="text-center w-[58%] font-serif">
-              <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
-                Độc lập - Tự do - Hạnh phúc
-              </p>
-              <p className="italic mt-1.5 font-serif">
-                {printData.province}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
-              </p>
-            </div>
-          </div>
 
-          {/* Title */}
-          <div className="text-center my-6 font-serif">
-            <h2 className="text-lg font-bold uppercase tracking-wide font-serif">ĐỀ THI TRẮC NGHIỆM</h2>
-            <p className="font-bold mt-1 font-serif">
-              MÔN: {printData.quiz?.title?.toUpperCase()}
-            </p>
-            <p className="italic mt-1 text-xs font-serif">
-              Thời gian làm bài: {printData.quiz?.duration || 45} phút (Không kể thời gian giao đề)
-            </p>
-          </div>
-
-          {/* Question List */}
-          <div className="space-y-4 my-6 font-serif">
-            {(printData.quiz?.questions || []).map((q: any, idx: number) => (
-              <div key={idx} className="font-serif text-sm">
-                <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
-                {q.questionType === 'fill-in-the-blank' ? (
-                  <p className="pl-8 italic text-gray-500 font-serif mt-1">
-                    Đáp án: ................................................................................................................
+          {printData.quizzes.map((quizItem: any, quizIdx: number) => (
+            <div key={quizItem._id || quizIdx} className="print-page-break">
+              {/* Header */}
+              <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
+                <div className="text-center w-[38%] font-serif">
+                  <p className="uppercase font-serif">{printData.upperUnit}</p>
+                  <p className="font-bold uppercase font-serif">{printData.currentUnit}</p>
+                  <p className="font-bold mt-0.5">---------</p>
+                </div>
+                <div className="text-center w-[58%] font-serif">
+                  <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+                  <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
+                    Độc lập - Tự do - Hạnh phúc
                   </p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-x-4 pl-8 mt-1 font-serif">
-                    {(q.options || []).map((opt: string, oIdx: number) => (
-                      <p key={oIdx} className="font-serif">
-                        {String.fromCharCode(65 + oIdx)}. {opt}
-                      </p>
-                    ))}
+                  <p className="italic mt-1.5 font-serif">
+                    {printData.province}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Title & Exam Code */}
+              <div className="text-center my-6 font-serif relative">
+                <h2 className="text-lg font-bold uppercase tracking-wide font-serif">ĐỀ THI TRẮC NGHIỆM</h2>
+                <p className="font-bold mt-1 font-serif">
+                  MÔN: {quizItem.title?.toUpperCase()}
+                </p>
+                <p className="italic mt-1 text-xs font-serif">
+                  Thời gian làm bài: {quizItem.duration || 45} phút (Không kể thời gian giao đề)
+                </p>
+                {quizItem.examCode && (
+                  <div className="absolute right-0 top-0 border border-black px-3 py-1 font-bold text-sm font-serif">
+                    Mã đề thi: {quizItem.examCode}
                   </div>
                 )}
               </div>
-            ))}
-          </div>
 
-          {/* Signatures */}
-          {printData.showSignature && (
-            <div className="flex justify-end mt-12 font-serif">
-              <div className="text-center w-[45%] font-serif">
-                <p className="font-bold uppercase font-serif text-sm">{printData.position}</p>
-                <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
-                <p className="font-bold text-sm font-serif">{printData.signerRank} {printData.signerName}</p>
+              {/* Question List */}
+              <div className="space-y-4 my-6 font-serif">
+                {(quizItem.questions || []).map((q: any, idx: number) => (
+                  <div key={idx} className="font-serif text-sm">
+                    <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
+                    {q.questionType === 'fill-in-the-blank' ? (
+                      <p className="pl-8 italic text-gray-500 font-serif mt-1">
+                        Đáp án: ................................................................................................................
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-x-4 pl-8 mt-1 font-serif">
+                        {(q.options || []).map((opt: string, oIdx: number) => (
+                          <p key={oIdx} className="font-serif">
+                            {String.fromCharCode(65 + oIdx)}. {opt}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+
+              {/* Signatures */}
+              {printData.showSignature && (
+                <div className="flex justify-end mt-12 font-serif">
+                  <div className="text-center w-[45%] font-serif">
+                    <p className="font-bold uppercase font-serif text-sm">{printData.position}</p>
+                    <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
+                    <p className="font-bold text-sm font-serif">{printData.signerRank} {printData.signerName}</p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>,
         document.body
       )}

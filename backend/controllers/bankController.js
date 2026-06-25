@@ -31,14 +31,22 @@ export const createBankQuestion = async (req, res) => {
 // 2. GET ALL BANK QUESTIONS (With filters & role/unit permission filtering)
 export const getBankQuestions = async (req, res) => {
   try {
-    const { category, difficulty, search } = req.query;
+    const { category, difficulty, questionType, search } = req.query;
     const currentUser = req.user;
     let query = {};
 
     if (category) query.category = category;
     if (difficulty) query.difficulty = difficulty;
+    if (questionType) query.questionType = questionType;
     if (search) {
-      query.questionText = { $regex: search, $options: 'i' };
+      // Find users matching search name
+      const matchingUsers = await User.find({ fullName: { $regex: search, $options: 'i' } }).select('_id');
+      const matchingUserIds = matchingUsers.map(u => u._id);
+
+      query.$or = [
+        { questionText: { $regex: search, $options: 'i' } },
+        { creatorId: { $in: matchingUserIds } }
+      ];
     }
 
     // Role & Unit permission checks

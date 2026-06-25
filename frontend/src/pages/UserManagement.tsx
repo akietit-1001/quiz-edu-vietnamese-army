@@ -22,6 +22,30 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
+  // Sorting
+  const [userSortField, setUserSortField] = useState<string>('fullName');
+  const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleUserSort = (field: string) => {
+    if (userSortField === field) {
+      setUserSortOrder(userSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setUserSortField(field);
+      setUserSortOrder('asc');
+    }
+  };
+
+  const renderSortIndicator = (field: string) => {
+    if (userSortField !== field) {
+      return <span className="inline-block ml-1 opacity-30 select-none cursor-pointer">↕</span>;
+    }
+    return (
+      <span className="inline-block ml-1 text-vpa-gold font-bold select-none">
+        {userSortOrder === 'asc' ? '↑' : '↓'}
+      </span>
+    );
+  };
+
   // Modal / Form state
   const [showFormModal, setShowFormModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -173,9 +197,38 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     return matchSearch && matchRank;
   });
 
-  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    let aVal: any = a[userSortField];
+    let bVal: any = b[userSortField];
+
+    if (userSortField === 'rank') {
+      const rankOrder = [
+        'Binh nhì', 'Binh nhất', 'Hạ sĩ', 'Trung sĩ', 'Thượng sĩ', 
+        'Thiếu úy', 'Trung úy', 'Thượng úy', 'Đại úy', 
+        'Thiếu tá', 'Trung tá', 'Thượng tá', 'Đại tá', 
+        'Thiếu tướng', 'Trung tướng', 'Thượng tướng', 'Đại tướng'
+      ];
+      aVal = rankOrder.indexOf(a.rank);
+      bVal = rankOrder.indexOf(b.rank);
+    }
+
+    if (aVal === undefined || aVal === null) aVal = '';
+    if (bVal === undefined || bVal === null) bVal = '';
+
+    if (typeof aVal === 'string') {
+      return userSortOrder === 'asc' 
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    } else {
+      return userSortOrder === 'asc'
+        ? (aVal > bVal ? 1 : -1)
+        : (bVal > aVal ? 1 : -1);
+    }
+  });
+
+  const totalPages = Math.ceil(sortedUsers.length / pageSize);
   const startIndex = (page - 1) * pageSize;
-  const displayedUsers = filteredUsers.slice(startIndex, startIndex + pageSize);
+  const displayedUsers = sortedUsers.slice(startIndex, startIndex + pageSize);
 
   // Role hierarchy restrictions
   const getAvailableRoles = () => {
@@ -277,12 +330,24 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                <th className="py-3 px-4">Họ và tên</th>
-                <th className="py-3 px-4">Cấp bậc</th>
-                <th className="py-3 px-4">Chức vụ</th>
-                <th className="py-3 px-4">Đơn vị</th>
-                <th className="py-3 px-4">Email / Tài khoản</th>
-                <th className="py-3 px-4">Quyền hạn</th>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('fullName')}>
+                  Họ và tên {renderSortIndicator('fullName')}
+                </th>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('rank')}>
+                  Cấp bậc {renderSortIndicator('rank')}
+                </th>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('position')}>
+                  Chức vụ {renderSortIndicator('position')}
+                </th>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('unit')}>
+                  Đơn vị {renderSortIndicator('unit')}
+                </th>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('email')}>
+                  Email / Tài khoản {renderSortIndicator('email')}
+                </th>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('role')}>
+                  Quyền hạn {renderSortIndicator('role')}
+                </th>
                 <th className="py-3 px-4 text-right">Thao tác</th>
               </tr>
             </thead>

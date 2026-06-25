@@ -182,6 +182,14 @@ export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, provin
         new TextRun({ text: `Thời gian làm bài: ${quiz.duration} phút (Không kể thời gian giao đề)`, italics: true, size: 24, font: 'Times New Roman' }),
       ],
     }),
+    ...(quiz.examCode ? [
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        children: [
+          new TextRun({ text: `Mã đề thi: ${quiz.examCode}`, bold: true, size: 24, font: 'Times New Roman' }),
+        ],
+      })
+    ] : []),
     new Paragraph({ children: [] }), // spacer
   ];
 

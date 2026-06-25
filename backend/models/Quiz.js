@@ -67,6 +67,15 @@ const quizSchema = new mongoose.Schema({
     default: null,
     index: true
   },
+  parentQuizId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Quiz',
+    default: null
+  },
+  examCode: {
+    type: String,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
