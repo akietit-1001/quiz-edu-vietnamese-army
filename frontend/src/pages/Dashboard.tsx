@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
-import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users } from '@phosphor-icons/react';
+import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users, SignIn } from '@phosphor-icons/react';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -27,7 +27,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
   
-
+  // Offline pending submissions state
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState(false);
   
   // 2FA states in UI
   const [otp2FA, setOtp2FA] = useState('');
@@ -116,6 +118,75 @@ export const Dashboard: React.FC<DashboardProps> = ({
     fetchMyRooms();
     fetchManagedUsers();
   }, [user]);
+
+  useEffect(() => {
+    const cached = localStorage.getItem('pending-submissions');
+    if (cached) {
+      try {
+        setPendingSubmissions(JSON.parse(cached));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const handleSyncSubmissions = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    let successCount = 0;
+    const remainingPending: any[] = [];
+
+    const cached = localStorage.getItem('pending-submissions');
+    if (!cached) {
+      setSyncing(false);
+      return;
+    }
+
+    let items: any[] = [];
+    try {
+      items = JSON.parse(cached);
+    } catch (e) {
+      localStorage.removeItem('pending-submissions');
+      setPendingSubmissions([]);
+      setSyncing(false);
+      return;
+    }
+
+    for (const item of items) {
+      try {
+        await axios.post('/api/rooms/submit', {
+          roomId: item.roomId,
+          quizId: item.quizId,
+          answers: item.answers,
+          mode: item.mode,
+          antiCheatViolations: item.antiCheatViolations
+        });
+        successCount++;
+      } catch (err: any) {
+        if (err.response && (err.response.status === 400 || err.response.status === 404)) {
+          console.warn('Discarding invalid/duplicate attempt during sync:', err.response.data?.message);
+        } else {
+          remainingPending.push(item);
+        }
+      }
+    }
+
+    if (successCount > 0) {
+      await window.showAlert(
+        `Đã đồng bộ thành công ${successCount} bài thi về máy chủ trung tâm!`,
+        'Đồng bộ kết quả'
+      );
+    } else if (remainingPending.length > 0) {
+      await window.showAlert(
+        'Đồng bộ thất bại. Không có kết nối tới máy chủ. Vui lòng kiểm tra lại kết nối mạng truyền số liệu quân sự.',
+        'Lỗi đồng bộ'
+      );
+    }
+
+    localStorage.setItem('pending-submissions', JSON.stringify(remainingPending));
+    setPendingSubmissions(remainingPending);
+    setSyncing(false);
+  };
 
   // Connect to socket for real-time invitation notifications
   useEffect(() => {
@@ -366,6 +437,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
+      {/* Offline Pending Submissions Banner */}
+      {pendingSubmissions.length > 0 && (
+        <div className="border border-vpa-red bg-vpa-red/5 p-6 mb-8 rounded-none shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center space-x-2 border-b border-vpa-red/20 pb-2 mb-2">
+              <span className="w-2.5 h-2.5 bg-vpa-red rounded-none" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-red">
+                Báo cáo: Phát hiện bài thi lưu ngoại tuyến (Offline)
+              </h3>
+            </div>
+            <p className="text-xs text-vpa-olive dark:text-vpa-sand leading-relaxed font-mono">
+              Hệ thống phát hiện **{pendingSubmissions.length} bài thi** của đồng chí chưa thể gửi về máy chủ trung tâm do mất kết nối mạng lúc làm bài.
+            </p>
+            <div className="mt-2 space-y-1">
+              {pendingSubmissions.map((item, idx) => (
+                <div key={item.id || idx} className="text-[10px] text-gray-500 font-mono">
+                  • {item.quizTitle} ({item.mode === 'practice' ? 'Ôn luyện' : 'Thi chính thức'}) - {item.timestamp ? new Date(item.timestamp).toLocaleString('vi-VN') : 'N/A'}
+                </div>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={handleSyncSubmissions}
+            disabled={syncing}
+            className="md:self-start px-4 py-2 bg-vpa-red hover:bg-vpa-red-light text-white text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-2 rounded-none"
+          >
+            {syncing ? (
+              <>
+                <div className="w-3 h-3 border-2 border-white border-t-transparent animate-spin mr-2" />
+                <span>Đang gửi...</span>
+              </>
+            ) : (
+              <span>Đồng bộ ngay ({pendingSubmissions.length})</span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Pending Invitations Section */}
       {invitations.length > 0 && (
         <div className="border border-vpa-gold bg-vpa-gold/5 dark:bg-vpa-gold/10 p-6 mb-8 rounded-none shadow-md">
@@ -547,11 +656,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       </p>
                     </div>
 
-                    <div className="flex space-x-2 mt-3 md:mt-0">
+                    <div className="flex space-x-2 mt-3 md:mt-0 flex-shrink-0">
                       {room.status !== 'finished' && (
                         <button
                           onClick={() => handleOpenInvite(room.roomCode)}
-                          className="px-3 py-1.5 border border-vpa-olive-light/60 hover:border-vpa-gold text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider transition-colors flex items-center space-x-1"
+                          className="px-3 py-1.5 border border-vpa-olive-light/60 hover:border-vpa-gold text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider transition-colors flex items-center space-x-1 whitespace-nowrap flex-shrink-0"
                         >
                           <UserPlus size={12} />
                           <span>Mời quân nhân</span>
@@ -559,9 +668,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       )}
                       <button
                         onClick={() => onJoinRoom(room.roomCode)}
-                        className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors flex items-center space-x-1"
+                        className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors flex items-center space-x-1 whitespace-nowrap flex-shrink-0"
                       >
-                        <Eye size={12} />
+                        {room.status === 'finished' ? <Eye size={12} /> : <SignIn size={12} />}
                         <span>{room.status === 'finished' ? 'Xem kết quả' : 'Vào phòng'}</span>
                       </button>
                     </div>

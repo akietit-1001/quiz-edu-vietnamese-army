@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense, lazy } from 'react';
 import axios from 'axios';
 
 if (import.meta.env.VITE_API_URL) {
@@ -12,14 +12,14 @@ declare global {
   }
 }
 import Navbar from './components/Navbar';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import QuizManagement from './pages/QuizManagement';
-import UserManagement from './pages/UserManagement';
-import RoomLobby from './pages/RoomLobby';
-import ExamTaker from './pages/ExamTaker';
-import RoomResults from './pages/RoomResults';
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const QuizManagement = lazy(() => import('./pages/QuizManagement'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const RoomLobby = lazy(() => import('./pages/RoomLobby'));
+const ExamTaker = lazy(() => import('./pages/ExamTaker'));
+const RoomResults = lazy(() => import('./pages/RoomResults'));
 import { ArrowUp } from '@phosphor-icons/react';
 
 // Redux Integration
@@ -523,17 +523,29 @@ export const App: React.FC = () => {
       
       {/* Unauthenticated view container */}
       {(!token || !user) ? (
-        currentView === 'register' ? (
-          <Register 
-            onRegisterSuccess={handleLoginSuccess}
-            onNavigateToLogin={() => dispatch(setCurrentView('login'))}
-          />
-        ) : (
-          <Login 
-            onLoginSuccess={handleLoginSuccess}
-            onNavigateToRegister={() => dispatch(setCurrentView('register'))}
-          />
-        )
+        <Suspense fallback={
+          <div className="min-h-screen bg-[#070a09] flex flex-col items-center justify-center font-mono">
+            <div className="w-12 h-12 border-2 border-[#e5a93b] border-t-transparent animate-spin mb-4" />
+            <h2 className="text-[#e5a93b] text-xs font-bold uppercase tracking-widest animate-pulse">
+              Hệ thống trắc nghiệm quân sự
+            </h2>
+            <span className="text-[10px] text-gray-500 uppercase mt-2">
+              Đang tải hệ thống...
+            </span>
+          </div>
+        }>
+          {currentView === 'register' ? (
+            <Register 
+              onRegisterSuccess={handleLoginSuccess}
+              onNavigateToLogin={() => dispatch(setCurrentView('login'))}
+            />
+          ) : (
+            <Login 
+              onLoginSuccess={handleLoginSuccess}
+              onNavigateToRegister={() => dispatch(setCurrentView('register'))}
+            />
+          )}
+        </Suspense>
       ) : (
         /* Authenticated view container */
         <>
@@ -546,64 +558,71 @@ export const App: React.FC = () => {
             onOpenChangePassword={handleOpenChangePassword}
           />
           <main className="transition-colors duration-300">
-            {currentView === 'dashboard' && (
-              <Dashboard 
-                user={user}
-                setUser={(val: any) => dispatch(updateUser(val))}
-                onJoinRoom={handleJoinRoom}
-                onNavigateToQuizMgmt={() => dispatch(setCurrentView('quiz-mgmt'))}
-                onNavigateToUserMgmt={() => dispatch(setCurrentView('user-mgmt'))}
-                onStartPractice={handleStartPractice}
-              />
-            )}
-            {currentView === 'quiz-mgmt' && (
-              <QuizManagement 
-                user={user}
-                onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
-              />
-            )}
-            {currentView === 'user-mgmt' && (
-              <UserManagement 
-                user={user}
-                onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
-              />
-            )}
-            {currentView === 'lobby' && activeRoomCode && (
-              <RoomLobby 
-                user={user}
-                roomCode={activeRoomCode}
-                onLeave={() => {
-                  dispatch(clearExam());
-                  dispatch(setCurrentView('dashboard'));
-                }}
-                onExamStarted={handleStartExam}
-                onNavigateToResults={(roomId) => {
-                  dispatch(startExam({ roomId, quizId: '', mode: 'exam', settings: {} }));
-                  dispatch(setCurrentView('results'));
-                }}
-              />
-            )}
-            {currentView === 'taker' && activeQuizId && (
-              <ExamTaker 
-                user={user}
-                roomId={activeRoomId}
-                quizId={activeQuizId}
-                roomCode={activeRoomCode}
-                settings={activeRoomSettings}
-                mode={activeExamMode}
-                onFinished={handleExamFinished}
-              />
-            )}
-            {currentView === 'results' && activeRoomId && (
-              <RoomResults 
-                user={user}
-                roomId={activeRoomId}
-                onNavigateBack={() => {
-                  dispatch(clearExam());
-                  dispatch(setCurrentView('dashboard'));
-                }}
-              />
-            )}
+            <Suspense fallback={
+              <div className="flex flex-col items-center justify-center p-16 font-mono text-center">
+                <div className="w-8 h-8 border-2 border-vpa-olive dark:border-vpa-gold border-t-transparent animate-spin mb-3" />
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest animate-pulse">Đang tải cấu phần quân sự...</span>
+              </div>
+            }>
+              {currentView === 'dashboard' && (
+                <Dashboard 
+                  user={user}
+                  setUser={(val: any) => dispatch(updateUser(val))}
+                  onJoinRoom={handleJoinRoom}
+                  onNavigateToQuizMgmt={() => dispatch(setCurrentView('quiz-mgmt'))}
+                  onNavigateToUserMgmt={() => dispatch(setCurrentView('user-mgmt'))}
+                  onStartPractice={handleStartPractice}
+                />
+              )}
+              {currentView === 'quiz-mgmt' && (
+                <QuizManagement 
+                  user={user}
+                  onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
+                />
+              )}
+              {currentView === 'user-mgmt' && (
+                <UserManagement 
+                  user={user}
+                  onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
+                />
+              )}
+              {currentView === 'lobby' && activeRoomCode && (
+                <RoomLobby 
+                  user={user}
+                  roomCode={activeRoomCode}
+                  onLeave={() => {
+                    dispatch(clearExam());
+                    dispatch(setCurrentView('dashboard'));
+                  }}
+                  onExamStarted={handleStartExam}
+                  onNavigateToResults={(roomId) => {
+                    dispatch(startExam({ roomId, quizId: '', mode: 'exam', settings: {} }));
+                    dispatch(setCurrentView('results'));
+                  }}
+                />
+              )}
+              {currentView === 'taker' && activeQuizId && (
+                <ExamTaker 
+                  user={user}
+                  roomId={activeRoomId}
+                  quizId={activeQuizId}
+                  roomCode={activeRoomCode}
+                  settings={activeRoomSettings}
+                  mode={activeExamMode}
+                  onFinished={handleExamFinished}
+                />
+              )}
+              {currentView === 'results' && activeRoomId && (
+                <RoomResults 
+                  user={user}
+                  roomId={activeRoomId}
+                  onNavigateBack={() => {
+                    dispatch(clearExam());
+                    dispatch(setCurrentView('dashboard'));
+                  }}
+                />
+              )}
+            </Suspense>
           </main>
         </>
       )}

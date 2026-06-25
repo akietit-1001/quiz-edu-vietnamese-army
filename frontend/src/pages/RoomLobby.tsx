@@ -328,7 +328,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2 disabled:opacity-50"
             >
               <Play size={16} />
-              <span>Khai mạc cuộc thi (Bắt đầu)</span>
+              <span>Bắt đầu</span>
             </button>
           </div>
         )}

@@ -119,46 +119,22 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     }
   };
 
-  const sortedBankQuestions = [...bankQuestions].sort((a, b) => {
-    let aVal: any = a[bankSortField];
-    let bVal: any = b[bankSortField];
-
-    if (bankSortField === 'author') {
-      aVal = a.creatorId?.fullName || '';
-      bVal = b.creatorId?.fullName || '';
-    } else if (bankSortField === 'difficulty') {
-      const difficultyOrder: { [key: string]: number } = {
-        'Dễ': 1,
-        'Trung bình': 2,
-        'Khó': 3
-      };
-      aVal = difficultyOrder[a.difficulty] || 99;
-      bVal = difficultyOrder[b.difficulty] || 99;
-    }
-
-    if (aVal === undefined || aVal === null) aVal = '';
-    if (bVal === undefined || bVal === null) bVal = '';
-
-    if (typeof aVal === 'string') {
-      return bankSortOrder === 'asc' 
-        ? aVal.localeCompare(bVal)
-        : bVal.localeCompare(aVal);
-    } else {
-      return bankSortOrder === 'asc'
-        ? (aVal > bVal ? 1 : -1)
-        : (bVal > aVal ? 1 : -1);
-    }
-  });
-
-  const totalBankPages = Math.ceil(sortedBankQuestions.length / bankPageSize);
-  const startIndex = (bankPage - 1) * bankPageSize;
-  const displayedBankQuestions = sortedBankQuestions.slice(startIndex, startIndex + bankPageSize);
+  // Total pages and counts state for server-side pagination
+  const [totalBankPages, setTotalBankPages] = useState(1);
+  const [totalBankCount, setTotalBankCount] = useState(0);
+  const [totalQuizPages, setTotalQuizPages] = useState(1);
+  const [totalQuizCount, setTotalQuizCount] = useState(0);
 
   // Quizzes list states for search and pagination
   const [searchQuiz, setSearchQuiz] = useState('');
   const [quizCategoryFilter, setQuizCategoryFilter] = useState('');
   const [quizPage, setQuizPage] = useState(1);
   const quizPageSize = 10;
+
+  const displayedBankQuestions = bankQuestions;
+  const startBankIndex = (bankPage - 1) * bankPageSize;
+  const startQuizIndex = (quizPage - 1) * quizPageSize;
+  const displayedQuizzes = quizzes;
 
   // Sorting state for Quizzes
   const [quizSortField, setQuizSortField] = useState<string>('createdAt');
@@ -184,54 +160,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     );
   };
 
-  const filteredQuizzes = quizzes.filter(quiz => {
-    const createdDateStr = quiz.createdAt ? new Date(quiz.createdAt).toLocaleDateString('vi-VN') : '';
-    const createdTimeStr = quiz.createdAt ? new Date(quiz.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
-    const fullDateStr = `${createdTimeStr} ${createdDateStr}`;
-
-    const matchSearch = quiz.title.toLowerCase().includes(searchQuiz.toLowerCase()) || 
-                        (quiz.description || '').toLowerCase().includes(searchQuiz.toLowerCase()) ||
-                        (quiz.shareCode || '').toLowerCase().includes(searchQuiz.toLowerCase()) ||
-                        (quiz.creatorId?.fullName || '').toLowerCase().includes(searchQuiz.toLowerCase()) ||
-                        fullDateStr.includes(searchQuiz);
-    const matchCategory = quizCategoryFilter ? quiz.category === quizCategoryFilter : true;
-    const isChild = !!quiz.parentQuizId;
-    return matchSearch && matchCategory && !isChild;
-  });
-
-  const sortedQuizzes = [...filteredQuizzes].sort((a, b) => {
-    let aVal: any = a[quizSortField];
-    let bVal: any = b[quizSortField];
-
-    if (quizSortField === 'author') {
-      aVal = a.creatorId?.fullName || '';
-      bVal = b.creatorId?.fullName || '';
-    } else if (quizSortField === 'questionsCount') {
-      aVal = a.questions?.length || 0;
-      bVal = b.questions?.length || 0;
-    } else if (quizSortField === 'duration') {
-      aVal = a.duration || 0;
-      bVal = b.duration || 0;
-    }
-
-    if (aVal === undefined || aVal === null) aVal = '';
-    if (bVal === undefined || bVal === null) bVal = '';
-
-    if (typeof aVal === 'string') {
-      return quizSortOrder === 'asc' 
-        ? aVal.localeCompare(bVal)
-        : bVal.localeCompare(aVal);
-    } else {
-      return quizSortOrder === 'asc'
-        ? (aVal > bVal ? 1 : -1)
-        : (bVal > aVal ? 1 : -1);
-    }
-  });
-
-  const totalQuizPages = Math.ceil(sortedQuizzes.length / quizPageSize);
-  const startQuizIndex = (quizPage - 1) * quizPageSize;
-  const displayedQuizzes = sortedQuizzes.slice(startQuizIndex, startQuizIndex + quizPageSize);
-
   // Single bank question state (for adding to bank)
   const [bankQText, setBankQText] = useState('');
   const [bankQType, setBankQType] = useState('multiple-choice');
@@ -254,18 +182,21 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     fetchQuizzes();
-  }, []);
+  }, [quizPage, searchQuiz, quizCategoryFilter, quizSortField, quizSortOrder]);
 
   useEffect(() => {
     if (currentTab === 'bank') {
-      setBankPage(1);
       fetchBankQuestions();
     }
-  }, [currentTab, categoryFilter, difficultyFilter, typeFilter, searchBank]);
+  }, [currentTab, bankPage, categoryFilter, difficultyFilter, typeFilter, searchBank, bankSortField, bankSortOrder]);
 
   useEffect(() => {
     setQuizPage(1);
   }, [searchQuiz, quizCategoryFilter]);
+
+  useEffect(() => {
+    setBankPage(1);
+  }, [searchBank, categoryFilter, difficultyFilter, typeFilter]);
 
   useEffect(() => {
     let interval: any;
@@ -286,8 +217,26 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const fetchQuizzes = async () => {
     setQuizzesLoading(true);
     try {
-      const res = await axios.get('/api/quizzes');
-      setQuizzes(res.data);
+      const res = await axios.get('/api/quizzes', {
+        params: {
+          page: quizPage,
+          limit: quizPageSize,
+          search: searchQuiz || undefined,
+          category: quizCategoryFilter || undefined,
+          sortField: quizSortField,
+          sortOrder: quizSortOrder
+        }
+      });
+      const data = res.data;
+      if (Array.isArray(data)) {
+        setQuizzes(data);
+        setTotalQuizPages(1);
+        setTotalQuizCount(data.length);
+      } else {
+        setQuizzes(data.quizzes || []);
+        setTotalQuizPages(data.totalPages || 1);
+        setTotalQuizCount(data.totalCount || 0);
+      }
     } catch (err) {
       console.error('Lỗi fetch đề thi:', err);
     } finally {
@@ -300,13 +249,26 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     try {
       const res = await axios.get('/api/bank', {
         params: {
+          page: bankPage,
+          limit: bankPageSize,
           category: categoryFilter || undefined,
           difficulty: difficultyFilter || undefined,
           questionType: typeFilter || undefined,
-          search: searchBank || undefined
+          search: searchBank || undefined,
+          sortField: bankSortField,
+          sortOrder: bankSortOrder
         }
       });
-      setBankQuestions(res.data);
+      const data = res.data;
+      if (Array.isArray(data)) {
+        setBankQuestions(data);
+        setTotalBankPages(1);
+        setTotalBankCount(data.length);
+      } else {
+        setBankQuestions(data.questions || []);
+        setTotalBankPages(data.totalPages || 1);
+        setTotalBankCount(data.totalCount || 0);
+      }
     } catch (err) {
       console.error('Lỗi fetch câu hỏi ngân hàng:', err);
     } finally {
@@ -383,22 +345,46 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     }
   };
 
-  const handleEditQuiz = (quiz: any) => {
-    setEditingQuizId(quiz._id);
-    setTitle(quiz.title);
-    setDescription(quiz.description || '');
-    setCategory(quiz.category);
-    setDuration(quiz.duration);
-    setPassingScore(quiz.passingScorePercent || 50);
-    setIsPublic(quiz.isPublic || false);
-    setQuestions(quiz.questions || []);
-    setDocumentHash(quiz.documentHash || null);
-    setIsCreating(true);
+  const handleEditQuiz = async (quiz: any) => {
+    try {
+      const res = await axios.get(`/api/quizzes/${quiz._id}`);
+      const fullQuiz = res.data;
+      setEditingQuizId(fullQuiz._id);
+      setTitle(fullQuiz.title);
+      setDescription(fullQuiz.description || '');
+      setCategory(fullQuiz.category);
+      setDuration(fullQuiz.duration);
+      setPassingScore(fullQuiz.passingScorePercent || 50);
+      setIsPublic(fullQuiz.isPublic || false);
+      setQuestions(fullQuiz.questions || []);
+      setDocumentHash(fullQuiz.documentHash || null);
+      setIsCreating(true);
+    } catch (err) {
+      console.error(err);
+      await window.showAlert('Không thể tải chi tiết đề thi để chỉnh sửa.', 'Lỗi tải đề thi');
+    }
   };
 
-  const handleViewQuiz = (quiz: any) => {
-    setViewingQuiz(quiz);
-    setActiveVersionTab('parent');
+  const handleViewQuiz = async (quiz: any) => {
+    try {
+      const res = await axios.get(`/api/quizzes/${quiz._id}`);
+      setViewingQuiz(res.data);
+      setActiveVersionTab('parent');
+    } catch (err) {
+      console.error(err);
+      await window.showAlert('Không thể tải chi tiết đề thi để xem.', 'Lỗi tải đề thi');
+    }
+  };
+
+  const handleOpenExportPopup = async (quiz: any) => {
+    try {
+      const res = await axios.get(`/api/quizzes/${quiz._id}?includeVariants=true`);
+      setSelectedQuizForExport(res.data);
+      setShowExportPopup(true);
+    } catch (err) {
+      console.error(err);
+      await window.showAlert('Không thể tải thông tin đề thi và các mã đề để xuất bản.', 'Lỗi tải đề thi');
+    }
   };
 
   const handleExportConfirm = async (vpaData: {
@@ -429,7 +415,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     // Find the actual quiz objects for each ID
     const quizListToExport = targetIds.map((id: string) => {
       if (id === selectedQuizForExport._id) return selectedQuizForExport;
-      const foundVariant = quizzes.find((q: any) => q._id === id);
+      const foundVariant = (selectedQuizForExport.variants || []).find((q: any) => q._id === id);
       return foundVariant || null;
     }).filter(Boolean);
 
@@ -1064,7 +1050,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => { setActiveDropdownQuizId(null); setSelectedQuizForExport(quiz); setShowExportPopup(true); }}
+                                      onClick={() => { setActiveDropdownQuizId(null); handleOpenExportPopup(quiz); }}
                                       className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
                                     >
                                       Xuất bản
@@ -1101,7 +1087,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               {totalQuizPages > 1 && (
                 <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3">
                   <span className="text-gray-500 text-center sm:text-left">
-                    Hiển thị {startQuizIndex + 1} - {Math.min(startQuizIndex + quizPageSize, filteredQuizzes.length)} trong tổng số {filteredQuizzes.length} đề thi
+                    Hiển thị {startQuizIndex + 1} - {Math.min(startQuizIndex + quizPageSize, totalQuizCount)} trong tổng số {totalQuizCount} đề thi
                   </span>
                   <div className="flex items-center space-x-1.5">
                     <button
@@ -2052,7 +2038,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               {totalBankPages > 1 && (
                 <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3">
                   <span className="text-gray-500 text-center sm:text-left">
-                    Hiển thị {startIndex + 1} - {Math.min(startIndex + bankPageSize, bankQuestions.length)} trong tổng số {bankQuestions.length} câu hỏi
+                    Hiển thị {startBankIndex + 1} - {Math.min(startBankIndex + bankPageSize, totalBankCount)} trong tổng số {totalBankCount} câu hỏi
                   </span>
                   <div className="flex items-center space-x-1.5">
                     <button

@@ -28,10 +28,10 @@ export const createBankQuestion = async (req, res) => {
   }
 };
 
-// 2. GET ALL BANK QUESTIONS (With filters & role/unit permission filtering)
+// 2. GET ALL BANK QUESTIONS (With filters & role/unit permission filtering & server pagination/sorting)
 export const getBankQuestions = async (req, res) => {
   try {
-    const { category, difficulty, questionType, search } = req.query;
+    const { category, difficulty, questionType, search, page, limit, sortField = 'createdAt', sortOrder = 'desc' } = req.query;
     const currentUser = req.user;
     let query = {};
 
@@ -81,8 +81,40 @@ export const getBankQuestions = async (req, res) => {
       query.creatorId = { $in: allowedCreatorIds };
     }
 
-    const questions = await QuestionBank.find(query).populate('creatorId', 'fullName rank unit');
-    res.status(200).json(questions);
+    // Setup sorting
+    let sortQuery = {};
+    if (sortField === 'author') {
+      sortQuery = { creatorId: sortOrder === 'asc' ? 1 : -1 };
+    } else {
+      sortQuery = { [sortField]: sortOrder === 'asc' ? 1 : -1 };
+    }
+
+    if (page && limit) {
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const skip = (pageNum - 1) * limitNum;
+
+      const questions = await QuestionBank.find(query)
+        .populate('creatorId', 'fullName rank unit')
+        .sort(sortQuery)
+        .skip(skip)
+        .limit(limitNum);
+
+      const totalCount = await QuestionBank.countDocuments(query);
+      const totalPages = Math.ceil(totalCount / limitNum);
+
+      return res.status(200).json({
+        questions,
+        totalCount,
+        totalPages,
+        currentPage: pageNum
+      });
+    } else {
+      const questions = await QuestionBank.find(query)
+        .populate('creatorId', 'fullName rank unit')
+        .sort(sortQuery);
+      res.status(200).json(questions);
+    }
   } catch (error) {
     console.error('Lỗi lấy câu hỏi ngân hàng:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách câu hỏi ngân hàng' });

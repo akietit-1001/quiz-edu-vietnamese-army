@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { ShieldWarning, Key, Envelope, Lock } from '@phosphor-icons/react';
+import { ShieldWarning, Key, Envelope, Lock, Eye, EyeSlash } from '@phosphor-icons/react';
 
 interface LoginProps {
   onLoginSuccess: (user: any, token: string) => void;
@@ -10,6 +10,7 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -105,7 +106,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   name="email"
                   autoComplete="email"
                   required
-                  placeholder="ndakiet1001@gmail.com"
+                  placeholder="email@gmail.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
@@ -120,7 +121,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
               <div className="relative">
                 <Lock size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   id="login-password"
                   name="password"
                   autoComplete="current-password"
@@ -128,8 +129,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   placeholder="••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                  className="w-full text-sm pl-10 pr-10 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-2.5 text-vpa-olive-light hover:text-vpa-gold focus:outline-none flex items-center justify-center"
+                >
+                  {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 

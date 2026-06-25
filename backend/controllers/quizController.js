@@ -179,7 +179,7 @@ export const createQuiz = async (req, res) => {
   }
 };
 
-// 2. GET ALL QUIZZES (Filter based on role)
+// 2. GET ALL QUIZZES (Filter based on role, with server-side pagination & search)
 export const getQuizzes = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -197,32 +197,99 @@ export const getQuizzes = async (req, res) => {
     }
     // master-admin and admin can see all quizzes in the database
 
-    const quizzes = await Quiz.find(query).populate('creatorId', 'fullName rank unit').sort({ createdAt: -1 });
-    res.status(200).json(quizzes);
+    // Exclude child variants by default in the main list
+    query.parentQuizId = { $exists: false };
+
+    const { page, limit, search, category, sortField = 'createdAt', sortOrder = 'desc' } = req.query;
+
+    if (category) {
+      query.category = category;
+    }
+
+    if (search) {
+      // Find matching creators
+      const matchingUsers = await User.find({ fullName: { $regex: search, $options: 'i' } }).select('_id');
+      const matchingUserIds = matchingUsers.map(u => u._id);
+
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { shareCode: { $regex: search, $options: 'i' } },
+        { creatorId: { $in: matchingUserIds } }
+      ];
+    }
+
+    // Setup sorting
+    let sortQuery = {};
+    if (sortField === 'author') {
+      sortQuery = { creatorId: sortOrder === 'asc' ? 1 : -1 };
+    } else {
+      sortQuery = { [sortField]: sortOrder === 'asc' ? 1 : -1 };
+    }
+
+    if (page && limit) {
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const skip = (pageNum - 1) * limitNum;
+
+      // Project questions._id only for extreme speed and compat with questions.length
+      const quizzes = await Quiz.find(query)
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .populate('creatorId', 'fullName rank unit')
+        .sort(sortQuery)
+        .skip(skip)
+        .limit(limitNum);
+
+      const totalCount = await Quiz.countDocuments(query);
+      const totalPages = Math.ceil(totalCount / limitNum);
+
+      return res.status(200).json({
+        quizzes,
+        totalCount,
+        totalPages,
+        currentPage: pageNum
+      });
+    } else {
+      // Return all (fallback for compatibility, projecting only questions._id for speed)
+      const quizzes = await Quiz.find(query)
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .populate('creatorId', 'fullName rank unit')
+        .sort(sortQuery);
+      res.status(200).json(quizzes);
+    }
   } catch (error) {
     console.error('Lỗi lấy danh sách đề thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách đề thi' });
   }
 };
 
-// 3. GET SINGLE QUIZ BY ID OR SHARE CODE
+// 3. GET SINGLE QUIZ BY ID OR SHARE CODE (Including optional variants)
 export const getQuizById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { includeVariants } = req.query;
 
     // Try finding by ID first, then fallback to shareCode
     let quiz;
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
-      quiz = await Quiz.findById(id);
+      quiz = await Quiz.findById(id).populate('creatorId', 'fullName rank unit');
     } else {
-      quiz = await Quiz.findOne({ shareCode: id.toUpperCase() });
+      quiz = await Quiz.findOne({ shareCode: id.toUpperCase() }).populate('creatorId', 'fullName rank unit');
     }
 
     if (!quiz) {
       return res.status(404).json({ message: 'Không tìm thấy đề thi yêu cầu' });
     }
 
-    res.status(200).json(quiz);
+    let variants = [];
+    if (includeVariants === 'true') {
+      variants = await Quiz.find({ parentQuizId: quiz._id }).populate('creatorId', 'fullName rank unit');
+    }
+
+    res.status(200).json({
+      ...quiz.toObject(),
+      variants
+    });
   } catch (error) {
     console.error('Lỗi lấy thông tin đề thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi tìm kiếm đề thi' });

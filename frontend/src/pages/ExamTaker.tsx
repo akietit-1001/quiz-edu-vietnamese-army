@@ -176,6 +176,69 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
     };
   }, [loading, quiz, mode]);
 
+  // 6. Prevent accidental close/refresh during exam
+  useEffect(() => {
+    if (loading || !quiz || mode !== 'exam') return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSubmittingRef.current) return;
+      e.preventDefault();
+      e.returnValue = 'Đồng chí có chắc chắn muốn rời khỏi bài thi đang diễn ra?';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [loading, quiz, mode]);
+
+  // 7. Keyboard Shortcuts for Navigation and Answer selection
+  useEffect(() => {
+    if (loading || !quiz) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      
+      if (e.key === 'ArrowLeft') {
+        setCurrentIdx(prev => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        setCurrentIdx(prev => Math.min(quiz.questions.length - 1, prev + 1));
+      }
+
+      const q = quiz.questions[currentIdx];
+      if (!q) return;
+
+      if (q.questionType === 'multiple-choice') {
+        let optIdx = -1;
+        if (key === '1' || key === 'a') optIdx = 0;
+        else if (key === '2' || key === 'b') optIdx = 1;
+        else if (key === '3' || key === 'c') optIdx = 2;
+        else if (key === '4' || key === 'd') optIdx = 3;
+
+        if (optIdx >= 0 && optIdx < q.options.length) {
+          handleSelectAnswer(optIdx.toString());
+        }
+      } else if (q.questionType === 'true-false') {
+        if (key === '1' || key === 'a' || key === 't') {
+          handleSelectAnswer('0');
+        } else if (key === '2' || key === 'b' || key === 'f') {
+          handleSelectAnswer('1');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [loading, quiz, currentIdx, answers]);
+
   const handleViolation = async () => {
     const count = violationsRef.current + 1;
     setViolations(count);
@@ -300,6 +363,35 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
       }, 1000);
 
     } catch (err: any) {
+      if (!err.response) {
+        // Network failure (offline mode)
+        const pendingPayload = {
+          id: `attempt-${quizId}-${Date.now()}`,
+          roomId,
+          quizId,
+          quizTitle: quiz?.title || 'Đề thi trắc nghiệm quân sự',
+          answers,
+          mode,
+          antiCheatViolations: violations,
+          timestamp: new Date().toISOString()
+        };
+        try {
+          const existingPending = JSON.parse(localStorage.getItem('pending-submissions') || '[]');
+          existingPending.push(pendingPayload);
+          localStorage.setItem('pending-submissions', JSON.stringify(existingPending));
+
+          localStorage.removeItem(`quiz-attempt-${quizId}`);
+          await window.showAlert(
+            'MẤT KẾT NỐI MẠNG: Bài thi của đồng chí đã được lưu trữ ngoại tuyến (offline) an toàn trên thiết bị này.\n\nĐồng chí vui lòng chọn "Đồng bộ ngay" tại Bảng điều khiển (Dashboard) sau khi kết nối lại mạng truyền số liệu quân sự để gửi bài.',
+            'Lưu ngoại tuyến thành công'
+          );
+          onFinished(null);
+          return;
+        } catch (storageErr) {
+          console.error('Lỗi lưu trữ ngoại tuyến bài thi:', storageErr);
+        }
+      }
+
       await window.showAlert(err.response?.data?.message || 'Có lỗi xảy ra khi nộp bài.', 'Lỗi nộp bài');
       setLoading(false);
     }
@@ -348,8 +440,12 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
 
         {/* Timer Block */}
         {mode !== 'practice' ? (
-          <div className="flex items-center space-x-2 text-vpa-olive dark:text-vpa-gold font-mono text-sm font-extrabold">
-            <Hourglass size={18} className="animate-spin" />
+          <div className={`flex items-center space-x-2 font-mono text-sm font-extrabold ${
+            timeLeft < 60 
+              ? 'text-vpa-red animate-pulse' 
+              : 'text-vpa-olive dark:text-vpa-gold'
+          }`}>
+            <Hourglass size={18} className={timeLeft < 60 ? 'animate-bounce' : 'animate-spin'} />
             <span>{formatTime(timeLeft)}</span>
           </div>
         ) : (
