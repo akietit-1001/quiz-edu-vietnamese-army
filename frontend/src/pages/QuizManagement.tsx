@@ -149,6 +149,105 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     }
   };
 
+  // Table Column Resizing States
+  const [quizColWidths, setQuizColWidths] = useState<{ [key: string]: number }>({
+    title: 400,
+    category: 90,
+    info: 50,
+    author: 130,
+    createdAt: 140,
+    status: 100,
+    shareCode: 60,
+    actions: 120
+  });
+
+  const [bankColWidths, setBankColWidths] = useState<{ [key: string]: number }>({
+    questionText: 350,
+    category: 90,
+    difficulty: 100,
+    author: 130,
+    actions: 100
+  });
+
+  const [quizResized, setQuizResized] = useState(false);
+  const [bankResized, setBankResized] = useState(false);
+
+  const activeCol = React.useRef<{ table: 'quiz' | 'bank', col: string } | null>(null);
+  const startX = React.useRef<number>(0);
+  const startWidth = React.useRef<number>(0);
+
+  const handleResizeMouseDown = (table: 'quiz' | 'bank', colKey: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Dynamically measure current column widths from DOM
+    const thElement = e.currentTarget.parentElement;
+    const trElement = thElement?.parentElement;
+    if (trElement) {
+      const ths = Array.from(trElement.children) as HTMLTableHeaderCellElement[];
+      if (table === 'quiz') {
+        const widths: { [key: string]: number } = {
+          title: ths[0]?.getBoundingClientRect().width || quizColWidths.title,
+          category: ths[1]?.getBoundingClientRect().width || quizColWidths.category,
+          info: ths[2]?.getBoundingClientRect().width || quizColWidths.info,
+          author: ths[3]?.getBoundingClientRect().width || quizColWidths.author,
+          createdAt: ths[4]?.getBoundingClientRect().width || quizColWidths.createdAt,
+          status: ths[5]?.getBoundingClientRect().width || quizColWidths.status,
+          shareCode: ths[6]?.getBoundingClientRect().width || quizColWidths.shareCode,
+          actions: ths[7]?.getBoundingClientRect().width || quizColWidths.actions,
+        };
+        setQuizColWidths(widths);
+        setQuizResized(true);
+        startWidth.current = widths[colKey];
+      } else {
+        const widths: { [key: string]: number } = {
+          questionText: ths[0]?.getBoundingClientRect().width || bankColWidths.questionText,
+          category: ths[1]?.getBoundingClientRect().width || bankColWidths.category,
+          difficulty: ths[2]?.getBoundingClientRect().width || bankColWidths.difficulty,
+          author: ths[3]?.getBoundingClientRect().width || bankColWidths.author,
+          actions: ths[4]?.getBoundingClientRect().width || bankColWidths.actions,
+        };
+        setBankColWidths(widths);
+        setBankResized(true);
+        startWidth.current = widths[colKey];
+      }
+    } else {
+      startWidth.current = table === 'quiz' ? quizColWidths[colKey] : bankColWidths[colKey];
+    }
+
+    activeCol.current = { table, col: colKey };
+    startX.current = e.clientX;
+
+    document.addEventListener('mousemove', handleResizeMouseMove);
+    document.addEventListener('mouseup', handleResizeMouseUp);
+  };
+
+  const handleResizeMouseMove = (e: MouseEvent) => {
+    if (!activeCol.current) return;
+    const { table, col } = activeCol.current;
+    const diff = e.clientX - startX.current;
+    const newWidth = Math.max(60, startWidth.current + diff);
+
+    if (table === 'quiz') {
+      setQuizColWidths(prev => ({ ...prev, [col]: newWidth }));
+    } else {
+      setBankColWidths(prev => ({ ...prev, [col]: newWidth }));
+    }
+  };
+
+  const handleResizeMouseUp = () => {
+    activeCol.current = null;
+    document.removeEventListener('mousemove', handleResizeMouseMove);
+    document.removeEventListener('mouseup', handleResizeMouseUp);
+  };
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMouseMove);
+      document.removeEventListener('mouseup', handleResizeMouseUp);
+    };
+  }, []);
+
   const renderSortIndicator = (field: string, currentField: string, order: 'asc' | 'desc') => {
     if (currentField !== field) {
       return <span className="inline-block ml-1 opacity-30 select-none cursor-pointer">↕</span>;
@@ -930,31 +1029,113 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
+                <table className={`w-full text-left border-collapse text-xs ${quizResized ? 'table-fixed' : ''}`}>
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('title')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={quizResized ? { width: quizColWidths.title, minWidth: quizColWidths.title } : undefined}
+                        onClick={() => handleQuizSort('title')}
+                      >
                         Tên đề thi {renderSortIndicator('title', quizSortField, quizSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('quiz', 'title', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('category')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={quizResized ? { width: quizColWidths.category, minWidth: quizColWidths.category } : undefined}
+                        onClick={() => handleQuizSort('category')}
+                      >
                         Chuyên ngành {renderSortIndicator('category', quizSortField, quizSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('quiz', 'category', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('duration')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={quizResized ? { width: quizColWidths.info, minWidth: quizColWidths.info } : undefined}
+                        onClick={() => handleQuizSort('duration')}
+                      >
                         Thông tin đề {renderSortIndicator('duration', quizSortField, quizSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('quiz', 'info', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('author')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={quizResized ? { width: quizColWidths.author, minWidth: quizColWidths.author } : undefined}
+                        onClick={() => handleQuizSort('author')}
+                      >
                         Đồng chí soạn {renderSortIndicator('author', quizSortField, quizSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('quiz', 'author', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('createdAt')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={quizResized ? { width: quizColWidths.createdAt, minWidth: quizColWidths.createdAt } : undefined}
+                        onClick={() => handleQuizSort('createdAt')}
+                      >
                         Thời gian tạo {renderSortIndicator('createdAt', quizSortField, quizSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('quiz', 'createdAt', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('isPublic')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={quizResized ? { width: quizColWidths.status, minWidth: quizColWidths.status } : undefined}
+                        onClick={() => handleQuizSort('isPublic')}
+                      >
                         Trạng thái {renderSortIndicator('isPublic', quizSortField, quizSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('quiz', 'status', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleQuizSort('shareCode')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={quizResized ? { width: quizColWidths.shareCode, minWidth: quizColWidths.shareCode } : undefined}
+                        onClick={() => handleQuizSort('shareCode')}
+                      >
                         Mã chia sẻ {renderSortIndicator('shareCode', quizSortField, quizSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('quiz', 'shareCode', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 text-right">Thao tác</th>
+                      <th 
+                        className="py-3 px-4 text-right select-none"
+                        style={quizResized ? { width: quizColWidths.actions, minWidth: quizColWidths.actions } : undefined}
+                      >
+                        Thao tác
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -982,17 +1163,27 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           <td className="py-4 px-4">
                             <div className="w-16 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded font-mono"></div>
                           </td>
-                          <td className="py-4 px-4 text-right flex justify-end space-x-2">
-                            <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
-                            <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
-                            <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          <td className="py-4 px-4 text-right">
+                            <div className="inline-flex justify-end space-x-2">
+                              <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                              <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                              <div className="w-12 h-6 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                            </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       displayedQuizzes.map(quiz => (
                         <tr key={quiz._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
-                          <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{quiz.title}</td>
+                          <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">
+                            <div 
+                              style={{ maxWidth: quizResized ? quizColWidths.title - 32 : 250 }}
+                              className="truncate" 
+                              title={quiz.title}
+                            >
+                              {quiz.title}
+                            </div>
+                          </td>
                           <td className="py-3 px-4">{quiz.category}</td>
                           <td className="py-3 px-4">{quiz.questions.length} câu / {quiz.duration} phút ({quiz.passingScorePercent}% Đạt)</td>
                           <td className="py-3 px-4 font-bold text-vpa-olive/80 dark:text-vpa-sand/80">{quiz.creatorId?.fullName || 'Hệ thống'}</td>
@@ -1948,22 +2139,71 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {!isAddingToBank && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
+                <table className={`w-full text-left border-collapse text-xs ${bankResized ? 'table-fixed' : ''}`}>
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                      <th className="py-3 px-4 w-1/2 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('questionText')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6" 
+                        style={bankResized ? { width: bankColWidths.questionText, minWidth: bankColWidths.questionText } : undefined}
+                        onClick={() => handleBankSort('questionText')}
+                      >
                         Nội dung câu hỏi {renderSortIndicator('questionText', bankSortField, bankSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('bank', 'questionText', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('category')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={bankResized ? { width: bankColWidths.category, minWidth: bankColWidths.category } : undefined}
+                        onClick={() => handleBankSort('category')}
+                      >
                         Chuyên ngành {renderSortIndicator('category', bankSortField, bankSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('bank', 'category', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('difficulty')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={bankResized ? { width: bankColWidths.difficulty, minWidth: bankColWidths.difficulty } : undefined}
+                        onClick={() => handleBankSort('difficulty')}
+                      >
                         Độ khó {renderSortIndicator('difficulty', bankSortField, bankSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('bank', 'difficulty', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleBankSort('author')}>
+                      <th 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        style={bankResized ? { width: bankColWidths.author, minWidth: bankColWidths.author } : undefined}
+                        onClick={() => handleBankSort('author')}
+                      >
                         Đồng chí soạn {renderSortIndicator('author', bankSortField, bankSortOrder)}
+                        <div 
+                          className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                          onMouseDown={(e) => handleResizeMouseDown('bank', 'author', e)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                        </div>
                       </th>
-                      <th className="py-3 px-4 text-right">Thao tác</th>
+                      <th 
+                        className="py-3 px-4 text-right select-none"
+                        style={bankResized ? { width: bankColWidths.actions, minWidth: bankColWidths.actions } : undefined}
+                      >
+                        Thao tác
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1983,16 +2223,26 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           <td className="py-4 px-4">
                             <div className="w-20 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
                           </td>
-                          <td className="py-4 px-4 text-right flex justify-end space-x-2">
-                            <div className="w-8 h-8 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
-                            <div className="w-8 h-8 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                          <td className="py-4 px-4 text-right">
+                            <div className="inline-flex justify-end space-x-2">
+                              <div className="w-8 h-8 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                              <div className="w-8 h-8 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                            </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       displayedBankQuestions.map(q => (
                         <tr key={q._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
-                          <td className="py-3 px-4 font-semibold text-vpa-olive dark:text-vpa-sand leading-relaxed">{q.questionText}</td>
+                          <td className="py-3 px-4 font-semibold text-vpa-olive dark:text-vpa-sand leading-relaxed">
+                            <div 
+                              style={{ maxWidth: bankResized ? bankColWidths.questionText - 32 : 350 }}
+                              className="line-clamp-2" 
+                              title={q.questionText}
+                            >
+                              {q.questionText}
+                            </div>
+                          </td>
                           <td className="py-3 px-4">{q.category}</td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-0.5 border text-[9px] font-mono font-bold ${
@@ -2006,21 +2256,23 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                             </span>
                           </td>
                           <td className="py-3 px-4 text-gray-500">{q.creatorId?.fullName || ''}</td>
-                          <td className="py-3 px-4 text-right flex justify-end space-x-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEditBankQ(q)}
-                              className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark"
-                            >
-                              <PencilSimple size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBankQ(q._id)}
-                              className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
-                            >
-                              <Trash size={14} />
-                            </button>
+                          <td className="py-3 px-4 text-right">
+                            <div className="inline-flex justify-end space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditBankQ(q)}
+                                className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark"
+                              >
+                                <PencilSimple size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBankQ(q._id)}
+                                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
+                              >
+                                <Trash size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))

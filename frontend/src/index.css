@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth; /* Hỗ trợ cuộn mượt mà toàn trang */
+}
+
 /* Enable class-based dark mode in Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -11,8 +15,8 @@
   --color-vpa-gold: #e5a93b;
   --color-vpa-gold-bright: #ffdf7a;
   --color-vpa-red: #da251d;
-  --color-vpa-sand: #f8f8fa;
-  --color-vpa-sand-light: #ffffff;
+  --color-vpa-sand: #e6e2d5;     /* Màu cát ấm áp dịu mắt, tránh chói */
+  --color-vpa-sand-light: #f5f3eb; /* Màu kem nhạt cao cấp cho thẻ nội dung */
   --font-serif: "Times New Roman", Times, serif;
 }
 

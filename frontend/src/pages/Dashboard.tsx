@@ -497,7 +497,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 key={inv._id}
                 className="flex flex-col md:flex-row md:items-center justify-between border border-vpa-olive-light/20 bg-vpa-sand/30 dark:bg-vpa-dark/30 p-4 transition-all hover:border-vpa-gold"
               >
-                <div>
+                <div className="min-w-0 flex-1 mr-4">
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     <span className={`text-[9px] uppercase font-mono px-2 py-0.5 border ${
                       inv.role === 'examiner' 
@@ -637,7 +637,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     key={room._id}
                     className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 transition-all hover:border-vpa-gold flex flex-col md:flex-row md:items-center justify-between"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1 mr-4">
                       <div className="flex items-center space-x-2 mb-1.5">
                         <span className="text-xs font-mono font-bold tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold dark:text-vpa-dark px-2 py-0.5">
                           {room.roomCode}
@@ -652,7 +652,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           {room.status === 'waiting' ? 'ĐANG CHỜ THI' : room.status === 'active' ? 'ĐANG THI' : 'ĐÃ KẾT THÚC'}
                         </span>
                       </div>
-                      <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-0.5">
+                      <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-0.5 truncate" title={room.quizId?.title || 'Đề thi trắc nghiệm'}>
                         Đề: {room.quizId?.title || 'Đề thi trắc nghiệm'}
                       </h4>
                       <p className="text-[10px] text-gray-500 font-mono">
@@ -738,7 +738,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </span>
                     <span className="text-[9px] font-mono text-gray-400">Code: {quiz.shareCode}</span>
                   </div>
-                  <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-1">
+                  <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-1 line-clamp-2" title={quiz.title}>
                     {quiz.title}
                   </h4>
                   <p className="text-[10px] text-gray-500 line-clamp-2 mb-4">

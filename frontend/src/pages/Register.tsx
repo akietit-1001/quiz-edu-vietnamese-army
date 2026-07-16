@@ -83,7 +83,11 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
       {/* Background Grid Pattern */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
 
-      <div className="w-full max-w-2xl bg-vpa-sand-light dark:bg-vpa-dark-card border border-vpa-olive-light p-8 shadow-2xl relative z-10 rounded-none">
+      {/* Glow spots for Military Glass depth */}
+      <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-vpa-olive/15 dark:bg-vpa-olive/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-vpa-gold/10 dark:bg-vpa-gold/5 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="w-full max-w-2xl bg-vpa-sand-light/65 dark:bg-vpa-dark-card/50 backdrop-blur-md border border-vpa-olive-light/20 dark:border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.35)] relative z-10 rounded-none">
         
         {/* Border corner decorations */}
         <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-vpa-gold" />
