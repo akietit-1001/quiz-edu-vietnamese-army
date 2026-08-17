@@ -77,6 +77,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [aiFiles, setAiFiles] = useState<File[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProgressStep, setAiProgressStep] = useState(1);
+  const [aiProgressPercent, setAiProgressPercent] = useState(0);
   const [quizzesLoading, setQuizzesLoading] = useState(true);
   const [bankLoading, setBankLoading] = useState(true);
 
@@ -301,7 +302,10 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   }, [searchBank, categoryFilter, difficultyFilter, typeFilter]);
 
   useEffect(() => {
-    if (!aiLoading) setAiProgressStep(1);
+    if (!aiLoading) {
+      setAiProgressStep(1);
+      setAiProgressPercent(0);
+    }
   }, [aiLoading]);
 
   const fetchQuizzes = async () => {
@@ -735,6 +739,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
     setAiLoading(true);
     setAiProgressStep(1); // Tiếp nhận tệp
+    setAiProgressPercent(5);
     const originalName = aiFiles[0].name + (aiFiles.length > 1 ? ` (+ ${aiFiles.length - 1} tệp khác)` : '');
     const formData = new FormData();
     aiFiles.forEach(file => {
@@ -749,11 +754,13 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       });
       // Tại đây server đã trích xuất xong văn bản (dù kết quả trả về ngay hay qua hàng đợi)
       setAiProgressStep(2); // Tải lên & trích xuất
+      setAiProgressPercent(20);
 
       // Direct synchronous response — lấy từ cache, không qua hàng đợi
       if (res.status === 200) {
         const { message, quiz } = res.data;
         setAiProgressStep(4);
+        setAiProgressPercent(100);
         await window.showAlert(message || 'Đã sinh đề thi thành công bằng AI!', 'Sinh đề AI');
         populateQuizPreview(quiz, originalName);
         setAiLoading(false);
@@ -767,11 +774,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await axios.get(`/api/quizzes/generate-status/${jobId}`);
-          const { status, quiz, message } = statusRes.data;
+          const { status, quiz, message, progress } = statusRes.data;
 
           if (status === 'completed') {
             clearInterval(pollInterval);
             setAiProgressStep(4);
+            setAiProgressPercent(100);
             await window.showAlert('Đã sinh câu hỏi thành công bằng AI!', 'Sinh đề AI');
             populateQuizPreview(quiz, originalName);
             setAiLoading(false);
@@ -779,8 +787,10 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             clearInterval(pollInterval);
             await window.showAlert(message || 'Tiến trình sinh đề thi thất bại.', 'Lỗi sinh đề thi AI');
             setAiLoading(false);
+          } else if (typeof progress === 'number' && progress > 0) {
+            // 'active' / 'waiting': cập nhật % thật lấy từ job.progress trên BullMQ
+            setAiProgressPercent(prev => Math.max(prev, Math.min(progress, 99)));
           }
-          // 'active' / 'waiting': vẫn ở bước 3, không cần cập nhật thêm
         } catch (pollErr: any) {
           clearInterval(pollInterval);
           const errMsg = pollErr.response?.data?.message || 'Lỗi kiểm tra tiến trình sinh đề AI.';
@@ -2043,6 +2053,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     <h4 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand tracking-widest font-mono">
                       Hệ thống AI đang xử lý tài liệu & soạn đề
                     </h4>
+                    <p className="text-2xl font-black text-vpa-gold font-mono tracking-wider">
+                      {aiProgressPercent}%
+                    </p>
                     <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
                       Vui lòng giữ kết nối, quá trình này có thể mất từ 10 - 20 giây
                     </p>

@@ -4,6 +4,11 @@ import axios from 'axios';
 if (import.meta.env.VITE_API_URL) {
   axios.defaults.baseURL = import.meta.env.VITE_API_URL;
 }
+// Bắt buộc để trình duyệt lưu/gửi cookie refreshToken khi frontend (Vercel)
+// và backend (Render) khác domain nhau (cross-site) — thiếu dòng này thì
+// đăng nhập vẫn "thành công" nhưng cookie không được lưu, dẫn đến mất phiên
+// đăng nhập ngay khi reload trang.
+axios.defaults.withCredentials = true;
 
 declare global {
   interface Window {

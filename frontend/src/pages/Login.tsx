@@ -66,9 +66,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
 
       {/* Decorative Red Star at top center */}
       <div className="absolute top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
-        <div className="w-10 h-10 bg-vpa-red dark:bg-vpa-gold flex items-center justify-center clip-star text-white dark:text-vpa-dark font-bold text-lg">
-          ★
-        </div>
+        {/* <div className="w-10 h-10 bg-vpa-red dark:bg-vpa-gold flex items-center justify-center clip-star text-white dark:text-vpa-dark font-bold text-lg">
+          
+        </div> */}
+        <img src="/BQP.png" alt="Bộ Quốc Phòng" className="w-14 h-14 object-contain" />
       </div>
 
       <div className="w-full max-w-md bg-vpa-sand-light/65 dark:bg-vpa-dark-card/50 backdrop-blur-md border border-vpa-olive-light/20 dark:border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.35)] relative z-10 rounded-none">
@@ -81,7 +82,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
 
         <div className="text-center mb-8">
           <h2 className="text-xl font-extrabold uppercase tracking-widest text-vpa-olive dark:text-vpa-sand">
-            {requires2FA ? 'XÁC THỰC 2FA' : 'ĐĂNG NHẬP CỔNG THI'}
+            {requires2FA ? 'XÁC THỰC 2FA' : 'ĐĂNG NHẬP'}
           </h2>
           <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
             Bộ CHQS tỉnh Đồng Tháp
