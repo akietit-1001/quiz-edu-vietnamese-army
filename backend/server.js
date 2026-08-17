@@ -40,11 +40,18 @@ const app = express();
 const isFirebase = !!process.env.FIREBASE_CONFIG;
 const server = isFirebase ? null : http.createServer(app);
 
+// Allowed frontend origins (comma-separated in CORS_ORIGIN), needed for
+// cross-site cookies (refresh token) once frontend/backend are on different domains
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : ['http://localhost:5173'];
+
 // Socket.io initialization with CORS (only for non-Firebase)
 const io = isFirebase ? null : new Server(server, {
   cors: {
-    origin: '*', // In production, replace with your frontend URL
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
@@ -52,7 +59,7 @@ app.set('socketio', io);
 
 // Middleware
 app.use(cors({
-  origin: '*', // In production, replace with your frontend URL
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());

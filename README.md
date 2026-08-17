@@ -17,7 +17,7 @@ JWT_SECRET=supersecretjwtkey_vpa_style_2026
 JWT_REFRESH_SECRET=supersecretrefreshjwtkey_vpa_style_2026
 
 # Gmail integration configuration
-GMAIL_USER=ndakiet1001@gmail.com
+GMAIL_USER= xxxxx@gmail.com
 # Tạo Mật khẩu ứng dụng (App Password) trong Cài đặt bảo mật tài khoản Google của bạn
 GMAIL_APP_PASSWORD=your_gmail_app_password
 ```
