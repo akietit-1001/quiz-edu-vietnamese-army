@@ -17,6 +17,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [currentTab, setCurrentTab] = useState<'quizzes' | 'bank'>('quizzes');
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [editingExamCode, setEditingExamCode] = useState<string | null>(null);
+  const [editingSiblingCount, setEditingSiblingCount] = useState(0);
   const [viewingQuiz, setViewingQuiz] = useState<any | null>(null);
   const [activeVersionTab, setActiveVersionTab] = useState<string>('parent');
 
@@ -462,7 +464,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       }
 
       setIsCreating(false);
-      setEditingQuizId(null);
       resetManualForm();
       fetchQuizzes();
     } catch (err: any) {
@@ -472,9 +473,13 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   const handleEditQuiz = async (quiz: any) => {
     try {
-      const res = await axios.get(`/api/quizzes/${quiz._id}`);
+      // includeVariants=true chỉ có tác dụng khi quiz._id là đề gốc — cần biết số
+      // mã đề anh em để cảnh báo rõ phạm vi ảnh hưởng của lần sửa này.
+      const res = await axios.get(`/api/quizzes/${quiz._id}?includeVariants=true`);
       const fullQuiz = res.data;
       setEditingQuizId(fullQuiz._id);
+      setEditingExamCode(fullQuiz.examCode || (fullQuiz.parentQuizId ? null : (fullQuiz.variants?.length > 0 ? '001' : null)));
+      setEditingSiblingCount(fullQuiz.parentQuizId ? 0 : (fullQuiz.variants?.length || 0));
       setTitle(fullQuiz.title);
       setDescription(fullQuiz.description || '');
       setCategory(fullQuiz.category);
@@ -727,6 +732,11 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   };
 
   const populateQuizPreview = (quiz: any, originalFileName?: string) => {
+    // Đây luôn là một đề MỚI (từ AI) — đảm bảo không kế thừa editingQuizId của
+    // một phiên sửa đề trước đó, nếu không lần lưu sẽ đè nhầm lên đề cũ.
+    setEditingQuizId(null);
+    setEditingExamCode(null);
+    setEditingSiblingCount(0);
     setTitle(quiz.title || `Đề thi AI - ${originalFileName ? originalFileName.split('.')[0] : 'Tài liệu'}`);
     setDescription(quiz.description || `Đề thi tự động sinh từ tài liệu ${originalFileName || ''}`);
     setCategory(quiz.category || aiCategory);
@@ -946,6 +956,11 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setQuestions([]);
     setDocumentHash(null);
     setNumCodes(1);
+    // Quan trọng: nếu không xóa editingQuizId ở đây, lần lưu tiếp theo (kể cả
+    // một đề hoàn toàn mới) sẽ vô tình PUT đè lên đề đang sửa dở trước đó.
+    setEditingQuizId(null);
+    setEditingExamCode(null);
+    setEditingSiblingCount(0);
   };
 
   const resetBankQForm = () => {
@@ -1182,7 +1197,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <span>Import bộ đề</span>
                 </button>
                 <button
-                  onClick={() => { setIsCreating(true); handleAddQuestion(); }}
+                  onClick={() => { resetManualForm(); setIsCreating(true); handleAddQuestion(); }}
                   className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
                 >
                   <PlusIcon size={16} />
@@ -1546,7 +1561,18 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30">
                   Thông tin soạn đề thi
                 </h3>
-                
+
+                {editingQuizId && editingSiblingCount > 0 && (
+                  <div className="p-2.5 bg-vpa-gold/10 border-l-4 border-vpa-gold text-[11px] text-vpa-olive dark:text-vpa-sand">
+                    Đang sửa <span className="font-bold">Mã đề {editingExamCode || '001'} (đề gốc)</span> — thay đổi này KHÔNG áp dụng cho {editingSiblingCount} mã đề biến thể khác trong cùng bộ đề. Để sửa riêng từng mã đề, vào "Xem đề" và chọn tab tương ứng.
+                  </div>
+                )}
+                {editingQuizId && !editingSiblingCount && editingExamCode && (
+                  <div className="p-2.5 bg-vpa-gold/10 border-l-4 border-vpa-gold text-[11px] text-vpa-olive dark:text-vpa-sand">
+                    Đang sửa riêng <span className="font-bold">Mã đề {editingExamCode}</span> — các mã đề khác trong cùng bộ đề không bị ảnh hưởng.
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tên đề thi</label>
