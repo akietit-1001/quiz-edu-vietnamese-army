@@ -4,6 +4,7 @@ import Quiz from '../models/Quiz.js';
 import ExamAttempt from '../models/ExamAttempt.js';
 import ExamRoom from '../models/ExamRoom.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { validateQuizStructure, generateJSONWithRetry } from './aiQuizValidation.js';
 
 // Initialize Redis connection
 const connection = new IORedis({
@@ -12,6 +13,9 @@ const connection = new IORedis({
   password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: null, // Required for BullMQ workers
 });
+
+// Dùng chung để cache tạm văn bản tài liệu gốc (phục vụ regenerate-question)
+export const redisConnection = connection;
 
 connection.on('connect', () => {
   console.log('=== [Redis] Kết nối thành công tới Redis Server ===');
@@ -25,20 +29,22 @@ export const quizGenQueue = new Queue('quizGen', { connection });
 export const examSubmitQueue = new Queue('examSubmit', { connection });
 
 export const quizGenWorker = new Worker('quizGen', async (job) => {
-  const { markdownText, count, category, fileHash } = job.data;
+  const { markdownText, count, category, fileHash, fileListNames, firstFileName, filesCount } = job.data;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     throw new Error('Hệ thống chưa được cấu hình API Key của Gemini.');
   }
 
+  await job.updateProgress(15);
+
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ 
+  const model = genAI.getGenerativeModel({
     model: 'gemini-flash-latest',
     generationConfig: { responseMimeType: 'application/json' }
   });
 
-  const prompt = `
+  const buildPrompt = (attempt, lastError) => `
     Bạn là một trợ lý giảng dạy quân sự chuyên nghiệp tại Học viện Kỹ thuật Quân sự.
     Hãy đọc tài liệu định dạng Markdown dưới đây và tạo ra một đề thi trắc nghiệm gồm chính xác ${count} câu hỏi chất lượng cao dựa trên nội dung tài liệu.
 
@@ -66,17 +72,27 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
     - Trường "correctAnswers" phải là một mảng chứa 1 chuỗi số, đại diện cho chỉ mục của đáp án đúng trong mảng options (ví dụ: ["0"] cho đáp án A, ["1"] cho đáp án B, ["2"] cho đáp án C, ["3"] cho đáp án D...).
     - PHẢI PHÂN BỐ NGẪU NHIÊN VÀ ĐỀU VỊ TRÍ ĐÁP ÁN ĐÚNG giữa các lựa chọn A, B, C, D (chỉ mục "0", "1", "2", "3"). Tuyệt đối không được luôn luôn đặt đáp án đúng ở vị trí đầu tiên (đáp án A / chỉ mục "0"). Hãy xáo trộn ngẫu nhiên và bám sát chính xác nội dung thực tế của tài liệu.
     - Đảm bảo các câu hỏi có tính thực tế, rõ ràng và bám sát chính xác tài liệu đã cho.
+    - Đề thi phải có chính xác ${count} câu hỏi trong mảng "questions", không nhiều hơn hoặc ít hơn.
+    ${attempt > 0 ? `\n    LƯU Ý SỬA LỖI: Lần trả lời trước bị từ chối vì: "${lastError}". Hãy sửa lại và trả lời ĐÚNG chuẩn JSON yêu cầu, không thêm bất kỳ văn bản nào khác ngoài JSON.` : ''}
   `;
 
-  const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
-  
-  let quizData = JSON.parse(responseText);
+  await job.updateProgress(30);
 
-  return {
-    ...quizData,
+  const quizData = await generateJSONWithRetry(model, buildPrompt, validateQuizStructure, 1);
+
+  await job.updateProgress(90);
+
+  const result = {
+    title: quizData.title || `Đề thi AI - ${firstFileName || 'Tài liệu'}${filesCount > 1 ? ` + ${filesCount - 1} tài liệu khác` : ''}`,
+    description: quizData.description || `Đề thi được sinh tự động bằng AI từ danh sách tài liệu: ${fileListNames || firstFileName || ''}`,
+    category: category || 'Khác',
+    duration: quizData.duration || count * 2,
+    questions: quizData.questions,
     documentHash: fileHash
   };
+
+  await job.updateProgress(100);
+  return result;
 }, { connection });
 
 // 2. Exam Submission Worker

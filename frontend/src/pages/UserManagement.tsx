@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus } from '@phosphor-icons/react';
+import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 
 interface UserManagementProps {
   user: any;
@@ -52,18 +53,73 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Form Fields
+  const [personnelType, setPersonnelType] = useState<'soldier' | 'officer'>('officer');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [rank, setRank] = useState('Binh nhì');
   const [position, setPosition] = useState('Chiến sĩ');
-  const [unit, setUnit] = useState(user?.unit || '');
+  const [unitId, setUnitId] = useState(user?.unit?.id || '');
   const [address, setAddress] = useState('');
   const [role, setRole] = useState('user');
 
+  // Unit tree (for the picker + the "Quản lý đơn vị" tab)
+  const [activeTab, setActiveTab] = useState<'users' | 'units'>('users');
+  const [units, setUnits] = useState<UnitNode[]>([]);
+  const [unitsLoading, setUnitsLoading] = useState(true);
+  const [newUnitName, setNewUnitName] = useState('');
+  const [newUnitParentId, setNewUnitParentId] = useState('');
+  const [unitError, setUnitError] = useState('');
+  const [unitSuccessMsg, setUnitSuccessMsg] = useState('');
+  const [renamingUnitId, setRenamingUnitId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Units this commander is allowed to assign people/sub-units into:
+  // master-admin sees the whole tree, everyone else only their own branch.
+  const assignableUnits = React.useMemo(() => {
+    const byId = new Map(units.map(u => [u._id, u]));
+    const result: UnitNode[] = [];
+    const collect = (id: string) => {
+      const node = byId.get(id);
+      if (!node) return;
+      result.push(node);
+      units
+        .filter(u => u.parentId === id)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(child => collect(child._id));
+    };
+
+    if (user?.role === 'master-admin') {
+      units
+        .filter(u => !u.parentId)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(root => collect(root._id));
+      return result;
+    }
+
+    const ownUnitId = user?.unit?.id;
+    if (!ownUnitId) return [];
+    collect(ownUnitId);
+    return result;
+  }, [units, user]);
+
+  const fetchUnits = async () => {
+    try {
+      setUnitsLoading(true);
+      const res = await axios.get('/api/units');
+      setUnits(res.data);
+    } catch (err: any) {
+      setUnitError('Không thể tải cây đơn vị.');
+    } finally {
+      setUnitsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchUnits();
   }, []);
 
   useEffect(() => {
@@ -85,13 +141,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const handleOpenCreateModal = () => {
     setIsEditing(false);
     setSelectedUserId(null);
+    setPersonnelType('officer');
     setEmail('');
+    setUsername('');
     setPassword('');
     setFullName('');
     setDateOfBirth('');
     setRank('Binh nhì');
     setPosition('Chiến sĩ');
-    setUnit(user?.role === 'master-admin' ? '' : user?.unit || '');
+    setUnitId(user?.role === 'master-admin' ? '' : user?.unit?.id || '');
     setAddress('');
     setRole('user');
     setError('');
@@ -102,13 +160,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const handleOpenEditModal = (targetUser: any) => {
     setIsEditing(true);
     setSelectedUserId(targetUser._id);
-    setEmail(targetUser.email);
+    setPersonnelType(targetUser.personnelType === 'soldier' ? 'soldier' : 'officer');
+    setEmail(targetUser.email || '');
+    setUsername(targetUser.username || '');
     setPassword(''); // Don't show password
     setFullName(targetUser.fullName);
     setDateOfBirth(targetUser.dateOfBirth ? new Date(targetUser.dateOfBirth).toISOString().split('T')[0] : '');
     setRank(targetUser.rank || 'Binh nhì');
     setPosition(targetUser.position || 'Chiến sĩ');
-    setUnit(targetUser.unit || '');
+    setUnitId(targetUser.unit?.id || '');
     setAddress(targetUser.address || '');
     setRole(targetUser.role || 'user');
     setError('');
@@ -126,28 +186,32 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       dateOfBirth,
       rank,
       position,
-      unit,
+      unitId,
       address,
       role
     };
 
     if (!isEditing) {
-      payload.email = email;
+      payload.personnelType = personnelType;
       payload.password = password;
-      if (!email || !password || !fullName || !unit) {
-        setError('Vui lòng điền đầy đủ các thông tin bắt buộc (Email, Mật khẩu, Họ tên, Đơn vị)');
-        return;
+      if (personnelType === 'soldier') {
+        payload.username = username;
+        if (!username || !password || !fullName || !unitId) {
+          setError('Vui lòng điền đầy đủ các thông tin bắt buộc (Tên đăng nhập, Mật khẩu, Họ tên, Đơn vị)');
+          return;
+        }
+      } else {
+        payload.email = email;
+        if (!email || !password || !fullName || !unitId) {
+          setError('Vui lòng điền đầy đủ các thông tin bắt buộc (Email, Mật khẩu, Họ tên, Đơn vị)');
+          return;
+        }
       }
     } else {
-      if (!fullName || !unit) {
+      if (!fullName || !unitId) {
         setError('Vui lòng điền đầy đủ các thông tin bắt buộc (Họ tên, Đơn vị)');
         return;
       }
-    }
-
-    if (user?.role !== 'master-admin' && !unit.toLowerCase().includes(user?.unit.toLowerCase())) {
-      setError(`Đơn vị của quân nhân phải thuộc quyền quản lý của đồng chí (phải chứa "${user?.unit}")`);
-      return;
     }
 
     try {
@@ -185,12 +249,69 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     }
   };
 
+  const handleCreateUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUnitError('');
+    setUnitSuccessMsg('');
+    if (!newUnitName.trim()) {
+      setUnitError('Vui lòng nhập tên đơn vị mới.');
+      return;
+    }
+    try {
+      await axios.post('/api/units', {
+        name: newUnitName.trim(),
+        parentId: newUnitParentId || null
+      });
+      setUnitSuccessMsg('Đã thêm đơn vị mới thành công.');
+      setNewUnitName('');
+      fetchUnits();
+      setTimeout(() => setUnitSuccessMsg(''), 3000);
+    } catch (err: any) {
+      setUnitError(err.response?.data?.message || 'Không thể tạo đơn vị mới.');
+    }
+  };
+
+  const handleStartRenameUnit = (unitToRename: UnitNode) => {
+    setRenamingUnitId(unitToRename._id);
+    setRenameValue(unitToRename.name);
+  };
+
+  const handleConfirmRenameUnit = async () => {
+    if (!renamingUnitId || !renameValue.trim()) {
+      setRenamingUnitId(null);
+      return;
+    }
+    try {
+      await axios.put(`/api/units/${renamingUnitId}`, { name: renameValue.trim() });
+      setRenamingUnitId(null);
+      fetchUnits();
+    } catch (err: any) {
+      setUnitError(err.response?.data?.message || 'Không thể đổi tên đơn vị.');
+      setTimeout(() => setUnitError(''), 3000);
+    }
+  };
+
+  const handleDeleteUnit = async (unitToDelete: UnitNode) => {
+    const confirmDelete = await window.showConfirm(`Đồng chí có chắc chắn muốn xóa đơn vị "${unitToDelete.name}"?`, 'Xác nhận xóa đơn vị');
+    if (!confirmDelete) return;
+    try {
+      await axios.delete(`/api/units/${unitToDelete._id}`);
+      setUnitSuccessMsg('Đã xóa đơn vị thành công.');
+      fetchUnits();
+      setTimeout(() => setUnitSuccessMsg(''), 3000);
+    } catch (err: any) {
+      setUnitError(err.response?.data?.message || 'Không thể xóa đơn vị (có thể còn đơn vị con hoặc quân nhân trực thuộc).');
+      setTimeout(() => setUnitError(''), 3000);
+    }
+  };
+
   const filteredUsers = users.filter(u => {
     const matchSearch = 
       u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.position || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.unit || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (u.unit?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchRank = rankFilter ? u.rank === rankFilter : true;
 
@@ -200,6 +321,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     let aVal: any = a[userSortField];
     let bVal: any = b[userSortField];
+
+    if (userSortField === 'unit') {
+      aVal = a.unit?.name;
+      bVal = b.unit?.name;
+    }
 
     if (userSortField === 'rank') {
       const rankOrder = [
@@ -266,33 +392,77 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               Quản lý Quân nhân Đơn vị
             </h1>
             <p className="text-[10px] text-gray-500 uppercase tracking-widest font-mono">
-              Đơn vị: {user?.role === 'master-admin' ? 'TẤT CẢ ĐƠN VỊ' : user?.unit} | Cấp chỉ huy: {user?.fullName}
+              Đơn vị: {user?.role === 'master-admin' ? 'TẤT CẢ ĐƠN VỊ' : user?.unit?.name} | Cấp chỉ huy: {user?.fullName}
             </p>
           </div>
         </div>
 
+        {activeTab === 'users' && (
+          <button
+            onClick={handleOpenCreateModal}
+            className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs font-bold uppercase tracking-wider flex items-center space-x-2 hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors"
+          >
+            <UserPlus size={16} />
+            <span>Thêm Quân nhân</span>
+          </button>
+        )}
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex space-x-1 mb-6 border-b border-vpa-olive-light/30">
         <button
-          onClick={handleOpenCreateModal}
-          className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs font-bold uppercase tracking-wider flex items-center space-x-2 hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors"
+          type="button"
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+            activeTab === 'users'
+              ? 'border-vpa-gold text-vpa-olive dark:text-vpa-sand'
+              : 'border-transparent text-gray-400 hover:text-vpa-olive dark:hover:text-vpa-sand'
+          }`}
         >
-          <UserPlus size={16} />
-          <span>Thêm Quân nhân</span>
+          Quân nhân
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('units')}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 flex items-center space-x-1.5 ${
+            activeTab === 'units'
+              ? 'border-vpa-gold text-vpa-olive dark:text-vpa-sand'
+              : 'border-transparent text-gray-400 hover:text-vpa-olive dark:hover:text-vpa-sand'
+          }`}
+        >
+          <Buildings size={14} />
+          <span>Quản lý đơn vị</span>
         </button>
       </div>
 
-      {successMsg && (
+      {activeTab === 'users' && successMsg && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 text-green-600 text-xs font-bold uppercase tracking-wider flex items-center space-x-2">
           <ShieldCheck size={18} />
           <span>{successMsg}</span>
         </div>
       )}
 
-      {error && (
+      {activeTab === 'users' && error && (
         <div className="mb-6 p-4 bg-vpa-red/10 border border-vpa-red/30 text-vpa-red text-xs font-bold uppercase tracking-wider">
           {error}
         </div>
       )}
 
+      {activeTab === 'units' && unitSuccessMsg && (
+        <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 text-green-600 text-xs font-bold uppercase tracking-wider flex items-center space-x-2">
+          <ShieldCheck size={18} />
+          <span>{unitSuccessMsg}</span>
+        </div>
+      )}
+
+      {activeTab === 'units' && unitError && (
+        <div className="mb-6 p-4 bg-vpa-red/10 border border-vpa-red/30 text-vpa-red text-xs font-bold uppercase tracking-wider">
+          {unitError}
+        </div>
+      )}
+
+      {activeTab === 'users' && (
+      <>
       {/* Filter / Search Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="relative">
@@ -343,7 +513,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                   Đơn vị {renderSortIndicator('unit')}
                 </th>
                 <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('email')}>
-                  Email / Tài khoản {renderSortIndicator('email')}
+                  Email / Tên đăng nhập {renderSortIndicator('email')}
                 </th>
                 <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('role')}>
                   Quyền hạn {renderSortIndicator('role')}
@@ -385,8 +555,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{u.fullName}</td>
                     <td className="py-3 px-4">{u.rank || 'Chưa cập nhật'}</td>
                     <td className="py-3 px-4">{u.position || 'Chưa cập nhật'}</td>
-                    <td className="py-3 px-4 uppercase font-bold text-vpa-olive/75 dark:text-vpa-sand/75">{u.unit}</td>
-                    <td className="py-3 px-4 font-mono">{u.email}</td>
+                    <td className="py-3 px-4 uppercase font-bold text-vpa-olive/75 dark:text-vpa-sand/75">{u.unit?.name || ''}</td>
+                    <td className="py-3 px-4 font-mono">{u.email || u.username}</td>
                     <td className="py-3 px-4">
                       {u.role === 'master-admin' && <span className="bg-red-600/10 text-red-600 border border-red-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Master-Admin</span>}
                       {u.role === 'admin' && <span className="bg-vpa-gold/10 text-vpa-gold border border-vpa-gold/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Admin</span>}
@@ -490,17 +660,69 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
             </div>
 
             <form onSubmit={handleFormSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Email / Tài khoản đăng nhập (Bắt buộc)</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  disabled={isEditing}
-                  required
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold disabled:opacity-50 font-mono"
-                />
-              </div>
+              {!isEditing && (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đối tượng</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPersonnelType('soldier')}
+                      className={`text-xs p-2 border uppercase tracking-wider font-bold transition-colors ${
+                        personnelType === 'soldier'
+                          ? 'bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark border-transparent'
+                          : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                      }`}
+                    >
+                      Chiến sĩ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPersonnelType('officer')}
+                      className={`text-xs p-2 border uppercase tracking-wider font-bold transition-colors ${
+                        personnelType === 'officer'
+                          ? 'bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark border-transparent'
+                          : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                      }`}
+                    >
+                      Cán bộ
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {isEditing ? (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Email / Tên đăng nhập</label>
+                  <input
+                    type="text"
+                    value={email || username}
+                    disabled
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none disabled:opacity-50 font-mono"
+                  />
+                </div>
+              ) : personnelType === 'soldier' ? (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Tên đăng nhập (Bắt buộc)</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    required
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Email / Tài khoản đăng nhập (Bắt buộc)</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                  />
+                </div>
+              )}
 
               {!isEditing && (
                 <div>
@@ -557,13 +779,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị (Khóa theo Đơn vị Chỉ huy)</label>
-                  <input
-                    type="text"
-                    value={unit}
-                    onChange={e => setUnit(e.target.value)}
-                    disabled={user?.role !== 'master-admin' && user?.role !== 'admin' && user?.role !== 'sub-admin'}
-                    required
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold disabled:opacity-75 font-mono uppercase"
+                  <UnitTreeSelect
+                    units={assignableUnits}
+                    value={unitId}
+                    onChange={setUnitId}
                   />
                 </div>
 
@@ -624,6 +843,106 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               </div>
             </form>
           </div>
+        </div>
+      )}
+      </>
+      )}
+
+      {activeTab === 'units' && (
+        <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-none p-6">
+          <form onSubmit={handleCreateUnit} className="flex flex-col sm:flex-row gap-3 mb-6 pb-6 border-b border-vpa-olive-light/20">
+            <div className="flex-1">
+              <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị cha (bỏ trống nếu tạo đơn vị gốc)</label>
+              <select
+                value={newUnitParentId}
+                onChange={e => setNewUnitParentId(e.target.value)}
+                className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+              >
+                <option value="" className="dark:bg-vpa-dark">— Đơn vị gốc (cấp 1) —</option>
+                {assignableUnits.map(u => (
+                  <option key={u._id} value={u._id} className="dark:bg-vpa-dark">
+                    {'—'.repeat(u.level - 1)} {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Tên đơn vị mới</label>
+              <input
+                type="text"
+                value={newUnitName}
+                onChange={e => setNewUnitName(e.target.value)}
+                placeholder="Đại đội Thông tin 3"
+                className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs font-bold uppercase tracking-wider flex items-center space-x-2 hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors whitespace-nowrap"
+              >
+                <Plus size={14} />
+                <span>Thêm đơn vị</span>
+              </button>
+            </div>
+          </form>
+
+          {unitsLoading ? (
+            <p className="text-xs text-gray-400 uppercase tracking-wider">Đang tải cây đơn vị...</p>
+          ) : (
+            <ul className="space-y-1">
+              {assignableUnits.map(u => (
+                <li
+                  key={u._id}
+                  style={{ marginLeft: `${(u.level - 1) * 24}px` }}
+                  className="flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs"
+                >
+                  {renamingUnitId === u._id ? (
+                    <div className="flex items-center space-x-2 flex-1">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleConfirmRenameUnit(); if (e.key === 'Escape') setRenamingUnitId(null); }}
+                        className="text-xs p-1 bg-transparent border border-vpa-gold text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
+                      />
+                      <button type="button" onClick={handleConfirmRenameUnit} className="text-vpa-gold text-[10px] font-bold uppercase">Lưu</button>
+                      <button type="button" onClick={() => setRenamingUnitId(null)} className="text-gray-400 text-[10px] font-bold uppercase">Hủy</button>
+                    </div>
+                  ) : (
+                    <span className="font-bold text-vpa-olive dark:text-vpa-sand uppercase flex items-center space-x-2">
+                      <Buildings size={12} className="text-vpa-gold" />
+                      <span>{u.name}</span>
+                      <span className="text-[9px] text-gray-400 font-mono normal-case">(cấp {u.level})</span>
+                    </span>
+                  )}
+
+                  {renamingUnitId !== u._id && (
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartRenameUnit(u)}
+                        className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                      >
+                        <PencilSimple size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUnit(u)}
+                        className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                      >
+                        <Trash size={12} />
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+              {assignableUnits.length === 0 && (
+                <p className="text-xs text-gray-400 uppercase tracking-wider py-4 text-center">Chưa có đơn vị nào.</p>
+              )}
+            </ul>
+          )}
         </div>
       )}
     </div>

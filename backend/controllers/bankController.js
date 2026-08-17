@@ -1,6 +1,16 @@
 import QuestionBank from '../models/QuestionBank.js';
 import Quiz from '../models/Quiz.js';
 import User from '../models/User.js';
+import { isDescendantInChain, getAllowedCreatorIds } from '../utils/commandChain.js';
+
+// Dùng chung cho update/delete: currentUser có được thao tác câu hỏi do
+// question.creatorId tạo hay không (chính mình, master-admin, hoặc người
+// tạo nằm trong chuỗi chỉ huy cấp dưới của mình).
+const canManageBankQuestion = async (currentUser, question) => {
+  if (currentUser.role === 'master-admin') return true;
+  if (question.creatorId.toString() === currentUser.id) return true;
+  return isDescendantInChain(question.creatorId, currentUser._id);
+};
 
 // 1. ADD QUESTION TO BANK
 export const createBankQuestion = async (req, res) => {
@@ -49,35 +59,9 @@ export const getBankQuestions = async (req, res) => {
       ];
     }
 
-    // Role & Unit permission checks
-    if (currentUser.role !== 'master-admin') {
-      const escapedUnit = (currentUser.unit || '').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      let userQuery = {};
-
-      if (currentUser.role === 'admin') {
-        userQuery = {
-          $or: [
-            { role: 'master-admin' },
-            { _id: currentUser._id },
-            { unit: { $regex: escapedUnit, $options: 'i' } },
-            { managedBy: currentUser._id }
-          ]
-        };
-      } else if (currentUser.role === 'sub-admin') {
-        userQuery = {
-          $or: [
-            { role: 'master-admin' },
-            { _id: currentUser._id },
-            { 
-              role: 'user',
-              unit: { $regex: escapedUnit, $options: 'i' }
-            }
-          ]
-        };
-      }
-
-      const allowedUsers = await User.find(userQuery).select('_id');
-      const allowedCreatorIds = allowedUsers.map(u => u._id);
+    // Role & chuỗi chỉ huy permission checks
+    const allowedCreatorIds = await getAllowedCreatorIds(currentUser);
+    if (allowedCreatorIds !== null) {
       query.creatorId = { $in: allowedCreatorIds };
     }
 
@@ -95,7 +79,11 @@ export const getBankQuestions = async (req, res) => {
       const skip = (pageNum - 1) * limitNum;
 
       const questions = await QuestionBank.find(query)
-        .populate('creatorId', 'fullName rank unit')
+        .populate({
+          path: 'creatorId',
+          select: 'fullName rank unitId',
+          populate: { path: 'unitId', select: 'name' }
+        })
         .sort(sortQuery)
         .skip(skip)
         .limit(limitNum);
@@ -111,7 +99,11 @@ export const getBankQuestions = async (req, res) => {
       });
     } else {
       const questions = await QuestionBank.find(query)
-        .populate('creatorId', 'fullName rank unit')
+        .populate({
+          path: 'creatorId',
+          select: 'fullName rank unitId',
+          populate: { path: 'unitId', select: 'name' }
+        })
         .sort(sortQuery);
       res.status(200).json(questions);
     }
@@ -133,34 +125,8 @@ export const updateBankQuestion = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy câu hỏi' });
     }
 
-    // Enforce role/unit hierarchy permission checks
-    const isCreator = question.creatorId.toString() === currentUser.id;
-    let isAllowed = false;
-
-    if (currentUser.role === 'master-admin') {
-      isAllowed = true;
-    } else if (isCreator) {
-      isAllowed = true;
-    } else {
-      // Fetch creator details for unit/role validation
-      const creator = await User.findById(question.creatorId);
-      if (creator) {
-        const escapedUnit = (currentUser.unit || '').toLowerCase();
-        if (currentUser.role === 'admin') {
-          if (creator.role === 'sub-admin' || creator.role === 'user') {
-            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
-              isAllowed = true;
-            }
-          }
-        } else if (currentUser.role === 'sub-admin') {
-          if (creator.role === 'user') {
-            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
-              isAllowed = true;
-            }
-          }
-        }
-      }
-    }
+    // Enforce role/chuỗi chỉ huy permission checks
+    const isAllowed = await canManageBankQuestion(currentUser, question);
 
     if (!isAllowed) {
       return res.status(403).json({ message: 'Đồng chí không có quyền chỉnh sửa câu hỏi này' });
@@ -197,34 +163,8 @@ export const deleteBankQuestion = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy câu hỏi' });
     }
 
-    // Enforce role/unit hierarchy permission checks
-    const isCreator = question.creatorId.toString() === currentUser.id;
-    let isAllowed = false;
-
-    if (currentUser.role === 'master-admin') {
-      isAllowed = true;
-    } else if (isCreator) {
-      isAllowed = true;
-    } else {
-      // Fetch creator details for unit/role validation
-      const creator = await User.findById(question.creatorId);
-      if (creator) {
-        const escapedUnit = (currentUser.unit || '').toLowerCase();
-        if (currentUser.role === 'admin') {
-          if (creator.role === 'sub-admin' || creator.role === 'user') {
-            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
-              isAllowed = true;
-            }
-          }
-        } else if (currentUser.role === 'sub-admin') {
-          if (creator.role === 'user') {
-            if ((creator.unit || '').toLowerCase().includes(escapedUnit) || creator.managedBy?.toString() === currentUser.id) {
-              isAllowed = true;
-            }
-          }
-        }
-      }
-    }
+    // Enforce role/chuỗi chỉ huy permission checks
+    const isAllowed = await canManageBankQuestion(currentUser, question);
 
     if (!isAllowed) {
       return res.status(403).json({ message: 'Đồng chí không có quyền xóa câu hỏi này' });
@@ -249,36 +189,7 @@ export const autoGenerateQuiz = async (req, res) => {
     }
 
     // Build allowed creator IDs for non-master-admins
-    let allowedCreatorIds = [];
-    if (currentUser.role !== 'master-admin') {
-      const escapedUnit = (currentUser.unit || '').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      let userQuery = {};
-
-      if (currentUser.role === 'admin') {
-        userQuery = {
-          $or: [
-            { role: 'master-admin' },
-            { _id: currentUser._id },
-            { unit: { $regex: escapedUnit, $options: 'i' } },
-            { managedBy: currentUser._id }
-          ]
-        };
-      } else if (currentUser.role === 'sub-admin') {
-        userQuery = {
-          $or: [
-            { role: 'master-admin' },
-            { _id: currentUser._id },
-            { 
-              role: 'user',
-              unit: { $regex: escapedUnit, $options: 'i' }
-            }
-          ]
-        };
-      }
-
-      const allowedUsers = await User.find(userQuery).select('_id');
-      allowedCreatorIds = allowedUsers.map(u => u._id);
-    }
+    const allowedCreatorIds = (await getAllowedCreatorIds(currentUser)) || [];
 
     let allSelectedQuestions = [];
 

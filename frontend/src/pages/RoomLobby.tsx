@@ -371,7 +371,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               
               <ul className="space-y-3 text-xs text-gray-700 dark:text-gray-300">
                 <li><span className="font-semibold text-gray-500">Chỉ huy phòng:</span>  {hostDetails?.rank} {hostDetails?.fullName} </li>
-                <li><span className="font-semibold text-gray-500">Đơn vị host:</span> {hostDetails?.unit}</li>
+                <li><span className="font-semibold text-gray-500">Đơn vị host:</span> {hostDetails?.unitId?.name}</li>
                 <li>
                   <span className="font-semibold text-gray-500">Thời gian làm bài:</span>{' '}
                   {isEditingDuration ? (
@@ -477,7 +477,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                             {part.userId.rank ? `${part.userId.rank} ` : ''}{part.userId.fullName}
                           </h4>
                           <p className="text-[9px] text-gray-500 uppercase">
-                            {part.userId.position || 'N/A'} | {part.userId.unit}
+                            {part.userId.position || 'N/A'} | {part.userId.unitId?.name}
                           </p>
                         </div>
                       </div>
@@ -535,7 +535,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                             {part.userId.rank ? `${part.userId.rank} ` : ''}{part.userId.fullName}
                           </h4>
                           <p className="text-[9px] text-gray-500 uppercase">
-                            {part.userId.position || 'N/A'} | {part.userId.unit}
+                            {part.userId.position || 'N/A'} | {part.userId.unitId?.name}
                           </p>
                         </div>
                       </div>

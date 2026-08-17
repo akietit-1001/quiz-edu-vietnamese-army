@@ -8,7 +8,6 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './config/db.js';
-import { onRequest } from 'firebase-functions/v2/https';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -17,6 +16,7 @@ import quizRoutes from './routes/quizRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import bankRoutes from './routes/bankRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
+import unitRoutes from './routes/unitRoutes.js';
 
 // Models for Socket.io database operations
 import ExamRoom from './models/ExamRoom.js';
@@ -27,18 +27,15 @@ setServers(["1.1.1.1", "8.8.8.8"]);
 // Connect to Database
 connectDB();
 
-// Dynamic import for Redis queue, only loaded when not running on Firebase
-if (!process.env.FIREBASE_CONFIG) {
-  import('./utils/queue.js').then(() => {
-    console.log('=== [Queue] Hàng đợi BullMQ đã được khởi tạo ===');
-  }).catch(err => {
-    console.error('=== [Queue] Lỗi khởi tạo hàng đợi:', err.message, '===');
-  });
-}
+// Dynamic import for Redis queue
+import('./utils/queue.js').then(() => {
+  console.log('=== [Queue] Hàng đợi BullMQ đã được khởi tạo ===');
+}).catch(err => {
+  console.error('=== [Queue] Lỗi khởi tạo hàng đợi:', err.message, '===');
+});
 
 const app = express();
-const isFirebase = !!process.env.FIREBASE_CONFIG;
-const server = isFirebase ? null : http.createServer(app);
+const server = http.createServer(app);
 
 // Allowed frontend origins (comma-separated in CORS_ORIGIN), needed for
 // cross-site cookies (refresh token) once frontend/backend are on different domains
@@ -46,8 +43,8 @@ const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
   : ['http://localhost:5173'];
 
-// Socket.io initialization with CORS (only for non-Firebase)
-const io = isFirebase ? null : new Server(server, {
+// Socket.io initialization with CORS
+const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
@@ -72,6 +69,7 @@ app.use('/api/quizzes', quizRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bank', bankRoutes);
 app.use('/api/invitations', invitationRoutes);
+app.use('/api/units', unitRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -122,7 +120,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const user = await User.findById(userId).select('fullName rank position unit avatarUrl');
+      const user = await User.findById(userId).select('fullName rank position unitId avatarUrl');
       if (!user) {
         socket.emit('error', 'Người dùng không tồn tại.');
         return;
@@ -155,7 +153,11 @@ io.on('connection', (socket) => {
 
       // Fetch updated room with populated participants info
       const updatedRoom = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() })
-        .populate('participants.userId', 'fullName rank position unit avatarUrl');
+        .populate({
+          path: 'participants.userId',
+          select: 'fullName rank position unitId avatarUrl',
+          populate: { path: 'unitId', select: 'name' }
+        });
 
       // Notify everyone in the room about the updated client list
       io.to(roomCode).emit('roomData', {
@@ -218,14 +220,14 @@ io.on('connection', (socket) => {
   // 4. User finished or submitted exam early
   socket.on('submitExamFinished', async ({ roomCode, userId, score, totalQuestions }) => {
     try {
-      const user = await User.findById(userId).select('fullName rank unit');
+      const user = await User.findById(userId).select('fullName rank unitId').populate('unitId', 'name');
       if (user) {
         // Notify host that user has completed the exam
         io.to(roomCode).emit('userFinished', {
           userId,
           fullName: user.fullName,
           rank: user.rank,
-          unit: user.unit,
+          unit: user.unitId?.name || '',
           score,
           totalQuestions
         });
@@ -253,7 +255,11 @@ io.on('connection', (socket) => {
         );
         
         const updatedRoom = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() })
-          .populate('participants.userId', 'fullName rank position unit avatarUrl');
+          .populate({
+          path: 'participants.userId',
+          select: 'fullName rank position unitId avatarUrl',
+          populate: { path: 'unitId', select: 'name' }
+        });
 
         io.to(roomCode).emit('roomData', {
           status: updatedRoom.status,
@@ -310,7 +316,11 @@ io.on('connection', (socket) => {
 
       // Get updated room data
       const updatedRoom = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() })
-        .populate('participants.userId', 'fullName rank position unit avatarUrl');
+        .populate({
+          path: 'participants.userId',
+          select: 'fullName rank position unitId avatarUrl',
+          populate: { path: 'unitId', select: 'name' }
+        });
 
       // Notify remaining participants in the room
       io.to(roomCode).emit('roomData', {
@@ -357,7 +367,11 @@ io.on('connection', (socket) => {
           );
 
           const updatedRoom = await ExamRoom.findOne({ roomCode: socket.roomCode.toUpperCase() })
-            .populate('participants.userId', 'fullName rank position unit avatarUrl');
+            .populate({
+          path: 'participants.userId',
+          select: 'fullName rank position unitId avatarUrl',
+          populate: { path: 'unitId', select: 'name' }
+        });
 
           if (updatedRoom) {
             io.to(socket.roomCode).emit('roomData', {
@@ -392,13 +406,9 @@ io.on('connection', (socket) => {
 });
 } // End of if (io)
 
-if (server) {
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
-// --- XUẤT EXPRESS APP CHO FIREBASE CLOUD FUNCTIONS ---
 export { app };
-export const api = onRequest({ cors: true, timeoutSeconds: 120, memory: '1GiB' }, app);

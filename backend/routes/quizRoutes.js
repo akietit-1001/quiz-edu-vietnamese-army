@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { createQuiz, getQuizzes, getQuizById, updateQuiz, deleteQuiz, importQuiz, exportQuizDocx, generateQuizFromFile, getQuizGenStatus } from '../controllers/quizController.js';
+import { createQuiz, getQuizzes, getQuizById, updateQuiz, deleteQuiz, importQuiz, exportQuizDocx, exportQuizDocxBulk, generateQuizFromFile, getQuizGenStatus, regenerateQuestion } from '../controllers/quizController.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -17,8 +17,10 @@ router.delete('/:id', deleteQuiz);
 
 // Export/Import routes
 router.get('/:id/export', exportQuizDocx);
+router.post('/export-bulk', exportQuizDocxBulk);
 router.post('/import', upload.single('file'), importQuiz);
 router.post('/generate-from-file', upload.array('files', 10), generateQuizFromFile);
 router.get('/generate-status/:jobId', getQuizGenStatus);
+router.post('/regenerate-question', regenerateQuestion);
 
 export default router;

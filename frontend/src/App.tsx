@@ -67,7 +67,6 @@ export const App: React.FC = () => {
   const [profileDOB, setProfileDOB] = useState('');
   const [profileRank, setProfileRank] = useState('Binh nhì');
   const [profilePosition, setProfilePosition] = useState('Chiến sĩ');
-  const [profileUnit, setProfileUnit] = useState('');
   const [profileAddress, setProfileAddress] = useState('');
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
@@ -87,7 +86,6 @@ export const App: React.FC = () => {
     setProfileDOB(user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '');
     setProfileRank(user.rank || 'Binh nhì');
     setProfilePosition(user.position || 'Chiến sĩ');
-    setProfileUnit(user.unit || '');
     setProfileAddress(user.address || '');
     setProfileError('');
     setProfileSuccess('');
@@ -104,7 +102,6 @@ export const App: React.FC = () => {
         dateOfBirth: profileDOB,
         rank: profileRank,
         position: profilePosition,
-        unit: profileUnit,
         address: profileAddress
       });
       
@@ -725,14 +722,10 @@ export const App: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị</label>
-                <input
-                  type="text"
-                  value={profileUnit}
-                  onChange={e => setProfileUnit(e.target.value)}
-                  required
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
-                />
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị (chỉ cấp quản lý mới thay đổi được)</label>
+                <div className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 text-vpa-olive/75 dark:text-vpa-sand/75 font-mono uppercase">
+                  {user?.unit?.name || 'Chưa xác định'}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

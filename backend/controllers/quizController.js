@@ -1,5 +1,6 @@
 import Quiz from '../models/Quiz.js';
 import User from '../models/User.js';
+import Unit from '../models/Unit.js';
 import xlsx from 'xlsx';
 import mammoth from 'mammoth';
 import fs from 'fs';
@@ -7,11 +8,13 @@ import path from 'path';
 import crypto from 'crypto';
 import pdfParse from 'pdf-parse';
 import { Packer } from 'docx';
+import archiver from 'archiver';
 import { generateQuizDOCX } from '../utils/documentTemplates.js';
 import { spawn } from 'child_process';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { quizGenQueue } from '../utils/queue.js';
+import { quizGenQueue, redisConnection } from '../utils/queue.js';
 import { convertDocToDocx } from '../utils/docConverter.js';
+import { validateSingleQuestion, generateJSONWithRetry } from '../utils/aiQuizValidation.js';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -373,12 +376,18 @@ export const exportQuizDocx = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi để xuất' });
     }
 
+    let defaultUpperUnit = 'CẤP TRÊN TRỰC TIẾP';
+    if (req.user.unitId?.parentId) {
+      const parentUnit = await Unit.findById(req.user.unitId.parentId).select('name');
+      if (parentUnit) defaultUpperUnit = parentUnit.name;
+    }
+
     const doc = generateQuizDOCX(
       quiz,
       req.user,
-      upperUnit || 'BỘ QUỐC PHÒNG',
-      currentUnit || req.user.unit || 'ĐƠN VỊ THI',
-      province || 'Hà Nội',
+      upperUnit || defaultUpperUnit,
+      currentUnit || req.user.unitId?.name || 'ĐƠN VỊ THI',
+      province || 'Đồng Tháp',
       position,
       showSignature !== 'false',
       signerRank,
@@ -398,6 +407,74 @@ export const exportQuizDocx = async (req, res) => {
   } catch (error) {
     console.error('Lỗi xuất đề thi ra Word:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi xuất đề thi ra file Word' });
+  }
+};
+
+// 6.5. EXPORT MULTIPLE QUIZZES (MÃ ĐỀ) AS A SINGLE ZIP OF DOCX FILES
+export const exportQuizDocxBulk = async (req, res) => {
+  try {
+    const { quizIds, upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation } = req.body;
+
+    if (!Array.isArray(quizIds) || quizIds.length === 0) {
+      return res.status(400).json({ message: 'Vui lòng chọn ít nhất một mã đề để xuất' });
+    }
+
+    const quizzes = await Quiz.find({ _id: { $in: quizIds } });
+    if (quizzes.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi để xuất' });
+    }
+
+    let defaultUpperUnit = 'CẤP TRÊN TRỰC TIẾP';
+    if (req.user.unitId?.parentId) {
+      const parentUnit = await Unit.findById(req.user.unitId.parentId).select('name');
+      if (parentUnit) defaultUpperUnit = parentUnit.name;
+    }
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename=De_thi_${quizzes[0].shareCode || 'bo_de'}.zip`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err) => {
+      console.error('Lỗi tạo file zip xuất đề thi:', err.message);
+      if (!res.headersSent) res.status(500).json({ message: 'Lỗi máy chủ khi tạo file zip' });
+    });
+    archive.pipe(res);
+
+    const usedNames = new Set();
+    for (const quiz of quizzes) {
+      const doc = generateQuizDOCX(
+        quiz,
+        req.user,
+        upperUnit || defaultUpperUnit,
+        currentUnit || req.user.unitId?.name || 'ĐƠN VỊ THI',
+        province || 'Đồng Tháp',
+        position,
+        showSignature !== 'false' && showSignature !== false,
+        signerRank,
+        signerName,
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        orientation
+      );
+      const buffer = await Packer.toBuffer(doc);
+
+      let fileName = `De_thi_${quiz.shareCode || quiz.examCode || quiz._id}.docx`;
+      let dedupeIdx = 1;
+      while (usedNames.has(fileName)) {
+        fileName = `De_thi_${quiz.shareCode || quiz.examCode || quiz._id}_${dedupeIdx}.docx`;
+        dedupeIdx += 1;
+      }
+      usedNames.add(fileName);
+
+      archive.append(buffer, { name: fileName });
+    }
+
+    await archive.finalize();
+  } catch (error) {
+    console.error('Lỗi xuất nhiều mã đề ra file zip:', error.message);
+    if (!res.headersSent) res.status(500).json({ message: 'Lỗi máy chủ khi xuất nhiều mã đề' });
   }
 };
 
@@ -750,67 +827,30 @@ export const generateQuizFromFile = async (req, res) => {
       });
     }
 
-    // --- PHẦN SINH ĐỀ AI TRỰC TIẾP (KHÔNG DÙNG HÀNG ĐỢI REDIS KHI DEPLOY FIREBASE) ---
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ message: 'Hệ thống chưa được cấu hình API Key của Gemini.' });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
-      generationConfig: { responseMimeType: 'application/json' }
+    // Cache tạm văn bản gốc (30 phút) để phục vụ sinh lại từng câu (regenerate-question)
+    try {
+      await redisConnection.set(`docCache:${combinedHash}`, combinedMarkdownText, 'EX', 1800);
+    } catch (err) {
+      console.warn('[generateQuizFromFile] Không cache được văn bản gốc vào Redis:', err.message);
+    }
+
+    // Đẩy việc gọi Gemini vào hàng đợi BullMQ để có thể theo dõi tiến trình
+    // thay vì giữ request HTTP treo trong lúc AI xử lý.
+    const job = await quizGenQueue.add('generate', {
+      markdownText: combinedMarkdownText,
+      count,
+      category,
+      fileHash: combinedHash,
+      fileListNames,
+      firstFileName: files[0].originalname,
+      filesCount: files.length
     });
 
-    const prompt = `
-      Bạn là một trợ lý giảng dạy quân sự chuyên nghiệp tại Học viện Kỹ thuật Quân sự.
-      Hãy đọc các tài liệu định dạng dưới đây và tạo ra một đề thi trắc nghiệm gồm chính xác ${count} câu hỏi chất lượng cao dựa trên nội dung tài liệu.
-      Bạn cần tổng hợp kiến thức từ tất cả các tài liệu được cung cấp ở trên một cách hài hòa, phù hợp.
-      Mức độ từ dễ đến khó nên được phân bổ đều, đảm bảo có sự đa dạng về chủ đề và nội dung câu hỏi dựa trên các tài liệu đã cho.
-
-      Nội dung các tài liệu:
-      ${combinedMarkdownText}
-
-      Yêu cầu đầu ra bắt buộc phải tuân thủ schema JSON định dạng sau (không viết bất cứ văn bản dẫn giải nào ngoài JSON này):
-      {
-        "title": "Tiêu đề đề thi sinh ra tự động",
-        "description": "Mô tả ngắn gọn về đề thi",
-        "duration": ${count * 2},
-        "category": "${category || 'Khác'}",
-        "questions": [
-          {
-            "questionType": "multiple-choice",
-            "questionText": "Nội dung câu hỏi trắc nghiệm?",
-            "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-            "correctAnswers": ["2"],
-            "explanation": "Giải thích chi tiết vì sao đáp án này đúng dựa trên tài liệu"
-          }
-        ]
-      }
-
-      Lưu ý quan trọng:
-      - Trường "correctAnswers" phải là một mảng chứa 1 chuỗi số, đại diện cho chỉ mục của đáp án đúng trong mảng options (ví dụ: ["0"] cho đáp án A, ["1"] cho đáp án B, ["2"] cho đáp án C, ["3"] cho đáp án D...).
-      - PHẢI PHÂN BỐ NGẪU NHIÊN VÀ ĐỀU VỊ TRÍ ĐÁP ÁN ĐÚNG giữa các lựa chọn A, B, C, D (chỉ mục "0", "1", "2", "3"). Tuyệt đối không được luôn luôn đặt đáp án đúng ở vị trí đầu tiên (đáp án A / chỉ mục "0"). Hãy xáo trộn ngẫu nhiên và bám sát chính xác nội dung thực tế của tài liệu.
-      - Đảm bảo các câu hỏi có tính thực tế, rõ ràng và bám sát chính xác tài liệu đã cho.
-    `;
-
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    let quizData = JSON.parse(responseText);
-
-    const quiz = {
-      title: quizData.title || `Đề thi AI - ${files[0].originalname} + ${files.length - 1} tài liệu khác`,
-      description: quizData.description || `Đề thi được sinh tự động bằng AI từ danh sách tài liệu: ${fileListNames}`,
-      category: category || 'Khác',
-      duration: quizData.duration || count * 2,
-      questions: quizData.questions,
-      documentHash: combinedHash
-    };
-
-    res.status(200).json({
-      message: 'Sinh đề thi thành công bằng AI!',
-      quiz
-    });
+    res.status(202).json({ jobId: job.id });
 
   } catch (error) {
     console.error('Lỗi tổng quát sinh đề thi AI:', error.message);
@@ -822,16 +862,14 @@ export const generateQuizFromFile = async (req, res) => {
 export const getQuizGenStatus = async (req, res) => {
   try {
     const { jobId } = req.params;
-    
-    /*
     const job = await quizGenQueue.getJob(jobId);
 
     if (!job) {
       return res.status(404).json({ message: 'Không tìm thấy tiến trình sinh đề thi này' });
     }
 
-    const state = await job.getState(); // 'completed' | 'failed' | 'active' | 'waiting'
-    
+    const state = await job.getState(); // 'completed' | 'failed' | 'active' | 'waiting' | 'delayed'
+
     if (state === 'completed') {
       return res.status(200).json({
         status: 'completed',
@@ -846,16 +884,81 @@ export const getQuizGenStatus = async (req, res) => {
       });
     }
 
-    // Otherwise, it is still running or waiting
+    // Vẫn đang chạy hoặc chờ trong hàng đợi
     res.status(200).json({
-      status: state, // 'active' or 'waiting'
-      message: state === 'active' ? 'AI đang thiết lập cấu trúc câu hỏi...' : 'Yêu cầu đang nằm trong hàng đợi...'
+      status: state,
+      progress: typeof job.progress === 'number' ? job.progress : 0,
+      message: state === 'active' ? 'AI đang phân tích tài liệu và soạn câu hỏi...' : 'Yêu cầu đang nằm trong hàng đợi...'
     });
-    */
-
-    res.status(501).json({ message: 'Hàng đợi Redis đã tắt do hệ thống chuyển sang chế độ Firebase Cloud Functions.' });
   } catch (error) {
     console.error('Lỗi kiểm tra trạng thái sinh đề AI:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra trạng thái' });
+  }
+};
+
+// 8.6. REGENERATE A SINGLE QUESTION USING AI
+export const regenerateQuestion = async (req, res) => {
+  try {
+    const { questionText, questionType, category, documentHash } = req.body;
+
+    if (!questionText) {
+      return res.status(400).json({ message: 'Vui lòng cung cấp nội dung câu hỏi hiện tại cần sinh lại' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ message: 'Hệ thống chưa được cấu hình API Key của Gemini.' });
+    }
+
+    // Nếu đề được sinh từ tài liệu và cache còn hiệu lực (30 phút), dùng lại
+    // văn bản gốc làm ngữ cảnh; nếu không, AI chỉ dựa vào category/loại câu.
+    let sourceContext = '';
+    if (documentHash) {
+      try {
+        sourceContext = (await redisConnection.get(`docCache:${documentHash}`)) || '';
+      } catch (err) {
+        console.warn('[regenerateQuestion] Không đọc được cache tài liệu gốc:', err.message);
+      }
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-flash-latest',
+      generationConfig: { responseMimeType: 'application/json' }
+    });
+
+    const finalQuestionType = questionType || 'multiple-choice';
+    const buildPrompt = (attempt, lastError) => `
+      Bạn là một trợ lý giảng dạy quân sự chuyên nghiệp. Hãy sinh ra MỘT câu hỏi trắc nghiệm MỚI để thay thế cho câu hỏi cũ dưới đây, giữ nguyên chuyên ngành "${category || 'Khác'}" và loại câu hỏi "${finalQuestionType}", nhưng nội dung câu hỏi và đáp án phải khác biệt rõ rệt so với câu cũ.
+
+      Câu hỏi cũ cần thay thế:
+      "${questionText}"
+
+      ${sourceContext
+        ? `Dựa sát vào nội dung tài liệu gốc sau để đảm bảo tính chính xác:\n${sourceContext}`
+        : 'Không có tài liệu gốc kèm theo — hãy dựa trên kiến thức chuyên ngành quân sự phổ thông, phù hợp với chuyên ngành đã nêu.'}
+
+      Yêu cầu đầu ra bắt buộc phải tuân thủ đúng schema JSON sau (không viết bất kỳ văn bản dẫn giải nào ngoài JSON này):
+      {
+        "questionType": "${finalQuestionType}",
+        "questionText": "Nội dung câu hỏi trắc nghiệm mới?",
+        "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
+        "correctAnswers": ["1"],
+        "explanation": "Giải thích chi tiết vì sao đáp án này đúng"
+      }
+
+      Lưu ý: nếu loại câu hỏi là "fill-in-the-blank" thì bỏ trường "options", và "correctAnswers" là mảng chứa (các) đáp án điền vào chỗ trống dạng văn bản, không phải chỉ mục.
+      ${attempt > 0 ? `\n      LƯU Ý SỬA LỖI: Lần trả lời trước bị từ chối vì: "${lastError}". Hãy trả lời LẠI đúng chuẩn JSON yêu cầu.` : ''}
+    `;
+
+    const newQuestion = await generateJSONWithRetry(model, buildPrompt, validateSingleQuestion, 1);
+
+    res.status(200).json({
+      message: 'Đã sinh lại câu hỏi thành công bằng AI',
+      question: newQuestion
+    });
+  } catch (error) {
+    console.error('Lỗi sinh lại câu hỏi bằng AI:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi sinh lại câu hỏi: ' + error.message });
   }
 };

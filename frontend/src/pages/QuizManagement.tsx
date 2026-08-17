@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
+import { PrintPreviewModal } from '../components/PrintPreviewModal';
 
 interface QuizManagementProps {
   user?: any;
@@ -22,7 +23,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   // VPA Export configurations
   const [showExportPopup, setShowExportPopup] = useState(false);
   const [selectedQuizForExport, setSelectedQuizForExport] = useState<any>(null);
-  const [printData, setPrintData] = useState<{
+  type QuizPrintData = {
     upperUnit: string;
     currentUnit: string;
     province: string;
@@ -37,7 +38,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     mirrorMargins?: boolean;
     orientation?: 'portrait' | 'landscape';
     quizzes: any[];
-  } | null>(null);
+  };
+  const [printData, setPrintData] = useState<QuizPrintData | null>(null);
+  const [pdfPreviewData, setPdfPreviewData] = useState<QuizPrintData | null>(null);
 
   useEffect(() => {
     if (printData) {
@@ -298,19 +301,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   }, [searchBank, categoryFilter, difficultyFilter, typeFilter]);
 
   useEffect(() => {
-    let interval: any;
-    if (aiLoading) {
-      setAiProgressStep(1);
-      interval = setInterval(() => {
-        setAiProgressStep(prev => {
-          if (prev < 3) return prev + 1;
-          return prev;
-        });
-      }, 2500);
-    } else {
-      setAiProgressStep(1);
-    }
-    return () => clearInterval(interval);
+    if (!aiLoading) setAiProgressStep(1);
   }, [aiLoading]);
 
   const fetchQuizzes = async () => {
@@ -391,6 +382,28 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   const handleRemoveQuestion = (idx: number) => {
     setQuestions(questions.filter((_, i) => i !== idx));
+  };
+
+  const [regeneratingQIdx, setRegeneratingQIdx] = useState<number | null>(null);
+
+  const handleRegenerateQuestion = async (idx: number) => {
+    const q = questions[idx];
+    if (!q?.questionText) return;
+    setRegeneratingQIdx(idx);
+    try {
+      const res = await axios.post('/api/quizzes/regenerate-question', {
+        questionText: q.questionText,
+        questionType: q.questionType,
+        category,
+        documentHash: documentHash || undefined
+      });
+      const newQuestion = res.data.question;
+      setQuestions(prev => prev.map((item, i) => (i === idx ? { ...item, ...newQuestion } : item)));
+    } catch (err: any) {
+      await window.showAlert(err.response?.data?.message || 'Không thể sinh lại câu hỏi bằng AI.', 'Lỗi sinh lại câu hỏi');
+    } finally {
+      setRegeneratingQIdx(null);
+    }
   };
 
   const handleQuestionChange = (idx: number, field: string, val: any) => {
@@ -521,7 +534,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     if (quizListToExport.length === 0) return;
 
     if (vpaData.format === 'pdf') {
-      setPrintData({
+      // Mở bản xem trước trước, chỉ thực sự in khi người dùng xác nhận
+      setPdfPreviewData({
         upperUnit: vpaData.upperUnit,
         currentUnit: vpaData.currentUnit,
         province: vpaData.province,
@@ -540,25 +554,41 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       return;
     }
 
+    const exportParams = {
+      upperUnit: vpaData.upperUnit,
+      currentUnit: vpaData.currentUnit,
+      province: vpaData.province,
+      position: vpaData.position,
+      showSignature: vpaData.showSignature,
+      signerRank: vpaData.signerRank,
+      signerName: vpaData.signerName,
+      marginTop: vpaData.marginTop,
+      marginBottom: vpaData.marginBottom,
+      marginLeft: vpaData.marginLeft,
+      marginRight: vpaData.marginRight,
+      orientation: vpaData.orientation
+    };
+
     try {
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-      for (let i = 0; i < quizListToExport.length; i++) {
-        const currentQuiz = quizListToExport[i];
+      if (quizListToExport.length > 1) {
+        // Gộp nhiều mã đề thành 1 file .zip duy nhất thay vì tải rời từng file
+        const response = await axios.post('/api/quizzes/export-bulk', {
+          quizIds: quizListToExport.map((q: any) => q._id),
+          ...exportParams
+        }, { responseType: 'blob' });
+
+        const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.setAttribute('download', `De_thi_${quizListToExport[0].shareCode || 'bo_de'}.zip`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } else {
+        const currentQuiz = quizListToExport[0];
         const response = await axios.get(`/api/quizzes/${currentQuiz._id}/export`, {
-          params: {
-            upperUnit: vpaData.upperUnit,
-            currentUnit: vpaData.currentUnit,
-            province: vpaData.province,
-            position: vpaData.position,
-            showSignature: vpaData.showSignature,
-            signerRank: vpaData.signerRank,
-            signerName: vpaData.signerName,
-            marginTop: vpaData.marginTop,
-            marginBottom: vpaData.marginBottom,
-            marginLeft: vpaData.marginLeft,
-            marginRight: vpaData.marginRight,
-            orientation: vpaData.orientation
-          },
+          params: exportParams,
           responseType: 'blob'
         });
         const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
@@ -568,10 +598,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         document.body.appendChild(link);
         link.click();
         link.parentNode?.removeChild(link);
-
-        if (i < quizListToExport.length - 1) {
-          await delay(600); // 600ms gap to prevent browser blocking multiple downloads
-        }
+        window.URL.revokeObjectURL(blobUrl);
       }
     } catch (err) {
       await window.showAlert('Không thể tải tệp xuất bản đề thi.', 'Lỗi xuất đề thi');
@@ -707,6 +734,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     if (aiFiles.length === 0) return;
 
     setAiLoading(true);
+    setAiProgressStep(1); // Tiếp nhận tệp
     const originalName = aiFiles[0].name + (aiFiles.length > 1 ? ` (+ ${aiFiles.length - 1} tệp khác)` : '');
     const formData = new FormData();
     aiFiles.forEach(file => {
@@ -719,20 +747,23 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       const res = await axios.post('/api/quizzes/generate-from-file', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
-      // Cache hit / Direct response (Firebase / synchronous backend)
+      // Tại đây server đã trích xuất xong văn bản (dù kết quả trả về ngay hay qua hàng đợi)
+      setAiProgressStep(2); // Tải lên & trích xuất
+
+      // Direct synchronous response — lấy từ cache, không qua hàng đợi
       if (res.status === 200) {
         const { message, quiz } = res.data;
+        setAiProgressStep(4);
         await window.showAlert(message || 'Đã sinh đề thi thành công bằng AI!', 'Sinh đề AI');
         populateQuizPreview(quiz, originalName);
         setAiLoading(false);
         return;
       }
 
-      // Cache miss / Queue fallback (if running locally with Redis)
+      // Đã đẩy vào hàng đợi BullMQ — theo dõi tiến trình thật qua polling
       const { jobId } = res.data;
-      
-      // Poll job status every 2 seconds
+      setAiProgressStep(3); // Xử lý tạo đề thi
+
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await axios.get(`/api/quizzes/generate-status/${jobId}`);
@@ -740,6 +771,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
           if (status === 'completed') {
             clearInterval(pollInterval);
+            setAiProgressStep(4);
             await window.showAlert('Đã sinh câu hỏi thành công bằng AI!', 'Sinh đề AI');
             populateQuizPreview(quiz, originalName);
             setAiLoading(false);
@@ -748,6 +780,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             await window.showAlert(message || 'Tiến trình sinh đề thi thất bại.', 'Lỗi sinh đề thi AI');
             setAiLoading(false);
           }
+          // 'active' / 'waiting': vẫn ở bước 3, không cần cập nhật thêm
         } catch (pollErr: any) {
           clearInterval(pollInterval);
           const errMsg = pollErr.response?.data?.message || 'Lỗi kiểm tra tiến trình sinh đề AI.';
@@ -902,6 +935,136 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setGenIsPublic(false);
     setGenRules([{ category: 'Chính trị', difficulty: 'Dễ', count: 10 }]);
   };
+
+  // Nội dung layout đề thi dùng chung cho cả bản in thật (portal) và bản xem
+  // trước (modal) — đảm bảo xem trước khớp 100% với file in ra.
+  const renderQuizPrintContent = (data: QuizPrintData) => (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 ${data.orientation === 'landscape' ? 'landscape' : 'portrait'};
+          }
+
+          ${data.mirrorMargins ? `
+            /* Mirrored margins for double-sided printing */
+            @page :left {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginRight || 1.5}cm;
+              margin-right: ${data.marginLeft || 3.0}cm;
+            }
+            @page :right {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginLeft || 3.0}cm;
+              margin-right: ${data.marginRight || 1.5}cm;
+            }
+            @page :first {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginLeft || 3.0}cm;
+              margin-right: ${data.marginRight || 1.5}cm;
+            }
+          ` : `
+            /* Standard identical margins for all pages */
+            @page {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginLeft || 3.0}cm;
+              margin-right: ${data.marginRight || 1.5}cm;
+            }
+          `}
+
+          .print-page-break {
+            page-break-after: always;
+            box-sizing: border-box;
+            width: 100%;
+          }
+
+          .print-page-break:last-child {
+            page-break-after: avoid;
+          }
+
+          body {
+            background: white;
+            color: black;
+          }
+        }
+      `}} />
+
+      {data.quizzes.map((quizItem: any, quizIdx: number) => (
+        <div key={quizItem._id || quizIdx} className="print-page-break">
+          {/* Header */}
+          <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
+            <div className="text-center w-[38%] font-serif">
+              <p className="uppercase font-serif">{data.upperUnit}</p>
+              <p className="font-bold uppercase font-serif">{data.currentUnit}</p>
+              <p className="font-bold mt-0.5">---------</p>
+            </div>
+            <div className="text-center w-[58%] font-serif">
+              <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
+                Độc lập - Tự do - Hạnh phúc
+              </p>
+              <p className="italic mt-1.5 font-serif">
+                {data.province}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
+              </p>
+            </div>
+          </div>
+
+          {/* Title & Exam Code */}
+          <div className="text-center my-6 font-serif relative">
+            <h2 className="text-lg font-bold uppercase tracking-wide font-serif">ĐỀ THI TRẮC NGHIỆM</h2>
+            <p className="font-bold mt-1 font-serif">
+              MÔN: {quizItem.title?.toUpperCase()}
+            </p>
+            <p className="italic mt-1 text-xs font-serif">
+              Thời gian làm bài: {quizItem.duration || 45} phút (Không kể thời gian giao đề)
+            </p>
+            {quizItem.examCode && (
+              <div className="absolute right-0 top-0 border border-black px-3 py-1 font-bold text-sm font-serif">
+                Mã đề thi: {quizItem.examCode}
+              </div>
+            )}
+          </div>
+
+          {/* Question List */}
+          <div className="space-y-4 my-6 font-serif">
+            {(quizItem.questions || []).map((q: any, idx: number) => (
+              <div key={idx} className="font-serif text-sm">
+                <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
+                {q.questionType === 'fill-in-the-blank' ? (
+                  <p className="pl-8 italic text-gray-500 font-serif mt-1">
+                    Đáp án: ................................................................................................................
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-x-4 pl-8 mt-1 font-serif">
+                    {(q.options || []).map((opt: string, oIdx: number) => (
+                      <p key={oIdx} className="font-serif">
+                        {String.fromCharCode(65 + oIdx)}. {opt}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Signatures */}
+          {data.showSignature && (
+            <div className="flex justify-end mt-12 font-serif">
+              <div className="text-center w-[45%] font-serif">
+                <p className="font-bold uppercase font-serif text-sm">{data.position}</p>
+                <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
+                <p className="font-bold text-sm font-serif">{data.signerRank} {data.signerName}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </>
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -1380,7 +1543,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       type="text"
                       value={description}
                       onChange={e => setDescription(e.target.value)}
-                      placeholder="Dành cho đối tượng sĩ quan cấp úy..."
+                      placeholder="Dành cho Chiến sĩ, Hạ sĩ quan"
                       className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
                     />
                   </div>
@@ -1449,13 +1612,24 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   >
                     <div className="flex justify-between items-start">
                       <span className="font-mono text-xs font-bold text-vpa-gold">CÂU HỎI {qIdx + 1}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveQuestion(qIdx)}
-                        className="text-vpa-red hover:underline text-xs uppercase font-bold"
-                      >
-                        Xóa câu
-                      </button>
+                      <div className="flex items-center space-x-4">
+                        <button
+                          type="button"
+                          onClick={() => handleRegenerateQuestion(qIdx)}
+                          disabled={regeneratingQIdx !== null || !q.questionText}
+                          className="text-vpa-olive dark:text-vpa-gold hover:underline text-xs uppercase font-bold flex items-center space-x-1 disabled:opacity-50 disabled:no-underline"
+                        >
+                          <Brain size={13} className={regeneratingQIdx === qIdx ? 'animate-pulse' : ''} />
+                          <span>{regeneratingQIdx === qIdx ? 'Đang sinh lại...' : 'Sinh lại câu này bằng AI'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveQuestion(qIdx)}
+                          className="text-vpa-red hover:underline text-xs uppercase font-bold"
+                        >
+                          Xóa câu
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2652,7 +2826,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       {/* VPA Output custom settings popup */}
       <VPAExportPopup
         isOpen={showExportPopup}
-        defaultUnit={user?.unit}
+        defaultUnit={user?.unit?.name}
         defaultPosition={user?.position}
         defaultRank={user?.rank}
         defaultName={user?.fullName}
@@ -2671,139 +2845,35 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
       {/* Printable VPA Quiz Document Container */}
       {printData && createPortal(
-        <div 
-          className="print-area-only text-black bg-white leading-relaxed text-sm font-serif" 
-          style={{ 
+        <div
+          className="print-area-only text-black bg-white leading-relaxed text-sm font-serif"
+          style={{
             fontFamily: "'Times New Roman', Times, serif",
             padding: `${printData.marginTop || 2.5}cm ${printData.marginRight || 1.5}cm ${printData.marginBottom || 2.0}cm ${printData.marginLeft || 3.0}cm`
           }}
         >
-          <style dangerouslySetInnerHTML={{ __html: `
-            @media print {
-              @page {
-                size: A4 ${printData.orientation === 'landscape' ? 'landscape' : 'portrait'};
-              }
-              
-              ${printData.mirrorMargins ? `
-                /* Mirrored margins for double-sided printing */
-                @page :left {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginRight || 1.5}cm;
-                  margin-right: ${printData.marginLeft || 3.0}cm;
-                }
-                @page :right {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginLeft || 3.0}cm;
-                  margin-right: ${printData.marginRight || 1.5}cm;
-                }
-                @page :first {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginLeft || 3.0}cm;
-                  margin-right: ${printData.marginRight || 1.5}cm;
-                }
-              ` : `
-                /* Standard identical margins for all pages */
-                @page {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginLeft || 3.0}cm;
-                  margin-right: ${printData.marginRight || 1.5}cm;
-                }
-              `}
-
-              .print-page-break {
-                page-break-after: always;
-                box-sizing: border-box;
-                width: 100%;
-              }
-
-              .print-page-break:last-child {
-                page-break-after: avoid;
-              }
-
-              body {
-                background: white;
-                color: black;
-              }
-            }
-          `}} />
-
-          {printData.quizzes.map((quizItem: any, quizIdx: number) => (
-            <div key={quizItem._id || quizIdx} className="print-page-break">
-              {/* Header */}
-              <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
-                <div className="text-center w-[38%] font-serif">
-                  <p className="uppercase font-serif">{printData.upperUnit}</p>
-                  <p className="font-bold uppercase font-serif">{printData.currentUnit}</p>
-                  <p className="font-bold mt-0.5">---------</p>
-                </div>
-                <div className="text-center w-[58%] font-serif">
-                  <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-                  <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
-                    Độc lập - Tự do - Hạnh phúc
-                  </p>
-                  <p className="italic mt-1.5 font-serif">
-                    {printData.province}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
-                  </p>
-                </div>
-              </div>
-
-              {/* Title & Exam Code */}
-              <div className="text-center my-6 font-serif relative">
-                <h2 className="text-lg font-bold uppercase tracking-wide font-serif">ĐỀ THI TRẮC NGHIỆM</h2>
-                <p className="font-bold mt-1 font-serif">
-                  MÔN: {quizItem.title?.toUpperCase()}
-                </p>
-                <p className="italic mt-1 text-xs font-serif">
-                  Thời gian làm bài: {quizItem.duration || 45} phút (Không kể thời gian giao đề)
-                </p>
-                {quizItem.examCode && (
-                  <div className="absolute right-0 top-0 border border-black px-3 py-1 font-bold text-sm font-serif">
-                    Mã đề thi: {quizItem.examCode}
-                  </div>
-                )}
-              </div>
-
-              {/* Question List */}
-              <div className="space-y-4 my-6 font-serif">
-                {(quizItem.questions || []).map((q: any, idx: number) => (
-                  <div key={idx} className="font-serif text-sm">
-                    <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
-                    {q.questionType === 'fill-in-the-blank' ? (
-                      <p className="pl-8 italic text-gray-500 font-serif mt-1">
-                        Đáp án: ................................................................................................................
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-x-4 pl-8 mt-1 font-serif">
-                        {(q.options || []).map((opt: string, oIdx: number) => (
-                          <p key={oIdx} className="font-serif">
-                            {String.fromCharCode(65 + oIdx)}. {opt}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Signatures */}
-              {printData.showSignature && (
-                <div className="flex justify-end mt-12 font-serif">
-                  <div className="text-center w-[45%] font-serif">
-                    <p className="font-bold uppercase font-serif text-sm">{printData.position}</p>
-                    <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
-                    <p className="font-bold text-sm font-serif">{printData.signerRank} {printData.signerName}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+          {renderQuizPrintContent(printData)}
         </div>,
         document.body
       )}
+
+      <PrintPreviewModal
+        isOpen={!!pdfPreviewData}
+        onClose={() => setPdfPreviewData(null)}
+        onConfirmPrint={() => { setPrintData(pdfPreviewData); setPdfPreviewData(null); }}
+      >
+        {pdfPreviewData && (
+          <div
+            className="text-black leading-relaxed text-sm font-serif"
+            style={{
+              fontFamily: "'Times New Roman', Times, serif",
+              padding: `${pdfPreviewData.marginTop || 2.5}cm ${pdfPreviewData.marginRight || 1.5}cm ${pdfPreviewData.marginBottom || 2.0}cm ${pdfPreviewData.marginLeft || 3.0}cm`
+            }}
+          >
+            {renderQuizPrintContent(pdfPreviewData)}
+          </div>
+        )}
+      </PrintPreviewModal>
     </div>
   );
 };

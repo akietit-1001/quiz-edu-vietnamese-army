@@ -14,7 +14,7 @@ const MARGIN_PRESETS = {
  * @param {string} province 
  * @returns {Table} A Table containing the standard header
  */
-const createVPAHeader = (upperUnit = 'BỘ QUỐC PHÒNG', currentUnit = 'HỌC VIỆN KỸ THUẬT QUÂN SỰ', province = 'Hà Nội') => {
+const createVPAHeader = (upperUnit = 'BỘ QUỐC PHÒNG', currentUnit = 'ĐƠN VỊ THI', province = 'Đồng Tháp') => {
   const dateStr = `${province}, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
   
   return new Table({
@@ -289,7 +289,7 @@ export const generateResultsDOCX = (room, results, adminUser, upperUnit, current
         children: [
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: res.userId.fullName, font: 'Times New Roman' })] })] }),
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: res.userId.rank || 'Binh nhì', font: 'Times New Roman' })] })] }),
-          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: res.userId.unit || '', font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: res.userId.unitId?.name || '', font: 'Times New Roman' })] })] }),
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${res.score}/${res.totalQuestions}`, font: 'Times New Roman' })] })] }),
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${correctRatio}%`, font: 'Times New Roman' })] })] }),
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: res.isPassed ? "ĐẠT" : "KHÔNG ĐẠT", bold: true, font: 'Times New Roman' })] })] }),

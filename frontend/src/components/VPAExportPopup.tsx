@@ -41,9 +41,9 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   previewData
 }) => {
   const [upperUnit, setUpperUnit] = useState('BỘ QUỐC PHÒNG');
-  const [currentUnit, setCurrentUnit] = useState(defaultUnit || 'HỌC VIỆN KỸ THUẬT QUÂN SỰ');
+  const [currentUnit, setCurrentUnit] = useState(defaultUnit || '');
   const [position, setPosition] = useState(defaultPosition || 'TRƯỞNG PHÒNG ĐÀO TẠO');
-  const [province, setProvince] = useState('Hà Nội');
+  const [province, setProvince] = useState('Đồng Tháp');
   const [showSignature, setShowSignature] = useState(true);
   const [signerRank, setSignerRank] = useState(defaultRank);
   const [signerName, setSignerName] = useState(defaultName);
@@ -197,7 +197,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
               <tr key={idx}>
                 <td className="border border-gray-400 px-1 py-0.5 font-bold">{att.userId?.fullName}</td>
                 <td className="border border-gray-400 px-1 py-0.5 text-center">{att.userId?.rank || 'Binh nhì'}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{att.userId?.unit}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{att.userId?.unitId?.name}</td>
                 <td className="border border-gray-400 px-1 py-0.5 text-center">{att.score}/{att.totalQuestions}</td>
                 <td className="border border-gray-400 px-1 py-0.5 text-center font-bold text-green-700">{att.isPassed ? 'ĐẠT' : 'KHÔNG ĐẠT'}</td>
                 <td className="border border-gray-400 px-1 py-0.5 text-center">{att.rank}</td>
@@ -269,7 +269,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 ) : (
                   <>
                     <td className="border border-gray-300 px-1 py-1 font-bold truncate">{item.userId?.fullName}</td>
-                    <td className="border border-gray-300 px-1 py-1 truncate">{item.userId?.unit}</td>
+                    <td className="border border-gray-300 px-1 py-1 truncate">{item.userId?.unitId?.name}</td>
                     <td className="border border-gray-300 px-1 py-1 text-center">{item.userId?.rank || 'Binh nhì'}</td>
                     <td className="border border-gray-300 px-1 py-1 text-center font-bold">{item.score}/{item.totalQuestions}</td>
                     <td className="border border-gray-300 px-1 py-1 text-center">{item.rank}</td>

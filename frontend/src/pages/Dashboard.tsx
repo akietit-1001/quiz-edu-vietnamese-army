@@ -386,9 +386,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const filteredUsers = React.useMemo(() => {
+    // Mời qua email — Chiến sĩ không có email nên không thể xuất hiện ở đây.
+    const withEmail = managedUsers.filter(u => u.email);
     return inviteEmail.trim() === ''
-      ? managedUsers
-      : managedUsers.filter(u =>
+      ? withEmail
+      : withEmail.filter(u =>
           u.fullName.toLowerCase().includes(inviteEmail.toLowerCase()) ||
           u.email.toLowerCase().includes(inviteEmail.toLowerCase()) ||
           (u.rank && u.rank.toLowerCase().includes(inviteEmail.toLowerCase()))
@@ -405,10 +407,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           Xin chào, {user?.rank ? `${user.rank} ` : ''}{user?.fullName || 'Đồng chí'}
         </h1>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono uppercase tracking-wider">
-          Chức vụ: {user?.position || 'N/A'} | Đơn vị: {user?.unit || 'N/A'}
+          Chức vụ: {user?.position || 'N/A'} | Đơn vị: {user?.unit?.name || 'N/A'}
         </p>
 
-        {/* 2FA Status Banner */}
+        {/* 2FA Status Banner — Chiến sĩ không có email nên không thể dùng 2FA */}
+        {user?.email && (
         <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-vpa-olive-light/20 pt-6">
           {user?.twoFactorEnabled ? (
             <div className="flex items-center space-x-2 text-green-600 dark:text-green-500 text-xs font-bold">
@@ -439,6 +442,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </button>
           )}
         </div>
+        )}
       </div>
 
       {/* Offline Pending Submissions Banner */}
@@ -509,7 +513,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <span className="text-[10px] text-gray-500 font-mono">Mã phòng: <span className="font-bold text-vpa-olive dark:text-vpa-gold-bright">{inv.roomCode}</span></span>
                   </div>
                   <p className="text-xs text-vpa-olive dark:text-vpa-sand">
-                    {inv.senderId?.rank ? `${inv.senderId.rank} ` : 'Đồng chí '}<span className="font-bold">{inv.senderId?.fullName || 'Chủ phòng'}</span> ({inv.senderId?.position || 'Chức vụ N/A'} | {inv.senderId?.unit || 'Đơn vị N/A'}) mời đồng chí tham gia phòng thi với vai trò <span className="font-bold">{inv.role === 'examiner' ? 'Giám khảo' : 'Thí sinh'}</span>.
+                    {inv.senderId?.rank ? `${inv.senderId.rank} ` : 'Đồng chí '}<span className="font-bold">{inv.senderId?.fullName || 'Chủ phòng'}</span> ({inv.senderId?.position || 'Chức vụ N/A'} | {inv.senderId?.unitId?.name || 'Đơn vị N/A'}) mời đồng chí tham gia phòng thi với vai trò <span className="font-bold">{inv.role === 'examiner' ? 'Giám khảo' : 'Thí sinh'}</span>.
                   </p>
                   <p className="text-[10px] text-gray-400 mt-1 uppercase font-mono">
                     Đề thi: {inv.roomId?.quizId?.title || 'Đề thi trắc nghiệm'}

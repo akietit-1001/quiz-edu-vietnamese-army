@@ -111,7 +111,7 @@ export const getMyInvitations = async (req, res) => {
       ],
       status: 'pending'
     })
-      .populate('senderId', 'fullName rank unit position')
+      .populate({ path: 'senderId', select: 'fullName rank unitId position', populate: { path: 'unitId', select: 'name' } })
       .populate({
         path: 'roomId',
         populate: { path: 'quizId', select: 'title duration' }

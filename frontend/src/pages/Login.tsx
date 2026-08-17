@@ -8,7 +8,7 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -25,7 +25,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await axios.post('/api/auth/login', { identifier, password });
       
       if (response.data.requires2FA) {
         setRequires2FA(true);
@@ -46,7 +46,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/auth/verify-2fa', { email, code: otpCode });
+      const response = await axios.post('/api/auth/verify-2fa', { email: identifier, code: otpCode });
       onLoginSuccess(response.data.user, response.data.accessToken);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.');
@@ -84,7 +84,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
             {requires2FA ? 'XÁC THỰC 2FA' : 'ĐĂNG NHẬP CỔNG THI'}
           </h2>
           <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
-            Học viện Kỹ thuật Quân sự
+            Bộ CHQS tỉnh Đồng Tháp
           </p>
         </div>
 
@@ -100,19 +100,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="login-email" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
-                Gmail công tác
+                Gmail công tác (Cán bộ) / Tên đăng nhập (Chiến sĩ)
               </label>
               <div className="relative">
                 <Envelope size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
                 <input
-                  type="email"
+                  type="text"
                   id="login-email"
-                  name="email"
-                  autoComplete="email"
+                  name="identifier"
+                  autoComplete="username"
                   required
-                  placeholder="email@gmail.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  placeholder="email@gmail.com hoặc tên đăng nhập"
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
                   className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
                 />
               </div>

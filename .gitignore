@@ -9,8 +9,5 @@ db_import_file/users_import.json
 node_modules/
 dist/
 .agents/
-
-# Firebase
-.firebase/
 *-debug.log
 

@@ -1,6 +1,7 @@
 import ExamRoom from '../models/ExamRoom.js';
 import Quiz from '../models/Quiz.js';
 import ExamAttempt from '../models/ExamAttempt.js';
+import Unit from '../models/Unit.js';
 import xlsx from 'xlsx';
 import { Packer } from 'docx';
 import { generateResultsDOCX } from '../utils/documentTemplates.js';
@@ -53,7 +54,7 @@ export const getRoomByCode = async (req, res) => {
     const { code } = req.params;
     const room = await ExamRoom.findOne({ roomCode: code.toUpperCase() })
       .populate('quizId', 'title duration passingScorePercent questions.questionType questions.questionText questions.options')
-      .populate('hostId', 'fullName rank position unit');
+      .populate({ path: 'hostId', select: 'fullName rank position unitId', populate: { path: 'unitId', select: 'name' } });
 
     if (!room) {
       return res.status(404).json({ message: 'Không tìm thấy phòng thi với mã đã nhập' });
@@ -176,7 +177,11 @@ export const getRoomResults = async (req, res) => {
 
     // Get attempts associated with this room
     const attempts = await ExamAttempt.find({ roomId: id })
-      .populate('userId', 'fullName rank position unit email')
+      .populate({
+        path: 'userId',
+        select: 'fullName rank position unitId email',
+        populate: { path: 'unitId', select: 'name' }
+      })
       .sort({ [sortBy]: sortOrder });
 
     res.status(200).json({
@@ -201,7 +206,11 @@ export const exportRoomResults = async (req, res) => {
     }
 
     const attempts = await ExamAttempt.find({ roomId: id })
-      .populate('userId', 'fullName rank position unit email');
+      .populate({
+        path: 'userId',
+        select: 'fullName rank position unitId email',
+        populate: { path: 'unitId', select: 'name' }
+      });
 
     if (format === 'xlsx' || format === 'csv') {
       // Create spreadsheet
@@ -212,7 +221,7 @@ export const exportRoomResults = async (req, res) => {
           'Gmail': attempt.userId.email,
           'Cấp bậc': attempt.userId.rank || 'Binh nhì',
           'Chức vụ': attempt.userId.position || 'Học viên',
-          'Đơn vị': attempt.userId.unit,
+          'Đơn vị': attempt.userId.unitId?.name || '',
           'Số câu đúng': `${attempt.score}/${attempt.totalQuestions}`,
           'Tỷ lệ (%)': correctRatio,
           'Kết quả': attempt.isPassed ? 'ĐẠT' : 'KHÔNG ĐẠT',
@@ -240,13 +249,19 @@ export const exportRoomResults = async (req, res) => {
     }
 
     if (format === 'docx') {
+      let defaultUpperUnit = 'CẤP TRÊN TRỰC TIẾP';
+      if (req.user.unitId?.parentId) {
+        const parentUnit = await Unit.findById(req.user.unitId.parentId).select('name');
+        if (parentUnit) defaultUpperUnit = parentUnit.name;
+      }
+
       const doc = generateResultsDOCX(
         room,
         attempts,
         req.user,
-        upperUnit || 'BỘ QUỐC PHÒNG',
-        currentUnit || req.user.unit || 'ĐƠN VỊ THI',
-        province || 'Hà Nội',
+        upperUnit || defaultUpperUnit,
+        currentUnit || req.user.unitId?.name || 'ĐƠN VỊ THI',
+        province || 'Đồng Tháp',
         position,
         showSignature !== 'false',
         signerRank,
@@ -414,7 +429,7 @@ export const getExamSubmitStatus = async (req, res) => {
       message: 'Hệ thống đang chấm điểm bài thi của đồng chí...'
     });
     */
-    res.status(501).json({ message: 'Hàng đợi Redis đã tắt do hệ thống chuyển sang chế độ Firebase Cloud Functions.' });
+    res.status(501).json({ message: 'Tính năng theo dõi tiến trình chấm bài hiện chưa được bật.' });
   } catch (error) {
     console.error('Lỗi kiểm tra trạng thái nộp bài:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi kiểm tra trạng thái nộp bài' });

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { ArrowLeft, DownloadSimpleIcon, Funnel, ShieldWarning } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
+import { PrintPreviewModal } from '../components/PrintPreviewModal';
 
 
 interface RoomResultsProps {
@@ -26,7 +27,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
 
   // VPA Export configurations
   const [showExportPopup, setShowExportPopup] = useState(false);
-  const [printData, setPrintData] = useState<{
+  type ResultsPrintData = {
     upperUnit: string;
     currentUnit: string;
     province: string;
@@ -42,7 +43,9 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
     orientation?: 'portrait' | 'landscape';
     room: any;
     attempts: any[];
-  } | null>(null);
+  };
+  const [printData, setPrintData] = useState<ResultsPrintData | null>(null);
+  const [pdfPreviewData, setPdfPreviewData] = useState<ResultsPrintData | null>(null);
 
   useEffect(() => {
     if (printData) {
@@ -105,7 +108,8 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
     setShowExportPopup(false);
     
     if (vpaData.format === 'pdf') {
-      setPrintData({
+      // Mở bản xem trước trước, chỉ thực sự in khi người dùng xác nhận
+      setPdfPreviewData({
         upperUnit: vpaData.upperUnit,
         currentUnit: vpaData.currentUnit,
         province: vpaData.province,
@@ -168,7 +172,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
     const term = search.toLowerCase();
     return (
       att.userId.fullName.toLowerCase().includes(term) ||
-      att.userId.unit.toLowerCase().includes(term) ||
+      (att.userId.unitId?.name || '').toLowerCase().includes(term) ||
       (att.userId.rank || '').toLowerCase().includes(term)
     );
   });
@@ -186,6 +190,124 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
       </div>
     );
   }
+
+  // Nội dung layout báo cáo kết quả dùng chung cho cả bản in thật (portal)
+  // và bản xem trước (modal) — đảm bảo xem trước khớp 100% với file in ra.
+  const renderResultsPrintContent = (data: ResultsPrintData) => (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 ${data.orientation === 'landscape' ? 'landscape' : 'portrait'};
+          }
+
+          ${data.mirrorMargins ? `
+            /* Mirrored margins for double-sided printing */
+            @page :left {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginRight || 1.5}cm;
+              margin-right: ${data.marginLeft || 3.0}cm;
+            }
+            @page :right {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginLeft || 3.0}cm;
+              margin-right: ${data.marginRight || 1.5}cm;
+            }
+            @page :first {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginLeft || 3.0}cm;
+              margin-right: ${data.marginRight || 1.5}cm;
+            }
+          ` : `
+            /* Standard identical margins for all pages */
+            @page {
+              margin-top: ${data.marginTop || 2.5}cm;
+              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-left: ${data.marginLeft || 3.0}cm;
+              margin-right: ${data.marginRight || 1.5}cm;
+            }
+          `}
+
+          body {
+            background: white;
+            color: black;
+          }
+        }
+      `}} />
+      {/* Header */}
+      <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
+        <div className="text-center w-[38%] font-serif">
+          <p className="uppercase font-serif">{data.upperUnit}</p>
+          <p className="font-bold uppercase font-serif">{data.currentUnit}</p>
+          <p className="font-bold mt-0.5">---------</p>
+        </div>
+        <div className="text-center w-[58%] font-serif">
+          <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+          <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
+            Độc lập - Tự do - Hạnh phúc
+          </p>
+          <p className="italic mt-1.5 font-serif">
+            {data.province}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
+          </p>
+        </div>
+      </div>
+
+      {/* Title */}
+      <div className="text-center my-6 font-serif">
+        <h2 className="text-lg font-bold uppercase tracking-wide font-serif">BÁO CÁO KẾT QUẢ THI</h2>
+        <p className="font-bold mt-1 font-serif">
+          PHÒNG THI: {data.room?.roomCode} - ĐỀ THI: {data.room?.quizId?.title?.toUpperCase()}
+        </p>
+      </div>
+
+      {/* Results Table */}
+      <table className="w-full border-collapse border border-black text-xs my-6 font-serif">
+        <thead>
+          <tr className="bg-gray-100 font-bold text-center font-serif">
+            <th className="border border-black p-2 w-12 font-serif">STT</th>
+            <th className="border border-black p-2 font-serif">Họ và tên</th>
+            <th className="border border-black p-2 font-serif">Cấp bậc</th>
+            <th className="border border-black p-2 font-serif">Đơn vị</th>
+            <th className="border border-black p-2 font-serif">Số câu đúng</th>
+            <th className="border border-black p-2 font-serif">Tỷ lệ (%)</th>
+            <th className="border border-black p-2 font-serif">Kết quả</th>
+            <th className="border border-black p-2 font-serif">Xếp loại</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.attempts.map((att, idx) => {
+            const correctRatio = Math.round((att.score / att.totalQuestions) * 100);
+            return (
+              <tr key={idx} className="text-center font-serif">
+                <td className="border border-black p-2 font-serif">{idx + 1}</td>
+                <td className="border border-black p-2 text-left font-bold font-serif">{att.userId?.fullName}</td>
+                <td className="border border-black p-2 font-serif">{att.userId?.rank || 'Binh nhì'}</td>
+                <td className="border border-black p-2 text-left font-serif">{att.userId?.unitId?.name}</td>
+                <td className="border border-black p-2 font-serif">{att.score}/{att.totalQuestions}</td>
+                <td className="border border-black p-2 font-serif">{correctRatio}%</td>
+                <td className="border border-black p-2 font-bold font-serif">{att.isPassed ? 'ĐẠT' : 'KHÔNG ĐẠT'}</td>
+                <td className="border border-black p-2 font-serif">{att.rank}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Signatures */}
+      {data.showSignature && (
+        <div className="flex justify-end mt-12 font-serif">
+          <div className="text-center w-[45%] font-serif">
+            <p className="font-bold uppercase font-serif text-sm">{data.position}</p>
+            <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
+            <p className="font-bold text-sm font-serif">{data.signerRank} {data.signerName}</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -296,7 +418,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
                         <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{att.userId.fullName}</td>
                         <td className="py-3 px-4">{att.userId.rank || 'Binh nhì'}</td>
                         <td className="py-3 px-4">{att.userId.position || 'Học viên'}</td>
-                        <td className="py-3 px-4 uppercase">{att.userId.unit}</td>
+                        <td className="py-3 px-4 uppercase">{att.userId.unitId?.name || ''}</td>
                         <td className="py-3 px-4 text-center font-mono font-bold">
                           {att.score}/{att.totalQuestions} ({correctRatio}%)
                         </td>
@@ -393,7 +515,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
       {/* VPA Output custom settings popup */}
       <VPAExportPopup
         isOpen={showExportPopup}
-        defaultUnit={user?.unit}
+        defaultUnit={user?.unit?.name}
         defaultPosition={user?.position}
         defaultRank={user?.rank}
         defaultName={user?.fullName}
@@ -405,127 +527,35 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
 
       {/* Printable VPA Report Container */}
       {printData && createPortal(
-        <div 
-          className="print-area-only text-black bg-white leading-relaxed text-sm font-serif" 
-          style={{ 
+        <div
+          className="print-area-only text-black bg-white leading-relaxed text-sm font-serif"
+          style={{
             fontFamily: "'Times New Roman', Times, serif",
             padding: `${printData.marginTop || 2.5}cm ${printData.marginRight || 1.5}cm ${printData.marginBottom || 2.0}cm ${printData.marginLeft || 3.0}cm`
           }}
         >
-          <style dangerouslySetInnerHTML={{ __html: `
-            @media print {
-              @page {
-                size: A4 ${printData.orientation === 'landscape' ? 'landscape' : 'portrait'};
-              }
-              
-              ${printData.mirrorMargins ? `
-                /* Mirrored margins for double-sided printing */
-                @page :left {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginRight || 1.5}cm;
-                  margin-right: ${printData.marginLeft || 3.0}cm;
-                }
-                @page :right {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginLeft || 3.0}cm;
-                  margin-right: ${printData.marginRight || 1.5}cm;
-                }
-                @page :first {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginLeft || 3.0}cm;
-                  margin-right: ${printData.marginRight || 1.5}cm;
-                }
-              ` : `
-                /* Standard identical margins for all pages */
-                @page {
-                  margin-top: ${printData.marginTop || 2.5}cm;
-                  margin-bottom: ${printData.marginBottom || 2.0}cm;
-                  margin-left: ${printData.marginLeft || 3.0}cm;
-                  margin-right: ${printData.marginRight || 1.5}cm;
-                }
-              `}
-
-              body {
-                background: white;
-                color: black;
-              }
-            }
-          `}} />
-          {/* Header */}
-          <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
-            <div className="text-center w-[38%] font-serif">
-              <p className="uppercase font-serif">{printData.upperUnit}</p>
-              <p className="font-bold uppercase font-serif">{printData.currentUnit}</p>
-              <p className="font-bold mt-0.5">---------</p>
-            </div>
-            <div className="text-center w-[58%] font-serif">
-              <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
-                Độc lập - Tự do - Hạnh phúc
-              </p>
-              <p className="italic mt-1.5 font-serif">
-                {printData.province}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
-              </p>
-            </div>
-          </div>
-
-          {/* Title */}
-          <div className="text-center my-6 font-serif">
-            <h2 className="text-lg font-bold uppercase tracking-wide font-serif">BÁO CÁO KẾT QUẢ THI</h2>
-            <p className="font-bold mt-1 font-serif">
-              PHÒNG THI: {printData.room?.roomCode} - ĐỀ THI: {printData.room?.quizId?.title?.toUpperCase()}
-            </p>
-          </div>
-
-          {/* Results Table */}
-          <table className="w-full border-collapse border border-black text-xs my-6 font-serif">
-            <thead>
-              <tr className="bg-gray-100 font-bold text-center font-serif">
-                <th className="border border-black p-2 w-12 font-serif">STT</th>
-                <th className="border border-black p-2 font-serif">Họ và tên</th>
-                <th className="border border-black p-2 font-serif">Cấp bậc</th>
-                <th className="border border-black p-2 font-serif">Đơn vị</th>
-                <th className="border border-black p-2 font-serif">Số câu đúng</th>
-                <th className="border border-black p-2 font-serif">Tỷ lệ (%)</th>
-                <th className="border border-black p-2 font-serif">Kết quả</th>
-                <th className="border border-black p-2 font-serif">Xếp loại</th>
-              </tr>
-            </thead>
-            <tbody>
-              {printData.attempts.map((att, idx) => {
-                const correctRatio = Math.round((att.score / att.totalQuestions) * 100);
-                return (
-                  <tr key={idx} className="text-center font-serif">
-                    <td className="border border-black p-2 font-serif">{idx + 1}</td>
-                    <td className="border border-black p-2 text-left font-bold font-serif">{att.userId?.fullName}</td>
-                    <td className="border border-black p-2 font-serif">{att.userId?.rank || 'Binh nhì'}</td>
-                    <td className="border border-black p-2 text-left font-serif">{att.userId?.unit}</td>
-                    <td className="border border-black p-2 font-serif">{att.score}/{att.totalQuestions}</td>
-                    <td className="border border-black p-2 font-serif">{correctRatio}%</td>
-                    <td className="border border-black p-2 font-bold font-serif">{att.isPassed ? 'ĐẠT' : 'KHÔNG ĐẠT'}</td>
-                    <td className="border border-black p-2 font-serif">{att.rank}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {/* Signatures */}
-          {printData.showSignature && (
-            <div className="flex justify-end mt-12 font-serif">
-              <div className="text-center w-[45%] font-serif">
-                <p className="font-bold uppercase font-serif text-sm">{printData.position}</p>
-                <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
-                <p className="font-bold text-sm font-serif">{printData.signerRank} {printData.signerName}</p>
-              </div>
-            </div>
-          )}
+          {renderResultsPrintContent(printData)}
         </div>,
         document.body
       )}
+
+      <PrintPreviewModal
+        isOpen={!!pdfPreviewData}
+        onClose={() => setPdfPreviewData(null)}
+        onConfirmPrint={() => { setPrintData(pdfPreviewData); setPdfPreviewData(null); }}
+      >
+        {pdfPreviewData && (
+          <div
+            className="text-black leading-relaxed text-sm font-serif"
+            style={{
+              fontFamily: "'Times New Roman', Times, serif",
+              padding: `${pdfPreviewData.marginTop || 2.5}cm ${pdfPreviewData.marginRight || 1.5}cm ${pdfPreviewData.marginBottom || 2.0}cm ${pdfPreviewData.marginLeft || 3.0}cm`
+            }}
+          >
+            {renderResultsPrintContent(pdfPreviewData)}
+          </div>
+        )}
+      </PrintPreviewModal>
     </div>
   );
 };

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Lock, ShieldWarningIcon, EnvelopeIcon, UserIcon, CalendarIcon, IdentificationCardIcon, BuildingOfficeIcon, Key } from '@phosphor-icons/react';
+import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 
 interface RegisterProps {
   onRegisterSuccess: (user: any, token: string) => void;
@@ -15,16 +16,25 @@ const MILITARY_RANKS = [
 ];
 
 export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigateToLogin }) => {
+  const [personnelType, setPersonnelType] = useState<'soldier' | 'officer' | null>(null);
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [rank, setRank] = useState('Binh nhì');
   const [position, setPosition] = useState('Học viên');
-  const [unit, setUnit] = useState('');
+  const [unitId, setUnitId] = useState('');
+  const [units, setUnits] = useState<UnitNode[]>([]);
   const [address, setAddress] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    axios.get('/api/units/public/tree')
+      .then(res => setUnits(res.data))
+      .catch(() => setError('Không thể tải danh sách đơn vị. Vui lòng tải lại trang.'));
+  }, []);
 
   // OTP Verification state
   const [requiresVerification, setRequiresVerification] = useState(false);
@@ -38,13 +48,15 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
 
     try {
       const response = await axios.post('/api/auth/register', {
-        email,
+        personnelType,
+        email: personnelType === 'soldier' ? undefined : email,
+        username: personnelType === 'soldier' ? username : undefined,
         password,
         fullName,
         dateOfBirth,
         rank,
         position,
-        unit,
+        unitId,
         address
       });
       if (response.data.requiresVerification) {
@@ -52,6 +64,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
         setVerificationMessage(response.data.message);
         setLoading(false);
       } else {
+        // Chiến sĩ: tài khoản được tạo ngay, không cần xác thực OTP qua email
         onRegisterSuccess(response.data.user, response.data.accessToken);
       }
     } catch (err: any) {
@@ -102,15 +115,64 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
           </div>
         )}
 
-        {!requiresVerification ? (
+        {!requiresVerification && !personnelType ? (
           <>
             <div className="text-center mb-8">
               <h2 className="text-xl font-extrabold uppercase tracking-widest text-vpa-olive dark:text-vpa-sand">
                 ĐĂNG KÝ TÀI KHOẢN QUÂN NHÂN
               </h2>
               <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
+                Đồng chí thuộc đối tượng nào?
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setPersonnelType('soldier')}
+                className="p-6 border border-vpa-olive-light/50 hover:border-vpa-gold hover:bg-vpa-olive-light/5 transition-colors text-left group"
+              >
+                <UserIcon size={28} className="text-vpa-olive dark:text-vpa-sand group-hover:text-vpa-gold mb-3" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand mb-1">Chiến sĩ</h3>
+                <p className="text-[10px] text-gray-500 leading-relaxed">Đăng ký bằng tên đăng nhập, không cần Gmail cá nhân.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPersonnelType('officer')}
+                className="p-6 border border-vpa-olive-light/50 hover:border-vpa-gold hover:bg-vpa-olive-light/5 transition-colors text-left group"
+              >
+                <IdentificationCardIcon size={28} className="text-vpa-olive dark:text-vpa-sand group-hover:text-vpa-gold mb-3" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand mb-1">Cán bộ</h3>
+                <p className="text-[10px] text-gray-500 leading-relaxed">Đăng ký bằng Gmail công tác, xác thực qua mã OTP.</p>
+              </button>
+            </div>
+
+            <div className="text-center mt-6">
+              <button
+                type="button"
+                onClick={onNavigateToLogin}
+                className="text-[10px] uppercase tracking-wider text-vpa-gold hover:underline font-semibold"
+              >
+                Đã có tài khoản? Đăng nhập ngay
+              </button>
+            </div>
+          </>
+        ) : !requiresVerification ? (
+          <>
+            <div className="text-center mb-8">
+              <h2 className="text-xl font-extrabold uppercase tracking-widest text-vpa-olive dark:text-vpa-sand">
+                ĐĂNG KÝ TÀI KHOẢN {personnelType === 'soldier' ? 'CHIẾN SĨ' : 'CÁN BỘ'}
+              </h2>
+              <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
                 Khai báo thông tin chính xác phục vụ thi cử & ôn luyện
               </p>
+              <button
+                type="button"
+                onClick={() => setPersonnelType(null)}
+                className="text-[10px] uppercase tracking-wider text-gray-400 hover:text-vpa-gold hover:underline font-semibold mt-2"
+              >
+                ← Chọn lại đối tượng
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -118,25 +180,47 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                 
                 {/* Left side */}
                 <div className="space-y-4">
-                  <div>
-                    <label htmlFor="register-email" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
-                      Gmail quân nhân
-                    </label>
-                    <div className="relative">
-                      <EnvelopeIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
-                      <input
-                        type="email"
-                        id="register-email"
-                        name="email"
-                        autoComplete="email"
-                        required
-                        placeholder="dongchi@gmail.com"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
-                      />
+                  {personnelType === 'soldier' ? (
+                    <div>
+                      <label htmlFor="register-username" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
+                        Tên đăng nhập
+                      </label>
+                      <div className="relative">
+                        <UserIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
+                        <input
+                          type="text"
+                          id="register-username"
+                          name="username"
+                          autoComplete="username"
+                          required
+                          placeholder="vd: nguyenvana01"
+                          value={username}
+                          onChange={e => setUsername(e.target.value)}
+                          className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <label htmlFor="register-email" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
+                        Gmail quân nhân
+                      </label>
+                      <div className="relative">
+                        <EnvelopeIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
+                        <input
+                          type="email"
+                          id="register-email"
+                          name="email"
+                          autoComplete="email"
+                          required
+                          placeholder="dongchi@gmail.com"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label htmlFor="register-password" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
@@ -244,17 +328,15 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                       Đơn vị công tác
                     </label>
                     <div className="relative">
-                      <BuildingOfficeIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
-                      <input
-                        type="text"
-                        id="register-unit"
-                        name="unit"
-                        required
-                        placeholder="c1 - d5 - Học viện Kỹ thuật Quân sự"
-                        value={unit}
-                        onChange={e => setUnit(e.target.value)}
-                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
-                      />
+                      <BuildingOfficeIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light pointer-events-none z-10" />
+                      <div className="pl-10">
+                        <UnitTreeSelect
+                          units={units}
+                          value={unitId}
+                          onChange={setUnitId}
+                          selectClassName="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand dark:bg-vpa-dark-card mb-2 last:mb-0"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -267,7 +349,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                       id="register-address"
                       name="address"
                       autoComplete="street-address"
-                      placeholder="Hà Nội"
+                      placeholder="Cao Lãnh, Đồng Tháp"
                       value={address}
                       onChange={e => setAddress(e.target.value)}
                       className="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
@@ -303,7 +385,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                 XÁC THỰC EMAIL ĐĂNG KÝ
               </h2>
               <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
-                Học viện Kỹ thuật Quân sự
+                Bộ CHQS tỉnh Đồng Tháp
               </p>
             </div>
 

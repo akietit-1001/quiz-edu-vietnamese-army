@@ -2,10 +2,26 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
+  // Chiến sĩ: đăng ký không cần email, đăng nhập bằng username.
+  // Cán bộ: giữ nguyên luồng cũ, đăng ký/đăng nhập bằng email + OTP.
+  personnelType: {
+    type: String,
+    enum: ['soldier', 'officer'],
+    default: 'officer'
+  },
   email: {
     type: String,
-    required: true,
+    required: function () { return this.personnelType !== 'soldier'; },
     unique: true,
+    sparse: true,
+    trim: true,
+    lowercase: true
+  },
+  username: {
+    type: String,
+    required: function () { return this.personnelType === 'soldier'; },
+    unique: true,
+    sparse: true,
     trim: true,
     lowercase: true
   },
@@ -29,8 +45,9 @@ const userSchema = new mongoose.Schema({
     type: String, // Chức vụ, e.g., Học viên, Trung đội trưởng...
     default: 'Học viên'
   },
-  unit: {
-    type: String, // Đơn vị công tác, e.g., c1 - d5 - Học viện Kỹ thuật Quân sự
+  unitId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Unit',
     required: true
   },
   address: {

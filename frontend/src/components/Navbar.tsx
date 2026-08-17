@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {user.rank ? `${user.rank} ` : ''}{user.fullName}
                 </p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
-                  {user.position} | {user.unit}
+                  {user.position} | {user.unit?.name}
                 </p>
               </div>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light bg-vpa-sand dark:bg-vpa-olive-light/30 text-vpa-olive dark:text-vpa-gold">

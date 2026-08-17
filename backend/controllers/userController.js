@@ -1,39 +1,36 @@
 import User from '../models/User.js';
+import { isUnitDescendantOf } from '../utils/unitHierarchy.js';
+import { isDescendantInChain, getManagedDescendantIds, reassignDirectReportsOnDelete } from '../utils/commandChain.js';
 
-// Helper to escape regex special characters
-const escapeRegex = (string) => {
-  return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-};
-
-// 1. GET ALL USERS (Filtered based on role)
+// 1. GET ALL USERS (Filtered based on role + chuỗi chỉ huy managedBy)
 export const getUsers = async (req, res) => {
   try {
     const currentUser = req.user;
     let query = {};
 
-    // If admin, they can only see users they manage or users in the same unit
     if (currentUser.role === 'admin') {
-      const escapedUnit = escapeRegex(currentUser.unit);
+      const managedIds = await getManagedDescendantIds(currentUser._id);
       query = {
-        $and: [
-          { role: { $in: ['sub-admin', 'user'] } },
-          { $or: [{ unit: { $regex: escapedUnit, $options: 'i' } }, { managedBy: currentUser._id }] }
-        ]
+        role: { $in: ['sub-admin', 'user'] },
+        _id: { $in: managedIds }
       };
     } else if (currentUser.role === 'sub-admin') {
-      // Sub-admins can see users in the same unit who are below their level (i.e. 'user')
-      const escapedUnit = escapeRegex(currentUser.unit);
+      const managedIds = await getManagedDescendantIds(currentUser._id);
       query = {
-        $and: [
-          { role: 'user' },
-          { unit: { $regex: escapedUnit, $options: 'i' } }
-        ]
+        role: 'user',
+        _id: { $in: managedIds }
       };
     }
     // master-admin can see all users (no filters)
 
-    const users = await User.find(query).select('-password');
-    res.status(200).json(users);
+    const users = await User.find(query).select('-password').populate('unitId', 'name level');
+    const formatted = users.map(u => {
+      const obj = u.toObject();
+      obj.unit = obj.unitId ? { id: obj.unitId._id, name: obj.unitId.name, level: obj.unitId.level } : null;
+      delete obj.unitId;
+      return obj;
+    });
+    res.status(200).json(formatted);
   } catch (error) {
     console.error('Lỗi lấy danh sách người dùng:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách người dùng' });
@@ -43,21 +40,40 @@ export const getUsers = async (req, res) => {
 // 2. CREATE USER
 export const createUser = async (req, res) => {
   try {
-    const { email, password, fullName, dateOfBirth, rank, position, unit, address, role } = req.body;
+    const { personnelType, email, username, password, fullName, dateOfBirth, rank, position, unitId, address, role } = req.body;
     const currentUser = req.user;
 
-    // Check if user exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'Email này đã tồn tại trên hệ thống' });
+    if (!unitId) {
+      return res.status(400).json({ message: 'Vui lòng chọn đơn vị công tác' });
+    }
+
+    let normalizedUsername;
+    if (personnelType === 'soldier') {
+      if (!username || !username.trim()) {
+        return res.status(400).json({ message: 'Vui lòng nhập tên đăng nhập' });
+      }
+      normalizedUsername = username.trim().toLowerCase();
+      const usernameExists = await User.findOne({ username: normalizedUsername });
+      if (usernameExists) {
+        return res.status(400).json({ message: 'Tên đăng nhập này đã tồn tại trên hệ thống' });
+      }
+    } else {
+      if (!email) {
+        return res.status(400).json({ message: 'Vui lòng nhập email' });
+      }
+      const userExists = await User.findOne({ email });
+      if (userExists) {
+        return res.status(400).json({ message: 'Email này đã tồn tại trên hệ thống' });
+      }
     }
 
     // Role and unit restrictions
     let finalRole = role || 'user';
     if (currentUser.role !== 'master-admin') {
-      // Unit verification (must be same or subordinate unit)
-      if (!unit.toLowerCase().includes(currentUser.unit.toLowerCase())) {
-        return res.status(403).json({ message: 'Đồng chí chỉ có thể tạo người dùng trong cùng hoặc đơn vị thuộc quyền' });
+      // Đơn vị mới phải nằm trong (hoặc bằng) nhánh đơn vị của người tạo
+      const allowedUnit = await isUnitDescendantOf(unitId, currentUser.unitId?._id || currentUser.unitId);
+      if (!allowedUnit) {
+        return res.status(403).json({ message: 'Đồng chí chỉ có thể tạo người dùng trong đơn vị thuộc quyền' });
       }
 
       // Hierarchy verification
@@ -75,26 +91,32 @@ export const createUser = async (req, res) => {
     }
 
     const newUser = await User.create({
-      email,
+      personnelType: personnelType === 'soldier' ? 'soldier' : 'officer',
+      email: personnelType === 'soldier' ? undefined : email,
+      username: personnelType === 'soldier' ? normalizedUsername : undefined,
       password,
       fullName,
       dateOfBirth,
       rank,
       position,
-      unit,
+      unitId,
       address,
       role: finalRole,
       managedBy: currentUser._id
     });
+
+    await newUser.populate('unitId', 'name level');
 
     res.status(201).json({
       message: 'Tạo tài khoản người dùng thành công',
       user: {
         id: newUser._id,
         email: newUser.email,
+        username: newUser.username,
+        personnelType: newUser.personnelType,
         fullName: newUser.fullName,
         role: newUser.role,
-        unit: newUser.unit,
+        unit: newUser.unitId ? { id: newUser.unitId._id, name: newUser.unitId.name, level: newUser.unitId.level } : null,
         rank: newUser.rank,
         position: newUser.position
       }
@@ -109,7 +131,7 @@ export const createUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fullName, dateOfBirth, rank, position, unit, address, role, avatarUrl } = req.body;
+    const { fullName, dateOfBirth, rank, position, unitId, address, role, avatarUrl } = req.body;
     const currentUser = req.user;
 
     const userToUpdate = await User.findById(id);
@@ -119,9 +141,10 @@ export const updateUser = async (req, res) => {
 
     // Check permissions
     if (currentUser.role !== 'master-admin') {
-      // Must be same or subordinate unit
-      if (!userToUpdate.unit.toLowerCase().includes(currentUser.unit.toLowerCase())) {
-        return res.status(403).json({ message: 'Đồng chí chỉ có thể chỉnh sửa người dùng trong cùng hoặc đơn vị thuộc quyền' });
+      // Người này phải nằm trong chuỗi chỉ huy (cấp dưới) của mình
+      const managesTarget = await isDescendantInChain(userToUpdate._id, currentUser._id);
+      if (!managesTarget) {
+        return res.status(403).json({ message: 'Đồng chí chỉ có thể chỉnh sửa người dùng thuộc quyền quản lý' });
       }
 
       // Check role level hierarchy
@@ -149,16 +172,17 @@ export const updateUser = async (req, res) => {
     if (dateOfBirth) userToUpdate.dateOfBirth = dateOfBirth;
     if (rank) userToUpdate.rank = rank;
     if (position) userToUpdate.position = position;
-    
-    if (unit) {
+
+    if (unitId) {
       if (currentUser.role === 'master-admin') {
-        userToUpdate.unit = unit;
+        userToUpdate.unitId = unitId;
       } else {
-        // Must contain commander's unit
-        if (!unit.toLowerCase().includes(currentUser.unit.toLowerCase())) {
+        // Đơn vị mới phải thuộc nhánh của người đang sửa
+        const allowedUnit = await isUnitDescendantOf(unitId, currentUser.unitId?._id || currentUser.unitId);
+        if (!allowedUnit) {
           return res.status(403).json({ message: 'Đơn vị mới phải thuộc quyền quản lý của đồng chí' });
         }
-        userToUpdate.unit = unit;
+        userToUpdate.unitId = unitId;
       }
     }
     if (address) userToUpdate.address = address;
@@ -168,6 +192,7 @@ export const updateUser = async (req, res) => {
     }
 
     await userToUpdate.save();
+    await userToUpdate.populate('unitId', 'name level');
 
     res.status(200).json({
       message: 'Cập nhật thông tin người dùng thành công',
@@ -176,7 +201,7 @@ export const updateUser = async (req, res) => {
         email: userToUpdate.email,
         fullName: userToUpdate.fullName,
         role: userToUpdate.role,
-        unit: userToUpdate.unit,
+        unit: userToUpdate.unitId ? { id: userToUpdate.unitId._id, name: userToUpdate.unitId.name, level: userToUpdate.unitId.level } : null,
         rank: userToUpdate.rank,
         position: userToUpdate.position
       }
@@ -200,9 +225,9 @@ export const deleteUser = async (req, res) => {
 
     // Permission checks
     if (currentUser.role !== 'master-admin') {
-      // Must be same or subordinate unit
-      if (!userToDelete.unit.toLowerCase().includes(currentUser.unit.toLowerCase())) {
-        return res.status(403).json({ message: 'Đồng chí chỉ có thể xóa người dùng trong cùng hoặc đơn vị thuộc quyền' });
+      const managesTarget = await isDescendantInChain(userToDelete._id, currentUser._id);
+      if (!managesTarget) {
+        return res.status(403).json({ message: 'Đồng chí chỉ có thể xóa người dùng thuộc quyền quản lý' });
       }
 
       // Check role level hierarchy
@@ -219,6 +244,10 @@ export const deleteUser = async (req, res) => {
       }
     }
 
+    // Cấp dưới trực tiếp của người bị xoá tự động chuyển lên cấp trên kế
+    // tiếp, tránh đứt chuỗi chỉ huy
+    await reassignDirectReportsOnDelete(userToDelete);
+
     await User.findByIdAndDelete(id);
     res.status(200).json({ message: 'Đã xóa người dùng khỏi hệ thống thành công' });
   } catch (error) {
@@ -228,10 +257,12 @@ export const deleteUser = async (req, res) => {
 };
 
 // 5. UPDATE CURRENT USER PROFILE (SELF)
+// Lưu ý: không cho tự đổi đơn vị (unitId) qua đây nữa — việc chuyển đơn vị
+// là hành động của cấp quản lý qua updateUser, không phải tự phục vụ.
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { fullName, dateOfBirth, rank, position, unit, address, avatarUrl } = req.body;
+    const { fullName, dateOfBirth, rank, position, address, avatarUrl } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -242,11 +273,11 @@ export const updateProfile = async (req, res) => {
     if (dateOfBirth) user.dateOfBirth = dateOfBirth;
     if (rank) user.rank = rank;
     if (position) user.position = position;
-    if (unit) user.unit = unit;
     if (address) user.address = address;
     if (avatarUrl) user.avatarUrl = avatarUrl;
 
     await user.save();
+    await user.populate('unitId', 'name level');
 
     res.status(200).json({
       message: 'Cập nhật thông tin cá nhân thành công',
@@ -255,7 +286,7 @@ export const updateProfile = async (req, res) => {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
-        unit: user.unit,
+        unit: user.unitId ? { id: user.unitId._id, name: user.unitId.name, level: user.unitId.level } : null,
         rank: user.rank,
         position: user.position,
         dateOfBirth: user.dateOfBirth,

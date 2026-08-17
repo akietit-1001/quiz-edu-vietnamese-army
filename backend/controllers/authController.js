@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import TempUser from '../models/TempUser.js';
+import Unit from '../models/Unit.js';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
@@ -8,7 +9,7 @@ import { sendRegistrationOTPEmail, send2FAOTPEmail } from '../utils/mailer.js';
 // Helper to generate access and refresh tokens
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { id: user._id, role: user.role, unit: user.unit },
+    { id: user._id, role: user.role, unitId: user.unitId?._id || user.unitId },
     process.env.JWT_SECRET,
     { expiresIn: '15m' }
   );
@@ -22,10 +23,85 @@ const generateTokens = (user) => {
   return { accessToken, refreshToken };
 };
 
+// Chuẩn hoá field `unit` trả về client — object {id, name, level} thay vì
+// ObjectId thô. Cần user.unitId đã được populate trước khi gọi hàm này.
+const formatUnit = (unit) => {
+  if (!unit || !unit.name) return null;
+  return { id: unit._id, name: unit.name, level: unit.level };
+};
+
 // 1. REGISTER
 export const register = async (req, res) => {
   try {
-    const { email, password, fullName, dateOfBirth, rank, position, unit, address } = req.body;
+    const { personnelType, email, username, password, fullName, dateOfBirth, rank, position, unitId, address } = req.body;
+
+    if (!unitId) {
+      return res.status(400).json({ message: 'Vui lòng chọn đơn vị công tác' });
+    }
+
+    const unit = await Unit.findById(unitId);
+    if (!unit) {
+      return res.status(400).json({ message: 'Đơn vị không hợp lệ' });
+    }
+
+    // Chiến sĩ: không có email thật để nhận OTP -> tạo tài khoản ngay bằng
+    // username, bỏ qua bước xác thực OTP qua email.
+    if (personnelType === 'soldier') {
+      if (!username || !username.trim()) {
+        return res.status(400).json({ message: 'Vui lòng nhập tên đăng nhập' });
+      }
+      const normalizedUsername = username.trim().toLowerCase();
+      const usernameExists = await User.findOne({ username: normalizedUsername });
+      if (usernameExists) {
+        return res.status(400).json({ message: 'Tên đăng nhập này đã được sử dụng' });
+      }
+
+      const userCount = await User.countDocuments({});
+      const role = userCount === 0 ? 'master-admin' : 'user';
+
+      let newSoldier = await User.create({
+        personnelType,
+        username: normalizedUsername,
+        password,
+        fullName,
+        dateOfBirth,
+        rank,
+        position,
+        unitId,
+        address,
+        role,
+        managedBy: null
+      });
+      newSoldier = await newSoldier.populate('unitId', 'name level');
+
+      const { accessToken, refreshToken } = generateTokens(newSoldier);
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+
+      return res.status(201).json({
+        message: 'Đăng ký tài khoản Chiến sĩ thành công',
+        user: {
+          id: newSoldier._id,
+          username: newSoldier.username,
+          personnelType: newSoldier.personnelType,
+          fullName: newSoldier.fullName,
+          role: newSoldier.role,
+          unit: formatUnit(newSoldier.unitId),
+          rank: newSoldier.rank,
+          position: newSoldier.position,
+          twoFactorEnabled: newSoldier.twoFactorEnabled
+        },
+        accessToken
+      });
+    }
+
+    if (!email) {
+      return res.status(400).json({ message: 'Vui lòng nhập email' });
+    }
 
     // Check if user exists in permanent database
     const userExists = await User.findOne({ email });
@@ -43,7 +119,7 @@ export const register = async (req, res) => {
         email,
         otpCode,
         expiresAt,
-        userData: { email, password, fullName, dateOfBirth, rank, position, unit, address },
+        userData: { email, password, fullName, dateOfBirth, rank, position, unitId, address },
         createdAt: new Date() // Reset TTL timer
       },
       { upsert: true, new: true }
@@ -69,10 +145,13 @@ export const register = async (req, res) => {
 // 2. LOGIN
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // `identifier`: email (Cán bộ) hoặc username (Chiến sĩ). Giữ lại `email`
+    // để tương thích ngược với client cũ chưa cập nhật.
+    const { identifier, email, password } = req.body;
+    const loginId = (identifier || email || '').trim().toLowerCase();
 
-    // Find user
-    const user = await User.findOne({ email });
+    // Find user by either email or username
+    const user = await User.findOne({ $or: [{ email: loginId }, { username: loginId }] }).populate('unitId', 'name level');
     if (!user) {
       return res.status(401).json({ message: 'Tài khoản hoặc mật khẩu không chính xác' });
     }
@@ -123,9 +202,11 @@ export const login = async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
+        username: user.username,
+        personnelType: user.personnelType,
         fullName: user.fullName,
         role: user.role,
-        unit: user.unit,
+        unit: formatUnit(user.unitId),
         rank: user.rank,
         position: user.position,
         twoFactorEnabled: user.twoFactorEnabled
@@ -143,7 +224,7 @@ export const verify2FA = async (req, res) => {
   try {
     const { email, code } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).populate('unitId', 'name level');
     if (!user) {
       return res.status(404).json({ message: 'Không tìm thấy người dùng' });
     }
@@ -180,9 +261,10 @@ export const verify2FA = async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
+        username: user.username,
         fullName: user.fullName,
         role: user.role,
-        unit: user.unit,
+        unit: formatUnit(user.unitId),
         rank: user.rank,
         position: user.position,
         twoFactorEnabled: user.twoFactorEnabled
@@ -221,13 +303,17 @@ export const verifyRegister = async (req, res) => {
     const role = userCount === 0 ? 'master-admin' : 'user';
 
     // Create the permanent record in User collection
-    const user = await User.create({
+    // managedBy: null vì đây là tự đăng ký, chưa có cấp trên trực tiếp gán
+    let user = await User.create({
       ...tempUser.userData,
-      role
+      role,
+      managedBy: null
     });
 
     // Delete the temporary document from TempUser
     await TempUser.deleteOne({ email });
+
+    user = await user.populate('unitId', 'name level');
 
     const { accessToken, refreshToken } = generateTokens(user);
 
@@ -246,7 +332,7 @@ export const verifyRegister = async (req, res) => {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
-        unit: user.unit,
+        unit: formatUnit(user.unitId),
         rank: user.rank,
         position: user.position,
         twoFactorEnabled: user.twoFactorEnabled
@@ -265,6 +351,10 @@ export const setup2FA = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+
+    if (!user.email) {
+      return res.status(400).json({ message: 'Tài khoản Chiến sĩ không có email nên không thể bật xác thực hai yếu tố (2FA)' });
     }
 
     // We will use Email OTP for 2FA. Send a test OTP code to verify setup
