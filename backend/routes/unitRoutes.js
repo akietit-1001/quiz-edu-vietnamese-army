@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getPublicUnitTree,
   getUnitTree,
+  getMyParentUnit,
   createUnit,
   renameUnit,
   deleteUnit
@@ -17,6 +18,7 @@ router.get('/public/tree', getPublicUnitTree);
 router.use(authMiddleware);
 
 router.get('/', getUnitTree);
+router.get('/my-parent', getMyParentUnit);
 router.post('/', roleMiddleware(['master-admin', 'admin', 'sub-admin']), createUnit);
 router.put('/:id', roleMiddleware(['master-admin', 'admin', 'sub-admin']), renameUnit);
 router.delete('/:id', roleMiddleware(['master-admin', 'admin', 'sub-admin']), deleteUnit);

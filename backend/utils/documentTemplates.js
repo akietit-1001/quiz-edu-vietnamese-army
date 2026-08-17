@@ -156,7 +156,7 @@ const createVPASignature = (position = 'TRƯỞNG PHÒNG ĐÀO TẠO', rank = '�
 /**
  * Generates a DOCX document for a quiz (Question Paper)
  */
-export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName, marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5, orientation = 'portrait') => {
+export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName, marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5, orientation = 'portrait', includeAnswers = false) => {
   const finalPosition = position || adminUser.position || 'TRƯỞNG PHÒNG ĐÀO TẠO';
   const finalRank = signerRank || adminUser.rank || 'Đại tá';
   const finalName = signerName || adminUser.fullName || 'Nguyễn Văn A';
@@ -233,6 +233,79 @@ export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, provin
   if (showSignature) {
     paragraphs.push(new Paragraph({ children: [] }));
     paragraphs.push(createVPASignature(finalPosition, finalRank, finalName));
+  }
+
+  // Trang riêng "BẢNG ĐÁP ÁN" ở cuối văn bản — không chèn đáp án xen kẽ vào đề
+  if (includeAnswers) {
+    paragraphs.push(new Paragraph({ children: [], pageBreakBefore: true }));
+    paragraphs.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({ text: 'BẢNG ĐÁP ÁN', bold: true, size: 28, font: 'Times New Roman' }),
+        ],
+      })
+    );
+    if (quiz.examCode) {
+      paragraphs.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new TextRun({ text: `Mã đề thi: ${quiz.examCode}`, bold: true, italics: true, size: 24, font: 'Times New Roman' }),
+          ],
+        })
+      );
+    }
+    paragraphs.push(new Paragraph({ children: [] }));
+
+    const answerLabel = (q) => {
+      if (q.questionType === 'fill-in-the-blank') {
+        return (q.correctAnswers || []).join(' / ') || '—';
+      }
+      const letters = (q.correctAnswers || [])
+        .map((a) => String.fromCharCode(65 + parseInt(a, 10)))
+        .filter(Boolean);
+      return letters.join('/') || '—';
+    };
+
+    const columns = 5;
+    const answerCells = quiz.questions.map((q, idx) =>
+      new TableCell({
+        width: { size: 100 / columns, type: WidthType.PERCENTAGE },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+          left: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+          right: { style: BorderStyle.SINGLE, size: 2, color: '999999' }
+        },
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({ text: `Câu ${idx + 1}: `, size: 22, font: 'Times New Roman' }),
+              new TextRun({ text: answerLabel(q), bold: true, size: 22, font: 'Times New Roman' }),
+            ],
+          })
+        ]
+      })
+    );
+
+    const answerRows = [];
+    for (let i = 0; i < answerCells.length; i += columns) {
+      let rowCells = answerCells.slice(i, i + columns);
+      // Pad the last row with empty cells so the table stays aligned
+      while (rowCells.length < columns) {
+        rowCells = [...rowCells, new TableCell({ width: { size: 100 / columns, type: WidthType.PERCENTAGE }, children: [new Paragraph({ children: [] })] })];
+      }
+      answerRows.push(new TableRow({ children: rowCells }));
+    }
+
+    paragraphs.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: answerRows
+      })
+    );
   }
 
   const marginPreset = {

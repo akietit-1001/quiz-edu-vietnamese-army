@@ -375,7 +375,7 @@ export const deleteQuiz = async (req, res) => {
 export const exportQuizDocx = async (req, res) => {
   try {
     const { id } = req.params;
-    const { upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation } = req.query;
+    const { upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation, includeAnswers } = req.query;
 
     const quiz = await Quiz.findById(id);
     if (!quiz) {
@@ -402,13 +402,14 @@ export const exportQuizDocx = async (req, res) => {
       marginBottom,
       marginLeft,
       marginRight,
-      orientation
+      orientation,
+      includeAnswers === 'true'
     );
 
     const buffer = await Packer.toBuffer(doc);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename=De_thi_${quiz.shareCode}.docx`);
+    res.setHeader('Content-Disposition', `attachment; filename=De_thi_${quiz.shareCode}${includeAnswers === 'true' ? '_DapAn' : ''}.docx`);
     res.send(buffer);
   } catch (error) {
     console.error('Lỗi xuất đề thi ra Word:', error.message);
@@ -419,7 +420,7 @@ export const exportQuizDocx = async (req, res) => {
 // 6.5. EXPORT MULTIPLE QUIZZES (MÃ ĐỀ) AS A SINGLE ZIP OF DOCX FILES
 export const exportQuizDocxBulk = async (req, res) => {
   try {
-    const { quizIds, upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation } = req.body;
+    const { quizIds, upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation, includeAnswers } = req.body;
 
     if (!Array.isArray(quizIds) || quizIds.length === 0) {
       return res.status(400).json({ message: 'Vui lòng chọn ít nhất một mã đề để xuất' });
@@ -462,14 +463,16 @@ export const exportQuizDocxBulk = async (req, res) => {
         marginBottom,
         marginLeft,
         marginRight,
-        orientation
+        orientation,
+        includeAnswers === true || includeAnswers === 'true'
       );
       const buffer = await Packer.toBuffer(doc);
 
-      let fileName = `De_thi_${quiz.shareCode || quiz.examCode || quiz._id}.docx`;
+      const answerSuffix = (includeAnswers === true || includeAnswers === 'true') ? '_DapAn' : '';
+      let fileName = `De_thi_${quiz.shareCode || quiz.examCode || quiz._id}${answerSuffix}.docx`;
       let dedupeIdx = 1;
       while (usedNames.has(fileName)) {
-        fileName = `De_thi_${quiz.shareCode || quiz.examCode || quiz._id}_${dedupeIdx}.docx`;
+        fileName = `De_thi_${quiz.shareCode || quiz.examCode || quiz._id}${answerSuffix}_${dedupeIdx}.docx`;
         dedupeIdx += 1;
       }
       usedNames.add(fileName);

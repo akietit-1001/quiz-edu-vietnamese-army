@@ -39,10 +39,18 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     marginRight?: number;
     mirrorMargins?: boolean;
     orientation?: 'portrait' | 'landscape';
+    includeAnswers?: boolean;
     quizzes: any[];
   };
   const [printData, setPrintData] = useState<QuizPrintData | null>(null);
   const [pdfPreviewData, setPdfPreviewData] = useState<QuizPrintData | null>(null);
+  const [defaultUpperUnit, setDefaultUpperUnit] = useState('');
+
+  useEffect(() => {
+    axios.get('/api/units/my-parent')
+      .then(res => setDefaultUpperUnit(res.data?.name || ''))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (printData) {
@@ -533,6 +541,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     mirrorMargins: boolean;
     orientation?: 'portrait' | 'landscape';
     selectedQuizIds?: string[];
+    includeAnswers?: boolean;
   }) => {
     setShowExportPopup(false);
     if (!selectedQuizForExport) return;
@@ -567,6 +576,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         marginRight: vpaData.marginRight,
         mirrorMargins: vpaData.mirrorMargins,
         orientation: vpaData.orientation,
+        includeAnswers: vpaData.includeAnswers,
         quizzes: quizListToExport
       });
       return;
@@ -584,7 +594,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       marginBottom: vpaData.marginBottom,
       marginLeft: vpaData.marginLeft,
       marginRight: vpaData.marginRight,
-      orientation: vpaData.orientation
+      orientation: vpaData.orientation,
+      includeAnswers: vpaData.includeAnswers
     };
 
     try {
@@ -1105,6 +1116,30 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <p className="font-bold uppercase font-serif text-sm">{data.position}</p>
                 <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
                 <p className="font-bold text-sm font-serif">{data.signerRank} {data.signerName}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Trang riêng "Bảng đáp án" — không chèn xen kẽ vào đề */}
+          {data.includeAnswers && (
+            <div className="font-serif" style={{ breakBefore: 'page', pageBreakBefore: 'always' }}>
+              <div className="text-center my-6 font-serif">
+                <h2 className="text-lg font-bold uppercase tracking-wide font-serif">BẢNG ĐÁP ÁN</h2>
+                {quizItem.examCode && (
+                  <p className="italic mt-1 text-xs font-serif">Mã đề thi: {quizItem.examCode}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-5 gap-2 font-serif text-xs">
+                {(quizItem.questions || []).map((q: any, idx: number) => {
+                  const label = q.questionType === 'fill-in-the-blank'
+                    ? ((q.correctAnswers || []).join(' / ') || '—')
+                    : ((q.correctAnswers || []).map((a: string) => String.fromCharCode(65 + parseInt(a, 10))).join('/') || '—');
+                  return (
+                    <div key={idx} className="border border-black text-center py-1.5 font-serif">
+                      Câu {idx + 1}: <span className="font-bold">{label}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2916,6 +2951,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       <VPAExportPopup
         isOpen={showExportPopup}
         defaultUnit={user?.unit?.name}
+        defaultUpperUnit={defaultUpperUnit}
         defaultPosition={user?.position}
         defaultRank={user?.rank}
         defaultName={user?.fullName}

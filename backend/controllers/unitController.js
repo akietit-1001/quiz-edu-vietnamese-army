@@ -25,6 +25,22 @@ export const getUnitTree = async (req, res) => {
   }
 };
 
+// Tên đơn vị cấp trên trực tiếp (1 bậc) của người đang đăng nhập — dùng làm
+// giá trị mặc định cho "Đơn vị cấp trên" khi xuất văn bản (VPAExportPopup).
+export const getMyParentUnit = async (req, res) => {
+  try {
+    const parentId = req.user.unitId?.parentId;
+    if (!parentId) {
+      return res.status(200).json({ name: null });
+    }
+    const parent = await Unit.findById(parentId).select('name');
+    res.status(200).json({ name: parent?.name || null });
+  } catch (error) {
+    console.error('Lỗi lấy đơn vị cấp trên:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi lấy đơn vị cấp trên' });
+  }
+};
+
 // Tạo đơn vị con mới. master-admin tạo được ở bất kỳ đâu (kể cả root nếu
 // chưa có). admin/sub-admin chỉ tạo được đơn vị con nằm trong nhánh mình
 // quản lý (unitId của chính họ hoặc hậu duệ của nó).

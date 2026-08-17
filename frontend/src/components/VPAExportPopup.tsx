@@ -19,9 +19,11 @@ interface VPAExportPopupProps {
     mirrorMargins: boolean;
     orientation?: 'portrait' | 'landscape';
     selectedQuizIds?: string[];
+    includeAnswers?: boolean;
   }) => void;
   onCancel: () => void;
   defaultUnit?: string;
+  defaultUpperUnit?: string;
   defaultPosition?: string;
   defaultRank?: string;
   defaultName?: string;
@@ -34,13 +36,14 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   onConfirm,
   onCancel,
   defaultUnit = '',
+  defaultUpperUnit = '',
   defaultPosition = '',
   defaultRank = 'Đại tá',
   defaultName = 'Nguyễn Văn A',
   type,
   previewData
 }) => {
-  const [upperUnit, setUpperUnit] = useState('BỘ QUỐC PHÒNG');
+  const [upperUnit, setUpperUnit] = useState(defaultUpperUnit || 'BỘ QUỐC PHÒNG');
   const [currentUnit, setCurrentUnit] = useState(defaultUnit || '');
   const [position, setPosition] = useState(defaultPosition || 'TRƯỞNG PHÒNG ĐÀO TẠO');
   const [province, setProvince] = useState('Đồng Tháp');
@@ -54,7 +57,8 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   const [marginRight, setMarginRight] = useState<number>(1.5);
   const [mirrorMargins, setMirrorMargins] = useState<boolean>(true);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
-  
+  const [includeAnswers, setIncludeAnswers] = useState<boolean>(false);
+
   const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>([]);
   const [activePreviewTab, setActivePreviewTab] = useState<string>('parent');
 
@@ -67,6 +71,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (defaultUnit) setCurrentUnit(defaultUnit);
+      if (defaultUpperUnit) setUpperUnit(defaultUpperUnit);
       if (defaultPosition) setPosition(defaultPosition);
       if (defaultRank) setSignerRank(defaultRank);
       if (defaultName) setSignerName(defaultName);
@@ -78,6 +83,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       setOrientation('portrait');
       setFormat(type === 'quiz' ? 'docx' : 'xlsx');
       setActivePreviewTab('parent');
+      setIncludeAnswers(false);
 
       // Initialize selectedQuizIds with the parent and all variant IDs
       if (previewData) {
@@ -88,7 +94,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
         setSelectedQuizIds(initialIds);
       }
     }
-  }, [isOpen, defaultUnit, defaultPosition, defaultRank, defaultName, type, previewData]);
+  }, [isOpen, defaultUnit, defaultUpperUnit, defaultPosition, defaultRank, defaultName, type, previewData]);
 
   if (!isOpen) return null;
 
@@ -108,7 +114,8 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       marginRight,
       mirrorMargins,
       orientation,
-      selectedQuizIds
+      selectedQuizIds,
+      includeAnswers
     });
   };
 
@@ -168,6 +175,24 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
             )}
           </div>
         ))}
+
+        {includeAnswers && (
+          <div className="mt-4 pt-3 border-t border-gray-300">
+            <h4 className="text-center font-bold text-[12px] uppercase mb-2 font-serif">BẢNG ĐÁP ÁN</h4>
+            <div className="grid grid-cols-5 gap-1 border border-gray-400 font-serif text-[10px]">
+              {questions.map((q: any, idx: number) => {
+                const label = q.questionType === 'fill-in-the-blank'
+                  ? ((q.correctAnswers || []).join(' / ') || '—')
+                  : ((q.correctAnswers || []).map((a: string) => String.fromCharCode(65 + parseInt(a, 10))).join('/') || '—');
+                return (
+                  <div key={idx} className="border border-gray-300 text-center py-1">
+                    Câu {idx + 1}: <span className="font-bold">{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -574,6 +599,23 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 className="w-4.5 h-4.5 accent-vpa-gold rounded-none cursor-pointer"
               />
             </div>
+
+            {/* Include Answer Key Toggle (quiz export only) */}
+            {type === 'quiz' && (
+              <div className="mb-5 p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between">
+                <div>
+                  <label htmlFor="popup-includeAnswers" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Kèm theo đáp án</label>
+                  <p className="text-[9px] text-gray-500">In đáp án đúng (in đậm) và giải thích ngay dưới mỗi câu hỏi</p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="popup-includeAnswers"
+                  checked={includeAnswers}
+                  onChange={e => setIncludeAnswers(e.target.checked)}
+                  className="w-4.5 h-4.5 accent-vpa-gold rounded-none cursor-pointer"
+                />
+              </div>
+            )}
 
             {/* Setup Inputs */}
             <div className="space-y-3">

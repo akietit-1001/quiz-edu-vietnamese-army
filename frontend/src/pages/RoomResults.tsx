@@ -46,6 +46,13 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
   };
   const [printData, setPrintData] = useState<ResultsPrintData | null>(null);
   const [pdfPreviewData, setPdfPreviewData] = useState<ResultsPrintData | null>(null);
+  const [defaultUpperUnit, setDefaultUpperUnit] = useState('');
+
+  useEffect(() => {
+    axios.get('/api/units/my-parent')
+      .then(res => setDefaultUpperUnit(res.data?.name || ''))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (printData) {
@@ -516,6 +523,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
       <VPAExportPopup
         isOpen={showExportPopup}
         defaultUnit={user?.unit?.name}
+        defaultUpperUnit={defaultUpperUnit}
         defaultPosition={user?.position}
         defaultRank={user?.rank}
         defaultName={user?.fullName}

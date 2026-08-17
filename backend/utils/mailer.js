@@ -49,7 +49,7 @@ export const sendRegistrationOTPEmail = async (toEmail, otpCode) => {
         Chào mừng đồng chí gia nhập Quiz-Edu
       </h2>
       <p>Kính chào đồng chí,</p>
-      <p>Đồng chí đang thực hiện đăng ký tài khoản trên hệ thống ôn luyện <strong>Quiz-Edu</strong> (Học viện Kỹ thuật Quân sự).</p>
+      <p>Đồng chí đang thực hiện đăng ký tài khoản trên hệ thống ôn luyện <strong>Quiz-Edu</strong>.</p>
       <p>Mã OTP xác thực đăng ký của đồng chí là:</p>
       <div style="background-color: #eef2ed; border: 1px solid #1b3f30; border-radius: 6px; padding: 20px; text-align: center; margin: 25px 0;">
         <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1b3f30; font-family: 'Courier New', Courier, monospace;">${otpCode}</span>
@@ -59,8 +59,7 @@ export const sendRegistrationOTPEmail = async (toEmail, otpCode) => {
       </p>
       <br/>
       <div style="border-top: 1px solid #d2d7d4; padding-top: 15px; font-size: 12px; color: #555; text-align: center; font-style: italic;">
-        <p>HỆ THỐNG QUIZ-EDU - HỌC VIỆN KỸ THUẬT QUÂN SỰ</p>
-        <p>Phòng Đào tạo / Trung tâm Công nghệ thông tin</p>
+        <p>HỆ THỐNG QUIZ-EDU</p>
       </div>
     </div>
   `;
