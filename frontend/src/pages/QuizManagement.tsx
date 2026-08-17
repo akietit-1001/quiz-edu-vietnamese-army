@@ -2867,14 +2867,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         defaultRank={user?.rank}
         defaultName={user?.fullName}
         type="quiz"
-        previewData={
-          selectedQuizForExport
-            ? {
-                ...selectedQuizForExport,
-                variants: quizzes.filter((q: any) => q.parentQuizId === selectedQuizForExport._id)
-              }
-            : null
-        }
+        previewData={selectedQuizForExport}
         onCancel={() => { setShowExportPopup(false); setSelectedQuizForExport(null); }}
         onConfirm={handleExportConfirm}
       />

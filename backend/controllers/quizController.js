@@ -200,12 +200,16 @@ export const getQuizzes = async (req, res) => {
     }
     // master-admin and admin can see all quizzes in the database
 
-    // Exclude child variants by default in the main list. Mongoose applies the
-    // schema default (null) to every document, so parentQuizId always "exists"
-    // on root quizzes too — must match against null, not $exists: false.
-    query.parentQuizId = null;
+    const { page, limit, search, category, sortField = 'createdAt', sortOrder = 'desc', includeVariants } = req.query;
 
-    const { page, limit, search, category, sortField = 'createdAt', sortOrder = 'desc' } = req.query;
+    // Exclude child variants by default in the main table view. Mongoose applies
+    // the schema default (null) to every document, so parentQuizId always
+    // "exists" on root quizzes too — must match against null, not $exists: false.
+    // Callers that need the full flat set (parents + variants together, e.g. the
+    // room-creation quiz picker which groups them client-side) opt in explicitly.
+    if (includeVariants !== 'true') {
+      query.parentQuizId = null;
+    }
 
     if (category) {
       query.category = category;

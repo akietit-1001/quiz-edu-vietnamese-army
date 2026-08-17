@@ -45,6 +45,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [antiCheat, setAntiCheat] = useState(true);
   const [showResult, setShowResult] = useState(true);
 
+  // Đề gốc dùng cho lưới "Ôn luyện" — quizzes giờ chứa cả mã đề biến thể
+  // (phục vụ bộ chọn mã đề khi tạo phòng bên dưới), nhưng lưới ôn luyện chỉ
+  // nên hiện đề gốc, không hiện từng mã đề biến thể như một đề riêng.
+  const rootQuizzesForPractice = React.useMemo(
+    () => quizzes.filter(q => !q.parentQuizId),
+    [quizzes]
+  );
+
   // Filter quizzes for select box
   const filteredQuizzesForSelect = React.useMemo(() => {
     return quizzes.filter(q => {
@@ -215,7 +223,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const fetchQuizzes = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/quizzes');
+      // includeVariants=true: cần cả đề gốc lẫn các mã đề biến thể để nhóm lại
+      // và cho phép chọn mã đề cụ thể khi tạo phòng thi.
+      const response = await axios.get('/api/quizzes?includeVariants=true');
       setQuizzes(response.data);
     } catch (err) {
       console.error('Lỗi lấy danh sách đề thi:', err);
@@ -701,7 +711,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>Đề thi thử & Ôn luyện</span>
               </h3>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light text-gray-500">
-                {quizzes.length} Đề thi
+                {rootQuizzesForPractice.length} Đề thi
               </span>
             </div>
 
@@ -730,7 +740,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 </div>
               ))
-            ) : quizzes.map(quiz => (
+            ) : rootQuizzesForPractice.map(quiz => (
               <div
                 key={quiz._id}
                 className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 transition-all hover:border-vpa-gold flex flex-col justify-between"
@@ -772,7 +782,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
             ))}
-            {!loading && quizzes.length === 0 && (
+            {!loading && rootQuizzesForPractice.length === 0 && (
               <div className="col-span-2 text-center py-12 text-gray-400">
                 <BookOpen size={48} className="mx-auto mb-2 opacity-50" />
                 <p className="text-xs uppercase tracking-wider">Chưa có đề thi được xuất bản</p>
