@@ -911,12 +911,25 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     }
   };
 
-  // Deletion
-  const handleDeleteQuiz = async (id: string) => {
-    const confirmDelete = await window.showConfirm('Đồng chí có chắc chắn muốn xóa đề thi này?', 'Xóa đề thi');
+  // Deletion. Xóa đề gốc (parentQuizId rỗng) sẽ xóa cascade toàn bộ mã đề biến
+  // thể liên quan ở backend — cảnh báo rõ khi biết trước variantCount; xóa một
+  // mã đề biến thể cụ thể (parentQuizId có giá trị) chỉ xóa đúng mã đề đó.
+  const handleDeleteQuiz = async (quiz: { _id: string; parentQuizId?: string | null; examCode?: string }, variantCount?: number) => {
+    const isVariant = !!quiz.parentQuizId;
+    let message = 'Đồng chí có chắc chắn muốn xóa đề thi này?';
+    if (isVariant) {
+      message = `Xóa mã đề ${quiz.examCode || ''} này? Các mã đề khác trong cùng bộ đề sẽ không bị ảnh hưởng.`;
+    } else if (variantCount && variantCount > 0) {
+      message = `Đây là đề gốc, xóa sẽ xóa LUÔN cả ${variantCount} mã đề biến thể liên quan. Hành động này không thể hoàn tác. Tiếp tục?`;
+    } else if (variantCount === undefined) {
+      message = 'Xóa đề thi này (và tất cả mã đề biến thể liên quan nếu có) khỏi hệ thống? Hành động này không thể hoàn tác.';
+    }
+
+    const confirmDelete = await window.showConfirm(message, 'Xóa đề thi');
     if (!confirmDelete) return;
     try {
-      await axios.delete(`/api/quizzes/${id}`);
+      await axios.delete(`/api/quizzes/${quiz._id}`);
+      setViewingQuiz(null);
       fetchQuizzes();
     } catch (err: any) {
       await window.showAlert(err.response?.data?.message || 'Không thể xóa đề thi.', 'Lỗi xóa đề thi');
@@ -1441,7 +1454,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz._id); }}
+                                      onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
                                       className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
                                     >
                                       Xóa đề
@@ -2765,12 +2778,26 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     {currentQuizToShow.title}
                   </h3>
                 </div>
-                <button
-                  onClick={() => setViewingQuiz(null)}
-                  className="text-xs uppercase font-bold hover:underline text-vpa-red"
-                >
-                  Đóng lại
-                </button>
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => { setViewingQuiz(null); handleEditQuiz(currentQuizToShow); }}
+                    className="text-xs uppercase font-bold hover:underline text-vpa-olive dark:text-vpa-gold"
+                  >
+                    Sửa mã đề này
+                  </button>
+                  <button
+                    onClick={() => handleDeleteQuiz(currentQuizToShow, activeVersionTab === 'parent' ? variants.length : undefined)}
+                    className="text-xs uppercase font-bold hover:underline text-vpa-red"
+                  >
+                    Xóa mã đề này
+                  </button>
+                  <button
+                    onClick={() => setViewingQuiz(null)}
+                    className="text-xs uppercase font-bold hover:underline text-vpa-olive dark:text-vpa-sand"
+                  >
+                    Đóng lại
+                  </button>
+                </div>
               </div>
 
               {/* Version Tabs Selection (Only if variants exist) */}
