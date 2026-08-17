@@ -61,7 +61,7 @@ export const UnitTreeSelect: React.FC<UnitTreeSelectProps> = ({ units, value, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leafId]);
 
-  const handleLevelChange = (levelIndex: number, newId: string) => {
+  const handleLevelChange = (newId: string) => {
     // Selecting a node re-descends into its first child repeatedly until a leaf.
     let node: UnitNode | undefined = byId.get(newId);
     let finalId = newId;
@@ -92,7 +92,7 @@ export const UnitTreeSelect: React.FC<UnitTreeSelectProps> = ({ units, value, on
           key={parentId}
           value={selected}
           disabled={disabled}
-          onChange={e => handleLevelChange(idx, e.target.value)}
+          onChange={e => handleLevelChange(e.target.value)}
           className={selectClassName || 'w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono disabled:opacity-60'}
         >
           {options.map(o => (
