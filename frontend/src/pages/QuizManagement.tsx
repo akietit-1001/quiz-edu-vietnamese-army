@@ -169,11 +169,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [quizDurationMax, setQuizDurationMax] = useState('');
 
   const quizAdvancedFilterCount = [
-    quizStatusFilter, quizCreatorFilter, quizShareCodeFilter,
+    quizCategoryFilter, quizStatusFilter, quizCreatorFilter, quizShareCodeFilter,
     quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax
   ].filter(Boolean).length;
 
   const handleClearQuizAdvancedFilters = () => {
+    setQuizCategoryFilter('');
     setQuizStatusFilter('');
     setQuizCreatorFilter('');
     setQuizShareCodeFilter('');
@@ -1304,17 +1305,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
                 </div>
 
-                <div className="flex items-center space-x-1">
-                  <select
-                    value={quizCategoryFilter}
-                    onChange={e => setQuizCategoryFilter(e.target.value)}
-                    className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
-                  >
-                    <option value="">Tất cả chuyên ngành</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-
                 <button
                   type="button"
                   onClick={() => setShowQuizAdvancedFilter(prev => !prev)}
@@ -1338,6 +1328,17 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               <div className={`grid transition-all duration-300 ease-in-out ${showQuizAdvancedFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                 <div className="overflow-hidden">
                   <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chuyên ngành</label>
+                      <select
+                        value={quizCategoryFilter}
+                        onChange={e => setQuizCategoryFilter(e.target.value)}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                      >
+                        <option value="">Tất cả</option>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Trạng thái</label>
                       <select

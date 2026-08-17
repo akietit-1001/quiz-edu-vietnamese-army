@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel } from '@phosphor-icons/react';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 
 interface UserManagementProps {
@@ -22,6 +22,23 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [rankFilter, setRankFilter] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
+
+  // Advanced filter panel — 1 field per column trong bảng quân nhân
+  const [showUserAdvancedFilter, setShowUserAdvancedFilter] = useState(false);
+  const [positionFilter, setPositionFilter] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [personnelTypeFilter, setPersonnelTypeFilter] = useState(''); // '' | 'soldier' | 'officer'
+
+  const userAdvancedFilterCount = [rankFilter, positionFilter, unitFilter, roleFilter, personnelTypeFilter].filter(Boolean).length;
+
+  const handleClearUserAdvancedFilters = () => {
+    setRankFilter('');
+    setPositionFilter('');
+    setUnitFilter('');
+    setRoleFilter('');
+    setPersonnelTypeFilter('');
+  };
 
   // Sorting
   const [userSortField, setUserSortField] = useState<string>('fullName');
@@ -124,7 +141,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, rankFilter]);
+  }, [searchTerm, rankFilter, positionFilter, unitFilter, roleFilter, personnelTypeFilter]);
 
   const fetchUsers = async () => {
     try {
@@ -306,16 +323,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   };
 
   const filteredUsers = users.filter(u => {
-    const matchSearch = 
+    const matchSearch =
       u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.position || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.unit?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchRank = rankFilter ? u.rank === rankFilter : true;
 
-    return matchSearch && matchRank;
+    const matchRank = rankFilter ? u.rank === rankFilter : true;
+    const matchPosition = positionFilter ? u.position === positionFilter : true;
+    const matchUnit = unitFilter ? u.unit?.id === unitFilter : true;
+    const matchRole = roleFilter ? u.role === roleFilter : true;
+    const matchPersonnelType = personnelTypeFilter
+      ? (personnelTypeFilter === 'soldier' ? u.personnelType === 'soldier' : u.personnelType !== 'soldier')
+      : true;
+
+    return matchSearch && matchRank && matchPosition && matchUnit && matchRole && matchPersonnelType;
   });
 
   const sortedUsers = [...filteredUsers].sort((a, b) => {
@@ -464,33 +487,123 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       {activeTab === 'users' && (
       <>
       {/* Filter / Search Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Tìm theo họ tên, email, chức vụ..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
-          />
-          <MagnifyingGlass size={16} className="absolute left-3 top-3 text-gray-400" />
-        </div>
+      <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm">
+        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Tìm theo họ tên, email, chức vụ..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+            />
+            <MagnifyingGlass size={16} className="absolute left-3 top-3 text-gray-400" />
+          </div>
 
-        <div>
-          <select
-            value={rankFilter}
-            onChange={e => setRankFilter(e.target.value)}
-            className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+          <button
+            type="button"
+            onClick={() => setShowUserAdvancedFilter(prev => !prev)}
+            className={`flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center ${
+              showUserAdvancedFilter || userAdvancedFilterCount > 0
+                ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
+                : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+            }`}
           >
-            <option value="" className="dark:bg-vpa-dark">Tất cả cấp bậc</option>
-            {RANKS.map(rk => (
-              <option key={rk} value={rk} className="dark:bg-vpa-dark">{rk}</option>
-            ))}
-          </select>
+            <Funnel size={14} />
+            <span>Bộ lọc nâng cao</span>
+            {userAdvancedFilterCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-vpa-red text-white text-[9px] flex items-center justify-center font-mono">
+                {userAdvancedFilterCount}
+              </span>
+            )}
+          </button>
+
+          <div className="flex items-center justify-end text-[10px] text-gray-500 uppercase tracking-widest font-mono">
+            Số lượng quân nhân: {filteredUsers.length} / {users.length}
+          </div>
         </div>
 
-        <div className="flex items-center justify-end text-[10px] text-gray-500 uppercase tracking-widest font-mono">
-          Số lượng quân nhân: {filteredUsers.length} / {users.length}
+        {/* Advanced filter panel — trượt xuống thay vì popup */}
+        <div className={`grid transition-all duration-300 ease-in-out ${showUserAdvancedFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+          <div className="overflow-hidden">
+            <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cấp bậc</label>
+                <select
+                  value={rankFilter}
+                  onChange={e => setRankFilter(e.target.value)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                >
+                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  {RANKS.map(rk => (
+                    <option key={rk} value={rk} className="dark:bg-vpa-dark">{rk}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ</label>
+                <select
+                  value={positionFilter}
+                  onChange={e => setPositionFilter(e.target.value)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                >
+                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  {POSITIONS.map(ps => (
+                    <option key={ps} value={ps} className="dark:bg-vpa-dark">{ps}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị</label>
+                <select
+                  value={unitFilter}
+                  onChange={e => setUnitFilter(e.target.value)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                >
+                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  {assignableUnits.map(u => (
+                    <option key={u._id} value={u._id} className="dark:bg-vpa-dark">{u.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Quyền hạn</label>
+                <select
+                  value={roleFilter}
+                  onChange={e => setRoleFilter(e.target.value)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                >
+                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  <option value="user" className="dark:bg-vpa-dark">User</option>
+                  <option value="sub-admin" className="dark:bg-vpa-dark">Sub-Admin</option>
+                  <option value="admin" className="dark:bg-vpa-dark">Admin</option>
+                  <option value="master-admin" className="dark:bg-vpa-dark">Master-Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đối tượng</label>
+                <select
+                  value={personnelTypeFilter}
+                  onChange={e => setPersonnelTypeFilter(e.target.value)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                >
+                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  <option value="soldier" className="dark:bg-vpa-dark">Chiến sĩ</option>
+                  <option value="officer" className="dark:bg-vpa-dark">Cán bộ</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleClearUserAdvancedFilters}
+                  disabled={userAdvancedFilterCount === 0}
+                  className="text-[10px] uppercase tracking-wider font-bold text-vpa-red hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  Xóa bộ lọc nâng cao
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
