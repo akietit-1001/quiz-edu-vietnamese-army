@@ -24,9 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <nav className="sticky top-0 z-40 w-full h-16 border-b border-vpa-olive-light/50 bg-vpa-sand-light/95 dark:bg-vpa-dark/95 backdrop-blur-md transition-colors px-6 flex items-center justify-between">
       {/* Brand Logo */}
       <div className="flex items-center space-x-3">
-        <div className="w-8 h-8 bg-vpa-olive dark:bg-vpa-gold flex items-center justify-center font-mono font-bold text-white dark:text-vpa-dark">
-          Q
-        </div>
+        <img src="/BQP.png" alt="Bộ Quốc Phòng" className="w-8 h-8 object-contain" />
         <div className="hidden sm:block">
           <span className="text-sm font-bold tracking-widest text-vpa-olive dark:text-vpa-sand block">QUIZ-EDU</span>
           <span className="text-[9px] uppercase tracking-wider text-vpa-gold-bright block -mt-1 font-mono">Military Edition</span>
