@@ -79,6 +79,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [aiProgressStep, setAiProgressStep] = useState(1);
   const [aiProgressPercent, setAiProgressPercent] = useState(0);
   const [quizzesLoading, setQuizzesLoading] = useState(true);
+  const [quizFetchError, setQuizFetchError] = useState('');
   const [bankLoading, setBankLoading] = useState(true);
 
   // Manual quiz state
@@ -322,6 +323,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         }
       });
       const data = res.data;
+      setQuizFetchError('');
       if (Array.isArray(data)) {
         setQuizzes(data);
         setTotalQuizPages(1);
@@ -331,8 +333,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         setTotalQuizPages(data.totalPages || 1);
         setTotalQuizCount(data.totalCount || 0);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi fetch đề thi:', err);
+      setQuizzes([]);
+      setQuizFetchError(
+        err.response?.status === 401
+          ? 'Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang hoặc đăng nhập lại.'
+          : (err.response?.data?.message || 'Không thể tải danh sách đề thi. Vui lòng thử lại.')
+      );
     } finally {
       setQuizzesLoading(false);
     }
@@ -1436,8 +1444,10 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     )}
                     {!quizzesLoading && displayedQuizzes.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="text-center py-8 text-gray-400">
-                          {quizzes.length === 0
+                        <td colSpan={6} className={`text-center py-8 ${quizFetchError ? 'text-vpa-red font-bold' : 'text-gray-400'}`}>
+                          {quizFetchError
+                            ? quizFetchError
+                            : quizzes.length === 0
                             ? "Chưa có đề thi quân sự nào được xuất bản."
                             : "Không tìm thấy đề thi phù hợp với bộ lọc tìm kiếm."}
                         </td>

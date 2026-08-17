@@ -238,7 +238,7 @@ export const getQuizzes = async (req, res) => {
       // Project questions._id only for extreme speed and compat with questions.length
       const quizzes = await Quiz.find(query)
         .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
-        .populate('creatorId', 'fullName rank unit')
+        .populate('creatorId', 'fullName rank')
         .sort(sortQuery)
         .skip(skip)
         .limit(limitNum);
@@ -256,7 +256,7 @@ export const getQuizzes = async (req, res) => {
       // Return all (fallback for compatibility, projecting only questions._id for speed)
       const quizzes = await Quiz.find(query)
         .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
-        .populate('creatorId', 'fullName rank unit')
+        .populate('creatorId', 'fullName rank')
         .sort(sortQuery);
       res.status(200).json(quizzes);
     }
@@ -275,9 +275,9 @@ export const getQuizById = async (req, res) => {
     // Try finding by ID first, then fallback to shareCode
     let quiz;
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
-      quiz = await Quiz.findById(id).populate('creatorId', 'fullName rank unit');
+      quiz = await Quiz.findById(id).populate('creatorId', 'fullName rank');
     } else {
-      quiz = await Quiz.findOne({ shareCode: id.toUpperCase() }).populate('creatorId', 'fullName rank unit');
+      quiz = await Quiz.findOne({ shareCode: id.toUpperCase() }).populate('creatorId', 'fullName rank');
     }
 
     if (!quiz) {
@@ -286,7 +286,7 @@ export const getQuizById = async (req, res) => {
 
     let variants = [];
     if (includeVariants === 'true') {
-      variants = await Quiz.find({ parentQuizId: quiz._id }).populate('creatorId', 'fullName rank unit');
+      variants = await Quiz.find({ parentQuizId: quiz._id }).populate('creatorId', 'fullName rank');
     }
 
     res.status(200).json({
