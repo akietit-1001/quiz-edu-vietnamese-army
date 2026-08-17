@@ -3,12 +3,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create a transporter using SMTP
+// Create a transporter using Brevo's SMTP relay
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.GMAIL_USER || 'ndakiet1001@gmail.com',
-    pass: process.env.GMAIL_APP_PASSWORD
+    user: process.env.BREVO_SMTP_LOGIN,
+    pass: process.env.BREVO_SMTP_KEY
   }
 });
 
@@ -19,7 +21,7 @@ const transporter = nodemailer.createTransport({
  */
 export const sendRegistrationOTPEmail = async (toEmail, otpCode) => {
   const mailOptions = {
-    from: `"Quiz-Edu Học viện KTQS" <${process.env.GMAIL_USER || 'ndakiet1001@gmail.com'}>`,
+    from: `"Quiz-Edu Học viện KTQS" <${process.env.EMAIL_FROM || 'ndakiet1001@gmail.com'}>`,
     to: toEmail,
     subject: 'XÁC THỰC ĐĂNG KÝ TÀI KHOẢN - HỆ THỐNG QUIZ-EDU',
     html: `
@@ -62,7 +64,7 @@ export const sendRegistrationOTPEmail = async (toEmail, otpCode) => {
  */
 export const send2FAOTPEmail = async (toEmail, otpCode) => {
   const mailOptions = {
-    from: `"Quiz-Edu Bảo mật" <${process.env.GMAIL_USER || 'ndakiet1001@gmail.com'}>`,
+    from: `"Quiz-Edu Bảo mật" <${process.env.EMAIL_FROM || 'ndakiet1001@gmail.com'}>`,
     to: toEmail,
     subject: 'MÃ XÁC THỰC 2FA (BẢO MẬT) - HỆ THỐNG QUIZ-EDU',
     html: `
@@ -109,7 +111,7 @@ export const send2FAOTPEmail = async (toEmail, otpCode) => {
 export const sendInvitationEmail = async (toEmail, senderName, roomCode, role, link) => {
   const roleText = role === 'examiner' ? 'Giám khảo (Giám sát)' : 'Thí sinh (Người làm bài thi)';
   const mailOptions = {
-    from: `"Quiz-Edu Lời mời" <${process.env.GMAIL_USER || 'ndakiet1001@gmail.com'}>`,
+    from: `"Quiz-Edu Lời mời" <${process.env.EMAIL_FROM || 'ndakiet1001@gmail.com'}>`,
     to: toEmail,
     subject: `THƯ MỜI THAM GIA PHÒNG THI ${roomCode} - HỆ THỐNG QUIZ-EDU`,
     html: `
