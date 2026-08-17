@@ -101,6 +101,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeDropdownQuizId, setActiveDropdownQuizId] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   // Question Bank state
   const [bankQuestions, setBankQuestions] = useState<any[]>([]);
@@ -491,7 +492,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   const handleViewQuiz = async (quiz: any) => {
     try {
-      const res = await axios.get(`/api/quizzes/${quiz._id}`);
+      const res = await axios.get(`/api/quizzes/${quiz._id}?includeVariants=true`);
       setViewingQuiz(res.data);
       setActiveVersionTab('parent');
     } catch (err) {
@@ -1214,7 +1215,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={quizResized ? { width: quizColWidths.title, minWidth: quizColWidths.title } : undefined}
                         onClick={() => handleQuizSort('title')}
                       >
@@ -1228,7 +1229,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={quizResized ? { width: quizColWidths.category, minWidth: quizColWidths.category } : undefined}
                         onClick={() => handleQuizSort('category')}
                       >
@@ -1242,7 +1243,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={quizResized ? { width: quizColWidths.info, minWidth: quizColWidths.info } : undefined}
                         onClick={() => handleQuizSort('duration')}
                       >
@@ -1256,7 +1257,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={quizResized ? { width: quizColWidths.author, minWidth: quizColWidths.author } : undefined}
                         onClick={() => handleQuizSort('author')}
                       >
@@ -1270,7 +1271,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={quizResized ? { width: quizColWidths.createdAt, minWidth: quizColWidths.createdAt } : undefined}
                         onClick={() => handleQuizSort('createdAt')}
                       >
@@ -1284,7 +1285,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={quizResized ? { width: quizColWidths.status, minWidth: quizColWidths.status } : undefined}
                         onClick={() => handleQuizSort('isPublic')}
                       >
@@ -1298,7 +1299,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={quizResized ? { width: quizColWidths.shareCode, minWidth: quizColWidths.shareCode } : undefined}
                         onClick={() => handleQuizSort('shareCode')}
                       >
@@ -1389,23 +1390,34 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                             <div className="inline-block text-left">
                               <button
                                 type="button"
-                                onClick={() => setActiveDropdownQuizId(activeDropdownQuizId === quiz._id ? null : quiz._id)}
+                                onClick={(e) => {
+                                  if (activeDropdownQuizId === quiz._id) {
+                                    setActiveDropdownQuizId(null);
+                                  } else {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setDropdownPos({ top: rect.bottom + 6, left: rect.right - 144 });
+                                    setActiveDropdownQuizId(quiz._id);
+                                  }
+                                }}
                                 className="px-3 py-1.5 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-mono font-bold tracking-wider transition-colors inline-flex items-center space-x-1"
                               >
                                 <span>Thao tác</span>
                                 <span className="text-[8px]">▼</span>
                               </button>
-                              
-                              {activeDropdownQuizId === quiz._id && (
+
+                              {activeDropdownQuizId === quiz._id && dropdownPos && createPortal(
                                 <>
                                   {/* Transparent click catcher backdrop */}
-                                  <div 
-                                    className="fixed inset-0 z-10 cursor-default" 
+                                  <div
+                                    className="fixed inset-0 z-40 cursor-default"
                                     onClick={() => setActiveDropdownQuizId(null)}
                                   />
-                                  
-                                  {/* Dropdown Menu Box */}
-                                  <div className="absolute right-0 mt-1.5 w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-20 rounded-none flex flex-col py-1 animate-fadeIn">
+
+                                  {/* Dropdown Menu Box — rendered via portal so the table's overflow-x-auto wrapper can't clip it */}
+                                  <div
+                                    className="fixed w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-50 rounded-none flex flex-col py-1 animate-fadeIn"
+                                    style={{ top: dropdownPos.top, left: dropdownPos.left }}
+                                  >
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleViewQuiz(quiz); }}
@@ -1435,7 +1447,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                       Xóa đề
                                     </button>
                                   </div>
-                                </>
+                                </>,
+                                document.body
                               )}
                             </div>
                           </td>
@@ -2340,7 +2353,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6" 
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap" 
                         style={bankResized ? { width: bankColWidths.questionText, minWidth: bankColWidths.questionText } : undefined}
                         onClick={() => handleBankSort('questionText')}
                       >
@@ -2354,7 +2367,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={bankResized ? { width: bankColWidths.category, minWidth: bankColWidths.category } : undefined}
                         onClick={() => handleBankSort('category')}
                       >
@@ -2368,7 +2381,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={bankResized ? { width: bankColWidths.difficulty, minWidth: bankColWidths.difficulty } : undefined}
                         onClick={() => handleBankSort('difficulty')}
                       >
@@ -2382,7 +2395,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </div>
                       </th>
                       <th 
-                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6"
+                        className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
                         style={bankResized ? { width: bankColWidths.author, minWidth: bankColWidths.author } : undefined}
                         onClick={() => handleBankSort('author')}
                       >
@@ -2728,7 +2741,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
       {/* --- C. VIEW QUIZ DETAILS MODAL --- */}
       {viewingQuiz && (() => {
-        const variants = quizzes.filter((q: any) => q.parentQuizId === viewingQuiz._id);
+        const variants = viewingQuiz.variants || [];
         const sortedVariants = [...variants].sort((a: any, b: any) => (a.examCode || '').localeCompare(b.examCode || ''));
         const allVersions = [
           { id: 'parent', label: viewingQuiz.examCode ? `Mã đề ${viewingQuiz.examCode}` : 'Đề gốc / 001', quiz: viewingQuiz },

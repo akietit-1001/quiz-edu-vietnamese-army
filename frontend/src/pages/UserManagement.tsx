@@ -500,22 +500,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('fullName')}>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('fullName')}>
                   Họ và tên {renderSortIndicator('fullName')}
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('rank')}>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('rank')}>
                   Cấp bậc {renderSortIndicator('rank')}
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('position')}>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('position')}>
                   Chức vụ {renderSortIndicator('position')}
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('unit')}>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('unit')}>
                   Đơn vị {renderSortIndicator('unit')}
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('email')}>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('email')}>
                   Email / Tên đăng nhập {renderSortIndicator('email')}
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none" onClick={() => handleUserSort('role')}>
+                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('role')}>
                   Quyền hạn {renderSortIndicator('role')}
                 </th>
                 <th className="py-3 px-4 text-right">Thao tác</th>
