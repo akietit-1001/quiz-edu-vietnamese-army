@@ -119,8 +119,19 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [categoryFilter, setCategoryFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [bankAuthorFilter, setBankAuthorFilter] = useState('');
   const [bankPage, setBankPage] = useState(1);
   const bankPageSize = 10;
+
+  // Advanced filter panel cho ngân hàng câu hỏi
+  const [showBankAdvancedFilter, setShowBankAdvancedFilter] = useState(false);
+  const bankAdvancedFilterCount = [categoryFilter, difficultyFilter, typeFilter, bankAuthorFilter].filter(Boolean).length;
+  const handleClearBankAdvancedFilters = () => {
+    setCategoryFilter('');
+    setDifficultyFilter('');
+    setTypeFilter('');
+    setBankAuthorFilter('');
+  };
 
   // Sorting state for Question Bank
   const [bankSortField, setBankSortField] = useState<string>('createdAt');
@@ -331,7 +342,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     if (currentTab === 'bank') {
       fetchBankQuestions();
     }
-  }, [currentTab, bankPage, categoryFilter, difficultyFilter, typeFilter, searchBank, bankSortField, bankSortOrder]);
+  }, [currentTab, bankPage, categoryFilter, difficultyFilter, typeFilter, bankAuthorFilter, searchBank, bankSortField, bankSortOrder]);
 
   useEffect(() => {
     setQuizPage(1);
@@ -339,7 +350,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     setBankPage(1);
-  }, [searchBank, categoryFilter, difficultyFilter, typeFilter]);
+  }, [searchBank, categoryFilter, difficultyFilter, typeFilter, bankAuthorFilter]);
 
   useEffect(() => {
     if (!aiLoading) {
@@ -402,6 +413,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           category: categoryFilter || undefined,
           difficulty: difficultyFilter || undefined,
           questionType: typeFilter || undefined,
+          authorName: bankAuthorFilter || undefined,
           search: searchBank || undefined,
           sortField: bankSortField,
           sortOrder: bankSortOrder
@@ -2505,10 +2517,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         <>
           {/* Question Bank controls */}
           {!isAddingToBank && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 mb-6 shadow-sm flex flex-wrap gap-4 items-center justify-between">
-              
-              {/* Search Bank inputs */}
-              <div className="flex flex-wrap gap-3 items-center w-full md:w-auto">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm">
+              <div className="p-4 flex flex-wrap gap-4 items-center justify-between">
                 <div className="relative">
                   <input
                     type="text"
@@ -2519,47 +2529,98 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   />
                   <MagnifyingGlass size={14} className="absolute left-2.5 top-3 text-gray-500" />
                 </div>
-                
-                <div className="flex items-center space-x-1">
-                  <Funnel size={14} className="text-vpa-gold" />
-                  <select
-                    value={categoryFilter}
-                    onChange={e => setCategoryFilter(e.target.value)}
-                    className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
+
+                <div className="flex items-center space-x-3 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowBankAdvancedFilter(prev => !prev)}
+                    className={`flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                      showBankAdvancedFilter || bankAdvancedFilterCount > 0
+                        ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
+                        : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                    }`}
                   >
-                    <option value="">Tất cả chuyên ngành</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                    <Funnel size={14} />
+                    <span>Bộ lọc nâng cao</span>
+                    {bankAdvancedFilterCount > 0 && (
+                      <span className="w-4 h-4 rounded-full bg-vpa-red text-white text-[9px] flex items-center justify-center font-mono">
+                        {bankAdvancedFilterCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setIsAddingToBank(true)}
+                    className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold flex items-center space-x-2 justify-center"
+                  >
+                    <Plus size={16} />
+                    <span>Thêm câu hỏi vào ngân hàng</span>
+                  </button>
                 </div>
-
-                <select
-                  value={difficultyFilter}
-                  onChange={e => setDifficultyFilter(e.target.value)}
-                  className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
-                >
-                  <option value="">Tất cả độ khó</option>
-                  {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-
-                <select
-                  value={typeFilter}
-                  onChange={e => setTypeFilter(e.target.value)}
-                  className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
-                >
-                  <option value="">Tất cả dạng câu hỏi</option>
-                  <option value="multiple-choice">Trắc nghiệm</option>
-                  <option value="true-false">Đúng / Sai</option>
-                  <option value="fill-in-the-blank">Điền vào ô trống</option>
-                </select>
               </div>
 
-              <button
-                onClick={() => setIsAddingToBank(true)}
-                className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold flex items-center space-x-2 w-full md:w-auto justify-center"
-              >
-                <Plus size={16} />
-                <span>Thêm câu hỏi vào ngân hàng</span>
-              </button>
+              {/* Advanced filter panel — trượt xuống thay vì popup */}
+              <div className={`grid transition-all duration-300 ease-in-out ${showBankAdvancedFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="overflow-hidden">
+                  <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chuyên ngành</label>
+                      <select
+                        value={categoryFilter}
+                        onChange={e => setCategoryFilter(e.target.value)}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                      >
+                        <option value="">Tất cả</option>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Độ khó</label>
+                      <select
+                        value={difficultyFilter}
+                        onChange={e => setDifficultyFilter(e.target.value)}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                      >
+                        <option value="">Tất cả</option>
+                        {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Dạng câu hỏi</label>
+                      <select
+                        value={typeFilter}
+                        onChange={e => setTypeFilter(e.target.value)}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                      >
+                        <option value="">Tất cả</option>
+                        <option value="multiple-choice">Trắc nghiệm</option>
+                        <option value="true-false">Đúng / Sai</option>
+                        <option value="fill-in-the-blank">Điền vào ô trống</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đồng chí soạn</label>
+                      <input
+                        type="text"
+                        value={bankAuthorFilter}
+                        onChange={e => setBankAuthorFilter(e.target.value)}
+                        placeholder="Tên người soạn..."
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                      />
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleClearBankAdvancedFilters}
+                        disabled={bankAdvancedFilterCount === 0}
+                        className="text-[10px] uppercase tracking-wider font-bold text-vpa-red hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                      >
+                        Xóa bộ lọc nâng cao
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

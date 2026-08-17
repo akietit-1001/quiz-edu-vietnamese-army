@@ -41,7 +41,7 @@ export const createBankQuestion = async (req, res) => {
 // 2. GET ALL BANK QUESTIONS (With filters & role/unit permission filtering & server pagination/sorting)
 export const getBankQuestions = async (req, res) => {
   try {
-    const { category, difficulty, questionType, search, page, limit, sortField = 'createdAt', sortOrder = 'desc' } = req.query;
+    const { category, difficulty, questionType, search, authorName, page, limit, sortField = 'createdAt', sortOrder = 'desc' } = req.query;
     const currentUser = req.user;
     let query = {};
 
@@ -59,9 +59,18 @@ export const getBankQuestions = async (req, res) => {
       ];
     }
 
-    // Role & chuỗi chỉ huy permission checks
+    // Role & chuỗi chỉ huy permission checks, kết hợp (không ghi đè) với bộ lọc
+    // "Đồng chí soạn" nếu có — giao (intersect) 2 tập id thay vì để cái sau đè cái trước.
     const allowedCreatorIds = await getAllowedCreatorIds(currentUser);
-    if (allowedCreatorIds !== null) {
+    if (authorName) {
+      const matchingAuthors = await User.find({ fullName: { $regex: authorName, $options: 'i' } }).select('_id');
+      let authorIds = matchingAuthors.map((u) => String(u._id));
+      if (allowedCreatorIds !== null) {
+        const allowedSet = new Set(allowedCreatorIds.map(String));
+        authorIds = authorIds.filter((id) => allowedSet.has(id));
+      }
+      query.creatorId = { $in: authorIds };
+    } else if (allowedCreatorIds !== null) {
       query.creatorId = { $in: allowedCreatorIds };
     }
 
