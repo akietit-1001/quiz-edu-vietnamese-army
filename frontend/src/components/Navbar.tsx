@@ -26,8 +26,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="flex items-center space-x-3">
         <img src="/BQP.png" alt="Bộ Quốc Phòng" className="w-8 h-8 object-contain" />
         <div className="hidden sm:block">
-          <span className="text-sm font-bold tracking-widest text-vpa-olive dark:text-vpa-sand block">QUIZ-EDU</span>
-          <span className="text-[9px] uppercase tracking-wider text-vpa-gold-bright block -mt-1 font-mono">Military Edition</span>
+          <span className="text-sm font-bold tracking-widest text-vpa-olive dark:text-vpa-sand block">BỘ QUỐC PHÒNG</span>
+          <span className="text-[9px] uppercase tracking-wider text-vpa-gold-bright block -mt-1 font-mono">Cổng thi trực tuyến</span>
         </div>
       </div>
 

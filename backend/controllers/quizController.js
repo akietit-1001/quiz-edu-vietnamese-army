@@ -200,8 +200,10 @@ export const getQuizzes = async (req, res) => {
     }
     // master-admin and admin can see all quizzes in the database
 
-    // Exclude child variants by default in the main list
-    query.parentQuizId = { $exists: false };
+    // Exclude child variants by default in the main list. Mongoose applies the
+    // schema default (null) to every document, so parentQuizId always "exists"
+    // on root quizzes too — must match against null, not $exists: false.
+    query.parentQuizId = null;
 
     const { page, limit, search, category, sortField = 'createdAt', sortOrder = 'desc' } = req.query;
 
