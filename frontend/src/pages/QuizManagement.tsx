@@ -147,6 +147,31 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [quizPage, setQuizPage] = useState(1);
   const quizPageSize = 10;
 
+  // Advanced filter panel — 1 field per column trong bảng đề thi
+  const [showQuizAdvancedFilter, setShowQuizAdvancedFilter] = useState(false);
+  const [quizStatusFilter, setQuizStatusFilter] = useState(''); // '' | 'true' | 'false'
+  const [quizCreatorFilter, setQuizCreatorFilter] = useState('');
+  const [quizShareCodeFilter, setQuizShareCodeFilter] = useState('');
+  const [quizCreatedFrom, setQuizCreatedFrom] = useState('');
+  const [quizCreatedTo, setQuizCreatedTo] = useState('');
+  const [quizDurationMin, setQuizDurationMin] = useState('');
+  const [quizDurationMax, setQuizDurationMax] = useState('');
+
+  const quizAdvancedFilterCount = [
+    quizStatusFilter, quizCreatorFilter, quizShareCodeFilter,
+    quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax
+  ].filter(Boolean).length;
+
+  const handleClearQuizAdvancedFilters = () => {
+    setQuizStatusFilter('');
+    setQuizCreatorFilter('');
+    setQuizShareCodeFilter('');
+    setQuizCreatedFrom('');
+    setQuizCreatedTo('');
+    setQuizDurationMin('');
+    setQuizDurationMax('');
+  };
+
   const displayedBankQuestions = bankQuestions;
   const startBankIndex = (bankPage - 1) * bankPageSize;
   const startQuizIndex = (quizPage - 1) * quizPageSize;
@@ -297,7 +322,10 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     fetchQuizzes();
-  }, [quizPage, searchQuiz, quizCategoryFilter, quizSortField, quizSortOrder]);
+  }, [
+    quizPage, searchQuiz, quizCategoryFilter, quizSortField, quizSortOrder,
+    quizStatusFilter, quizCreatorFilter, quizShareCodeFilter, quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax
+  ]);
 
   useEffect(() => {
     if (currentTab === 'bank') {
@@ -307,7 +335,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     setQuizPage(1);
-  }, [searchQuiz, quizCategoryFilter]);
+  }, [searchQuiz, quizCategoryFilter, quizStatusFilter, quizCreatorFilter, quizShareCodeFilter, quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax]);
 
   useEffect(() => {
     setBankPage(1);
@@ -330,7 +358,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           search: searchQuiz || undefined,
           category: quizCategoryFilter || undefined,
           sortField: quizSortField,
-          sortOrder: quizSortOrder
+          sortOrder: quizSortOrder,
+          isPublic: quizStatusFilter || undefined,
+          creatorName: quizCreatorFilter || undefined,
+          shareCode: quizShareCodeFilter || undefined,
+          createdFrom: quizCreatedFrom || undefined,
+          createdTo: quizCreatedTo || undefined,
+          durationMin: quizDurationMin || undefined,
+          durationMax: quizDurationMax || undefined
         }
       });
       const data = res.data;
@@ -1244,28 +1279,137 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
           {/* Search & Filter Bar for Quizzes */}
           {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 mb-6 shadow-sm flex flex-wrap gap-4 items-center">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuiz}
-                  onChange={e => setSearchQuiz(e.target.value)}
-                  placeholder="Tìm kiếm đề thi..."
-                  className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64"
-                />
-                <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
-              </div>
-              
-              <div className="flex items-center space-x-1">
-                <Funnel size={14} className="text-vpa-gold" />
-                <select
-                  value={quizCategoryFilter}
-                  onChange={e => setQuizCategoryFilter(e.target.value)}
-                  className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm">
+              <div className="p-4 flex flex-wrap gap-4 items-center">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuiz}
+                    onChange={e => setSearchQuiz(e.target.value)}
+                    placeholder="Tìm kiếm đề thi..."
+                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64"
+                  />
+                  <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
+                </div>
+
+                <div className="flex items-center space-x-1">
+                  <select
+                    value={quizCategoryFilter}
+                    onChange={e => setQuizCategoryFilter(e.target.value)}
+                    className="text-xs bg-transparent border-b border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none dark:bg-vpa-dark-card"
+                  >
+                    <option value="">Tất cả chuyên ngành</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowQuizAdvancedFilter(prev => !prev)}
+                  className={`ml-auto flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                    showQuizAdvancedFilter || quizAdvancedFilterCount > 0
+                      ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
+                      : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                  }`}
                 >
-                  <option value="">Tất cả chuyên ngành</option>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                  <Funnel size={14} />
+                  <span>Bộ lọc nâng cao</span>
+                  {quizAdvancedFilterCount > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-vpa-red text-white text-[9px] flex items-center justify-center font-mono">
+                      {quizAdvancedFilterCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Advanced filter panel — trượt xuống thay vì popup, gồm mọi thuộc tính có trong bảng */}
+              <div className={`grid transition-all duration-300 ease-in-out ${showQuizAdvancedFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="overflow-hidden">
+                  <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Trạng thái</label>
+                      <select
+                        value={quizStatusFilter}
+                        onChange={e => setQuizStatusFilter(e.target.value)}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                      >
+                        <option value="">Tất cả</option>
+                        <option value="true">Công khai</option>
+                        <option value="false">Nội bộ</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đồng chí soạn</label>
+                      <input
+                        type="text"
+                        value={quizCreatorFilter}
+                        onChange={e => setQuizCreatorFilter(e.target.value)}
+                        placeholder="Tên người soạn..."
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Mã chia sẻ</label>
+                      <input
+                        type="text"
+                        value={quizShareCodeFilter}
+                        onChange={e => setQuizShareCodeFilter(e.target.value)}
+                        placeholder="VD: A1B2C3"
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Thời gian làm bài (phút)</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={quizDurationMin}
+                          onChange={e => setQuizDurationMin(e.target.value)}
+                          placeholder="Từ"
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                        />
+                        <span className="text-gray-400">-</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={quizDurationMax}
+                          onChange={e => setQuizDurationMax(e.target.value)}
+                          placeholder="Đến"
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Tạo từ ngày</label>
+                      <input
+                        type="date"
+                        value={quizCreatedFrom}
+                        onChange={e => setQuizCreatedFrom(e.target.value)}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đến ngày</label>
+                      <input
+                        type="date"
+                        value={quizCreatedTo}
+                        onChange={e => setQuizCreatedTo(e.target.value)}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                      />
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleClearQuizAdvancedFilters}
+                        disabled={quizAdvancedFilterCount === 0}
+                        className="text-[10px] uppercase tracking-wider font-bold text-vpa-red hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                      >
+                        Xóa bộ lọc nâng cao
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

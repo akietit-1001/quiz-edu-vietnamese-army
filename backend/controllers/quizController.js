@@ -188,19 +188,20 @@ export const getQuizzes = async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
 
-    let query = {};
+    // Gộp mọi điều kiện lọc bằng $and thay vì lần lượt ghi đè `query.$or` —
+    // trước đây khi có `search`, điều kiện phân quyền xem (user/sub-admin chỉ
+    // thấy đề công khai hoặc đề của chính mình) bị ghi đè mất, để lộ mọi đề.
+    const andConditions = [];
+
     if (userRole === 'user' || userRole === 'sub-admin') {
-      // Users and sub-admins can see public quizzes OR quizzes they created
-      query = {
-        $or: [
-          { isPublic: true },
-          { creatorId: userId }
-        ]
-      };
+      andConditions.push({ $or: [{ isPublic: true }, { creatorId: userId }] });
     }
     // master-admin and admin can see all quizzes in the database
 
-    const { page, limit, search, category, sortField = 'createdAt', sortOrder = 'desc', includeVariants } = req.query;
+    const {
+      page, limit, search, category, sortField = 'createdAt', sortOrder = 'desc', includeVariants,
+      isPublic, shareCode, creatorName, createdFrom, createdTo, durationMin, durationMax
+    } = req.query;
 
     // Exclude child variants by default in the main table view. Mongoose applies
     // the schema default (null) to every document, so parentQuizId always
@@ -208,11 +209,42 @@ export const getQuizzes = async (req, res) => {
     // Callers that need the full flat set (parents + variants together, e.g. the
     // room-creation quiz picker which groups them client-side) opt in explicitly.
     if (includeVariants !== 'true') {
-      query.parentQuizId = null;
+      andConditions.push({ parentQuizId: null });
     }
 
     if (category) {
-      query.category = category;
+      andConditions.push({ category });
+    }
+
+    if (isPublic === 'true' || isPublic === 'false') {
+      andConditions.push({ isPublic: isPublic === 'true' });
+    }
+
+    if (shareCode) {
+      andConditions.push({ shareCode: { $regex: shareCode, $options: 'i' } });
+    }
+
+    if (creatorName) {
+      const matchingCreators = await User.find({ fullName: { $regex: creatorName, $options: 'i' } }).select('_id');
+      andConditions.push({ creatorId: { $in: matchingCreators.map(u => u._id) } });
+    }
+
+    if (createdFrom || createdTo) {
+      const range = {};
+      if (createdFrom) range.$gte = new Date(createdFrom);
+      if (createdTo) {
+        const end = new Date(createdTo);
+        end.setHours(23, 59, 59, 999);
+        range.$lte = end;
+      }
+      andConditions.push({ createdAt: range });
+    }
+
+    if (durationMin || durationMax) {
+      const range = {};
+      if (durationMin) range.$gte = parseInt(durationMin);
+      if (durationMax) range.$lte = parseInt(durationMax);
+      andConditions.push({ duration: range });
     }
 
     if (search) {
@@ -220,13 +252,17 @@ export const getQuizzes = async (req, res) => {
       const matchingUsers = await User.find({ fullName: { $regex: search, $options: 'i' } }).select('_id');
       const matchingUserIds = matchingUsers.map(u => u._id);
 
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { shareCode: { $regex: search, $options: 'i' } },
-        { creatorId: { $in: matchingUserIds } }
-      ];
+      andConditions.push({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { shareCode: { $regex: search, $options: 'i' } },
+          { creatorId: { $in: matchingUserIds } }
+        ]
+      });
     }
+
+    const query = andConditions.length > 0 ? { $and: andConditions } : {};
 
     // Setup sorting
     let sortQuery = {};
