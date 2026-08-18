@@ -8,6 +8,7 @@ import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
 import { Select } from '../components/Select';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 interface QuizManagementProps {
   user?: any;
@@ -347,26 +348,35 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     { category: 'Chính trị', difficulty: 'Dễ', count: 10 }
   ]);
 
+  // Debounce các ô gõ chữ tự do — tránh bắn 1 request server cho mỗi phím
+  // gõ (VD: gõ "quân sự" trước đây bắn liền 6 request chồng nhau, không có
+  // AbortController nên response có thể về sai thứ tự, nháy kết quả cũ).
+  const debouncedSearchQuiz = useDebouncedValue(searchQuiz, 350);
+  const debouncedQuizCreatorFilter = useDebouncedValue(quizCreatorFilter, 350);
+  const debouncedQuizShareCodeFilter = useDebouncedValue(quizShareCodeFilter, 350);
+  const debouncedSearchBank = useDebouncedValue(searchBank, 350);
+  const debouncedBankAuthorFilter = useDebouncedValue(bankAuthorFilter, 350);
+
   useEffect(() => {
     fetchQuizzes();
   }, [
-    quizPage, searchQuiz, quizCategoryFilter, quizSortField, quizSortOrder,
-    quizStatusFilter, quizCreatorFilter, quizShareCodeFilter, quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax
+    quizPage, debouncedSearchQuiz, quizCategoryFilter, quizSortField, quizSortOrder,
+    quizStatusFilter, debouncedQuizCreatorFilter, debouncedQuizShareCodeFilter, quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax
   ]);
 
   useEffect(() => {
     if (currentTab === 'bank') {
       fetchBankQuestions();
     }
-  }, [currentTab, bankPage, categoryFilter, difficultyFilter, typeFilter, bankAuthorFilter, searchBank, bankSortField, bankSortOrder]);
+  }, [currentTab, bankPage, categoryFilter, difficultyFilter, typeFilter, debouncedBankAuthorFilter, debouncedSearchBank, bankSortField, bankSortOrder]);
 
   useEffect(() => {
     setQuizPage(1);
-  }, [searchQuiz, quizCategoryFilter, quizStatusFilter, quizCreatorFilter, quizShareCodeFilter, quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax]);
+  }, [debouncedSearchQuiz, quizCategoryFilter, quizStatusFilter, debouncedQuizCreatorFilter, debouncedQuizShareCodeFilter, quizCreatedFrom, quizCreatedTo, quizDurationMin, quizDurationMax]);
 
   useEffect(() => {
     setBankPage(1);
-  }, [searchBank, categoryFilter, difficultyFilter, typeFilter, bankAuthorFilter]);
+  }, [debouncedSearchBank, categoryFilter, difficultyFilter, typeFilter, debouncedBankAuthorFilter]);
 
   useEffect(() => {
     if (!aiLoading) {
@@ -382,13 +392,13 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         params: {
           page: quizPage,
           limit: quizPageSize,
-          search: searchQuiz || undefined,
+          search: debouncedSearchQuiz || undefined,
           category: quizCategoryFilter || undefined,
           sortField: quizSortField,
           sortOrder: quizSortOrder,
           isPublic: quizStatusFilter || undefined,
-          creatorName: quizCreatorFilter || undefined,
-          shareCode: quizShareCodeFilter || undefined,
+          creatorName: debouncedQuizCreatorFilter || undefined,
+          shareCode: debouncedQuizShareCodeFilter || undefined,
           createdFrom: quizCreatedFrom || undefined,
           createdTo: quizCreatedTo || undefined,
           durationMin: quizDurationMin || undefined,
@@ -429,8 +439,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           category: categoryFilter || undefined,
           difficulty: difficultyFilter || undefined,
           questionType: typeFilter || undefined,
-          authorName: bankAuthorFilter || undefined,
-          search: searchBank || undefined,
+          authorName: debouncedBankAuthorFilter || undefined,
+          search: debouncedSearchBank || undefined,
           sortField: bankSortField,
           sortOrder: bankSortOrder
         }
@@ -1322,7 +1332,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
           {/* Search & Filter Bar for Quizzes */}
           {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
               <div className="p-4 flex flex-wrap gap-4 items-center">
                 <div className="relative">
                   <input
@@ -1330,7 +1340,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     value={searchQuiz}
                     onChange={e => setSearchQuiz(e.target.value)}
                     placeholder="Tìm kiếm đề thi..."
-                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64"
+                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64 rounded-lg"
                   />
                   <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
                 </div>
@@ -1338,7 +1348,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => setShowQuizAdvancedFilter(prev => !prev)}
-                  className={`ml-auto flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                  className={`rounded-lg ml-auto flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
                     showQuizAdvancedFilter || quizAdvancedFilterCount > 0
                       ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                       : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
@@ -1388,7 +1398,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         value={quizCreatorFilter}
                         onChange={e => setQuizCreatorFilter(e.target.value)}
                         placeholder="Tên người soạn..."
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                       />
                     </div>
                     <div>
@@ -1398,7 +1408,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         value={quizShareCodeFilter}
                         onChange={e => setQuizShareCodeFilter(e.target.value)}
                         placeholder="VD: A1B2C3"
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
                       />
                     </div>
                     <div>
@@ -1410,7 +1420,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           value={quizDurationMin}
                           onChange={e => setQuizDurationMin(e.target.value)}
                           placeholder="Từ"
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                         />
                         <span className="text-gray-400">-</span>
                         <input
@@ -1419,7 +1429,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           value={quizDurationMax}
                           onChange={e => setQuizDurationMax(e.target.value)}
                           placeholder="Đến"
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                         />
                       </div>
                     </div>
@@ -1647,7 +1657,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     setActiveDropdownQuizId(quiz._id);
                                   }
                                 }}
-                                className="px-3 py-1.5 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-mono font-bold tracking-wider transition-colors inline-flex items-center space-x-1"
+                                className="px-3 py-1.5 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-mono font-bold tracking-wider transition-colors inline-flex items-center space-x-1 rounded-lg"
                               >
                                 <span>Thao tác</span>
                                 <span className="text-[8px]">▼</span>
@@ -1669,28 +1679,28 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleViewQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10 rounded-lg"
                                     >
                                       Xem đề
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10 rounded-lg"
                                     >
                                       Sửa đề
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleOpenExportPopup(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10 rounded-lg"
                                     >
                                       Xuất bản
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
                                     >
                                       Xóa đề
                                     </button>
@@ -1802,7 +1812,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       value={title}
                       onChange={e => setTitle(e.target.value)}
                       placeholder="Kiểm tra lý luận chính trị năm 2026"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                   <div>
@@ -1836,7 +1846,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       value={description}
                       onChange={e => setDescription(e.target.value)}
                       placeholder="Dành cho Chiến sĩ, Hạ sĩ quan"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                   <div>
@@ -1933,7 +1943,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           value={q.questionText}
                           onChange={e => handleQuestionChange(qIdx, 'questionText', e.target.value)}
                           placeholder="Câu hỏi..."
-                          className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                          className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                         />
                       </div>
                       <div>
@@ -1992,7 +2002,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                   value={opt}
                                   onChange={e => handleOptionChange(qIdx, optIdx, e.target.value)}
                                   placeholder={`Lựa chọn ${letter}`}
-                                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                                 />
                               </div>
                             );
@@ -2037,7 +2047,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                           value={q.correctAnswers[0] || ''}
                           onChange={e => handleQuestionChange(qIdx, 'correctAnswers', [e.target.value])}
                           placeholder="Cụm từ đáp án đúng..."
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                         />
                       </div>
                     )}
@@ -2049,7 +2059,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         value={q.explanation}
                         onChange={e => handleQuestionChange(qIdx, 'explanation', e.target.value)}
                         placeholder="Căn cứ pháp lý..."
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                       />
                     </div>
                   </div>
@@ -2060,7 +2070,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => { setIsCreating(false); resetManualForm(); }}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                 >
                   Hủy bỏ
                 </button>
@@ -2092,7 +2102,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       value={genTitle}
                       onChange={e => setGenTitle(e.target.value)}
                       placeholder="Đề kiểm tra ngẫu nhiên chuyên ngành"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                   <div>
@@ -2102,7 +2112,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       value={genDescription}
                       onChange={e => setGenDescription(e.target.value)}
                       placeholder="Tự động rút đề khách quan dựa trên ngân hàng câu hỏi..."
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                 </div>
@@ -2208,7 +2218,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => { setIsGenerating(false); resetGenForm(); }}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                 >
                   Hủy bỏ
                 </button>
@@ -2239,7 +2249,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       value={importTitle}
                       onChange={e => setImportTitle(e.target.value)}
                       placeholder="Đề thi trắc nghiệm quân sự tổng hợp"
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                   <div>
@@ -2300,7 +2310,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => { setIsImporting(false); setSelectedFile(null); }}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                 >
                   Hủy bỏ
                 </button>
@@ -2521,7 +2531,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     <button
                       type="button"
                       onClick={() => { setIsGeneratingAI(false); setAiFiles([]); }}
-                      className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                      className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                     >
                       Hủy bỏ
                     </button>
@@ -2545,7 +2555,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         <>
           {/* Question Bank controls */}
           {!isAddingToBank && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
               <div className="p-4 flex flex-wrap gap-4 items-center justify-between">
                 <div className="relative">
                   <input
@@ -2553,7 +2563,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     value={searchBank}
                     onChange={e => setSearchBank(e.target.value)}
                     placeholder="Tìm câu hỏi..."
-                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-48"
+                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-48 rounded-lg"
                   />
                   <MagnifyingGlass size={14} className="absolute left-2.5 top-3 text-gray-500" />
                 </div>
@@ -2562,7 +2572,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <button
                     type="button"
                     onClick={() => setShowBankAdvancedFilter(prev => !prev)}
-                    className={`flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                    className={`rounded-lg flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
                       showBankAdvancedFilter || bankAdvancedFilterCount > 0
                         ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                         : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
@@ -2633,7 +2643,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         value={bankAuthorFilter}
                         onChange={e => setBankAuthorFilter(e.target.value)}
                         placeholder="Tên người soạn..."
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                       />
                     </div>
                     <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
@@ -2778,14 +2788,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                               <button
                                 type="button"
                                 onClick={() => handleEditBankQ(q)}
-                                className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark"
+                                className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark rounded-lg"
                               >
                                 <PencilSimple size={14} />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDeleteBankQ(q._id)}
-                                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white"
+                                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white rounded-lg"
                               >
                                 <Trash size={14} />
                               </button>
@@ -2877,7 +2887,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       value={bankQText}
                       onChange={e => setBankQText(e.target.value)}
                       placeholder="VD: Ngày thành lập Quân đội nhân dân Việt Nam là ngày nào?"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                   <div>
@@ -2963,7 +2973,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                 setBankQOptions(updated);
                               }}
                               placeholder={`Lựa chọn ${letter}`}
-                              className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                              className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                             />
                           </div>
                         );
@@ -3008,7 +3018,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       value={bankQAnswers[0] || ''}
                       onChange={e => setBankQAnswers([e.target.value])}
                       placeholder="Cụm từ chính xác..."
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                 )}
@@ -3020,7 +3030,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     value={bankQExplanation}
                     onChange={e => setBankQExplanation(e.target.value)}
                     placeholder="VD: Căn cứ Điều 1 Luật Nghĩa vụ Quân sự..."
-                    className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                    className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                   />
                 </div>
               </div>
@@ -3029,7 +3039,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => { setIsAddingToBank(false); resetBankQForm(); }}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                 >
                   Hủy bỏ
                 </button>

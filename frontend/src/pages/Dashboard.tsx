@@ -17,6 +17,87 @@ const getInitialQuizSkeletonCount = () => {
   return Number.isFinite(cached) && cached > 0 ? Math.min(cached, 6) : 4;
 };
 
+// Mọi đề (kể cả bản gốc) đều được lưu title kèm hậu tố "- Mã đề 001" ở BE
+// (xem quizController.js) để phân biệt trong bảng quản lý — nhưng trên thẻ
+// ôn luyện chỉ cần tên đề, mã đề cụ thể đã có tab riêng để chọn.
+const stripExamCodeSuffix = (title: string) => title.replace(/\s*-\s*Mã đề\s*\S+\s*$/i, '');
+
+// 1 đề gốc có thể có nhiều mã đề (biến thể xáo trộn câu hỏi/đáp án) — cho
+// phép chọn đúng mã đề cần ôn luyện/thi thử ngay trên thẻ thay vì luôn cố
+// định vào đề gốc (mã 001).
+const PracticeQuizCard: React.FC<{
+  quiz: any;
+  variants: any[];
+  onStartPractice: (quizId: string, mode: 'practice' | 'mock') => void;
+}> = ({ quiz, variants, onStartPractice }) => {
+  const allVersions = React.useMemo(
+    () => [quiz, ...[...variants].sort((a, b) => (a.examCode || '').localeCompare(b.examCode || ''))],
+    [quiz, variants]
+  );
+  const [activeId, setActiveId] = useState(quiz._id);
+  const active = allVersions.find(v => v._id === activeId) || quiz;
+  const baseTitle = stripExamCodeSuffix(quiz.title);
+
+  return (
+    <div className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 transition-all hover:border-vpa-gold flex flex-col justify-between">
+      <div>
+        <div className="flex justify-between items-start mb-2">
+          <span className="text-[9px] uppercase font-mono px-2 py-0.5 bg-vpa-olive/10 dark:bg-vpa-gold/10 text-vpa-olive dark:text-vpa-gold-bright">
+            {quiz.category}
+          </span>
+          <span className="text-[9px] font-mono text-gray-400">Code: {quiz.shareCode}</span>
+        </div>
+        <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-1 line-clamp-2" title={baseTitle}>
+          {baseTitle}
+        </h4>
+        <p className="text-[10px] text-gray-500 line-clamp-2 mb-2">
+          {quiz.description || 'Không có mô tả chi tiết.'}
+        </p>
+
+        {allVersions.length > 1 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {allVersions.map(v => (
+              <button
+                key={v._id}
+                type="button"
+                onClick={() => setActiveId(v._id)}
+                className={`px-1.5 py-0.5 text-[8px] font-mono font-bold border transition-colors ${
+                  activeId === v._id
+                    ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark border-transparent'
+                    : 'border-vpa-olive-light/40 text-gray-400 hover:border-vpa-gold hover:text-vpa-gold'
+                }`}
+              >
+                Mã {v.examCode || '001'}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-between items-center border-t border-vpa-olive-light/10 pt-3 text-[10px]">
+        <span className="text-gray-400">
+          {active.questions.length} câu | {active.duration} phút
+        </span>
+
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onStartPractice(active._id, 'practice')}
+            className="px-2 py-1 border border-vpa-olive-light/50 hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors font-bold uppercase text-[9px] rounded-lg"
+          >
+            Ôn luyện
+          </button>
+          <button
+            onClick={() => onStartPractice(active._id, 'mock')}
+            className="px-2 py-1 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors font-bold uppercase text-[9px]"
+          >
+            Thi thử
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface DashboardProps {
   user: any;
   setUser: (user: any) => void;
@@ -469,7 +550,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           ) : (
             <button
               onClick={handleDisable2FA}
-              className="px-3 py-1 bg-vpa-red/10 border border-vpa-red/30 text-vpa-red text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-red hover:text-white transition-colors"
+              className="px-3 py-1 bg-vpa-red/10 border border-vpa-red/30 text-vpa-red text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
             >
               Tắt bảo mật 2FA
             </button>
@@ -555,7 +636,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex space-x-3 mt-3 md:mt-0">
                   <button
                     onClick={() => handleDeclineInvitation(inv._id)}
-                    className="px-3 py-1.5 border border-vpa-red/50 text-vpa-red text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-red hover:text-white transition-colors flex items-center space-x-1"
+                    className="px-3 py-1.5 border border-vpa-red/50 text-vpa-red text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-red hover:text-white transition-colors flex items-center space-x-1 rounded-lg"
                   >
                     <X size={12} />
                     <span>Từ chối</span>
@@ -602,7 +683,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   value={roomCode}
                   onChange={e => setRoomCode(e.target.value.toUpperCase())}
                   placeholder="VPA123"
-                  className="w-full text-center text-lg tracking-[8px] p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold font-mono text-vpa-olive dark:text-vpa-sand"
+                  className="w-full text-center text-lg tracking-[8px] p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold font-mono text-vpa-olive dark:text-vpa-sand rounded-lg"
                 />
               </div>
               <button
@@ -764,46 +845,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               ))
             ) : rootQuizzesForPractice.map(quiz => (
-              <div
+              <PracticeQuizCard
                 key={quiz._id}
-                className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 transition-all hover:border-vpa-gold flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[9px] uppercase font-mono px-2 py-0.5 bg-vpa-olive/10 dark:bg-vpa-gold/10 text-vpa-olive dark:text-vpa-gold-bright">
-                      {quiz.category}
-                    </span>
-                    <span className="text-[9px] font-mono text-gray-400">Code: {quiz.shareCode}</span>
-                  </div>
-                  <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-1 line-clamp-2" title={quiz.title}>
-                    {quiz.title}
-                  </h4>
-                  <p className="text-[10px] text-gray-500 line-clamp-2 mb-4">
-                    {quiz.description || 'Không có mô tả chi tiết.'}
-                  </p>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-vpa-olive-light/10 pt-3 text-[10px]">
-                  <span className="text-gray-400">
-                    {quiz.questions.length} câu | {quiz.duration} phút
-                  </span>
-                  
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => onStartPractice(quiz._id, 'practice')}
-                      className="px-2 py-1 border border-vpa-olive-light/50 hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors font-bold uppercase text-[9px]"
-                    >
-                      Ôn luyện
-                    </button>
-                    <button
-                      onClick={() => onStartPractice(quiz._id, 'mock')}
-                      className="px-2 py-1 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors font-bold uppercase text-[9px]"
-                    >
-                      Thi thử
-                    </button>
-                  </div>
-                </div>
-              </div>
+                quiz={quiz}
+                variants={quizzes.filter(v => v.parentQuizId === quiz._id)}
+                onStartPractice={onStartPractice}
+              />
             ))}
             {!loading && rootQuizzesForPractice.length === 0 && (
               <div className="col-span-2 text-center py-12 text-gray-400">
@@ -836,14 +883,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   maxLength={6}
                   value={otp2FA}
                   onChange={e => setOtp2FA(e.target.value.replace(/\D/g, ''))}
-                  className="w-full text-center text-lg tracking-[8px] p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold font-mono"
+                  className="w-full text-center text-lg tracking-[8px] p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
                 />
               </div>
               <div className="flex space-x-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShow2FAModal(false)}
-                  className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                  className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                 >
                   Hủy bỏ
                 </button>
@@ -879,7 +926,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     value={searchQuizQuery}
                     onChange={e => setSearchQuizQuery(e.target.value)}
                     placeholder="Tìm theo tên đề thi hoặc mã chia sẻ..."
-                    className="w-full text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                    className="w-full text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
                   />
                   <svg className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1056,7 +1103,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => { setShowCreateRoomModal(false); setSelectedQuiz(''); setSearchQuizQuery(''); setSelectedCategoryFilter(''); }}
-                  className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white"
+                  className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                 >
                   Hủy bỏ
                 </button>
@@ -1105,7 +1152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       onChange={e => setInviteEmail(e.target.value)}
                       onFocus={() => setShowSuggestions(true)}
                       onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
                     />
                     {managedUsers.length > 0 && (
                       <button
@@ -1130,7 +1177,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* Suggestions / Dropdown List */}
                 {showSuggestions && filteredUsers.length > 0 && (
-                  <div className="absolute z-[100] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-vpa-sand-light dark:bg-vpa-dark-card border border-vpa-olive-light shadow-2xl font-mono text-xs">
+                  <div className="absolute z-[100] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-vpa-sand-light dark:bg-vpa-dark-card border border-vpa-olive-light shadow-2xl font-mono text-xs rounded-lg">
                     {filteredUsers.map(u => (
                       <div
                         key={u._id}
@@ -1218,7 +1265,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowInviteModal(false)}
-                  className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors"
+                  className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
                 >
                   Hủy bỏ
                 </button>

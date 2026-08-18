@@ -650,7 +650,7 @@ export const App: React.FC = () => {
 
       {modal.isOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl relative animate-scale-up">
+          <div className="w-full max-w-md border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl relative animate-scale-up rounded-lg overflow-hidden">
             <div className={`absolute top-0 left-0 right-0 h-1.5 ${modal.type === 'confirm' ? 'bg-vpa-gold' : 'bg-vpa-red'}`} />
             
             <div className="mt-2">
@@ -703,7 +703,7 @@ export const App: React.FC = () => {
                   value={profileName}
                   onChange={e => setProfileName(e.target.value)}
                   required
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold uppercase font-mono"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold uppercase font-mono rounded-lg"
                 />
               </div>
 
@@ -758,7 +758,7 @@ export const App: React.FC = () => {
                     type="text"
                     value={profileAddress}
                     onChange={e => setProfileAddress(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
                   />
                 </div>
               </div>
@@ -811,7 +811,7 @@ export const App: React.FC = () => {
                   onChange={e => setCurrentPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                 />
               </div>
 
@@ -823,7 +823,7 @@ export const App: React.FC = () => {
                   onChange={e => setNewPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                 />
               </div>
 
@@ -835,7 +835,7 @@ export const App: React.FC = () => {
                   onChange={e => setConfirmNewPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                 />
               </div>
 

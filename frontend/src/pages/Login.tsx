@@ -114,7 +114,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   placeholder="email@gmail.com hoặc tên đăng nhập"
                   value={identifier}
                   onChange={e => setIdentifier(e.target.value)}
-                  className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                  className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                 />
               </div>
             </div>
@@ -134,7 +134,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   placeholder="••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full text-sm pl-10 pr-10 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                  className="w-full text-sm pl-10 pr-10 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                 />
                 <button
                   type="button"
@@ -187,7 +187,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   placeholder="123456"
                   value={otpCode}
                   onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full text-center text-lg tracking-[8px] pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand font-mono"
+                  className="w-full text-center text-lg tracking-[8px] pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand font-mono rounded-lg"
                 />
               </div>
             </div>
@@ -196,7 +196,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
               <button
                 type="button"
                 onClick={() => setRequires2FA(false)}
-                className="w-1/2 py-2 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand text-xs uppercase tracking-wider transition-colors hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark"
+                className="w-1/2 py-2 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand text-xs uppercase tracking-wider transition-colors hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark rounded-lg"
               >
                 Quay lại
               </button>

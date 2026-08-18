@@ -380,7 +380,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                         type="number"
                         value={newDuration}
                         onChange={(e) => setNewDuration(e.target.value)}
-                        className="w-16 px-1.5 py-0.5 bg-transparent border border-vpa-olive-light text-xs focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand text-center font-mono"
+                        className="w-16 px-1.5 py-0.5 bg-transparent border border-vpa-olive-light text-xs focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand text-center font-mono rounded-lg"
                         min="1"
                       />
                       <span className="text-[10px] text-gray-500 font-mono font-bold">phút</span>
@@ -573,7 +573,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           {toasts.map(t => (
             <div
               key={t.id}
-              className="bg-vpa-sand-light dark:bg-vpa-dark-card border border-vpa-olive-light/20 border-l-4 border-l-vpa-gold p-4 shadow-2xl flex items-center space-x-3 pointer-events-auto animate-scale-up"
+              className="bg-vpa-sand-light dark:bg-vpa-dark-card border border-vpa-olive-light/20 border-l-4 border-l-vpa-gold p-4 shadow-2xl flex items-center space-x-3 pointer-events-auto animate-scale-up rounded-lg"
             >
               <div className="w-2 h-2 bg-vpa-gold rounded-full animate-ping shrink-0" />
               <span className="text-xs font-mono font-bold uppercase text-vpa-olive dark:text-vpa-sand leading-relaxed">

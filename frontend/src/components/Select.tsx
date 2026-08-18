@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CaretDown, Check } from '@phosphor-icons/react';
 
 interface SelectProps {
@@ -37,6 +38,12 @@ const extractOptions = (children: React.ReactNode): OptionEntry[] => {
 // hover/selected rõ ràng) thay cho <select> mặc định — mỗi trình duyệt/hệ
 // điều hành vẽ danh sách option và trạng thái hover rất khác nhau, không thể
 // tuỳ biến bằng CSS.
+//
+// Panel option được render qua portal vào document.body (position: fixed,
+// toạ độ lấy từ getBoundingClientRect() của nút bấm) thay vì absolute lồng
+// trong cây DOM — nếu không, bất kỳ ancestor nào có overflow-hidden/auto
+// hoặc đang transition (VD: khung lọc nâng cao trượt xuống) sẽ cắt/vỡ hình
+// panel khi xổ xuống.
 export const Select: React.FC<SelectProps> = ({
   value,
   onChange,
@@ -47,35 +54,44 @@ export const Select: React.FC<SelectProps> = ({
   className
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const options = extractOptions(children);
   const selected = options.find(o => o.value === value);
 
+  const openDropdown = () => {
+    if (disabled) return;
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+    setIsOpen(true);
+  };
+
   useEffect(() => {
     if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
+    const close = () => setIsOpen(false);
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false);
+      if (e.key === 'Escape') close();
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
     document.addEventListener('keydown', handleEscape);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen]);
 
   return (
-    <div className="relative" ref={wrapperRef}>
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         id={id}
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen(o => !o)}
+        onClick={() => (isOpen ? setIsOpen(false) : openDropdown())}
         className={
           className ||
           'w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
@@ -90,25 +106,32 @@ export const Select: React.FC<SelectProps> = ({
       </button>
       {required && <input type="hidden" required value={value} onChange={() => {}} />}
 
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg py-1 animate-scale-up">
-          {options.map((opt, idx) => (
-            <button
-              key={idx}
-              type="button"
-              disabled={opt.disabled}
-              onClick={() => { onChange(opt.value); setIsOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between gap-2 transition-colors font-mono disabled:opacity-40 disabled:cursor-not-allowed ${
-                opt.value === value
-                  ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
-                  : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
-              }`}
-            >
-              <span className="truncate">{opt.label}</span>
-              {opt.value === value && <Check size={12} weight="bold" className="shrink-0" />}
-            </button>
-          ))}
-        </div>
+      {isOpen && pos && createPortal(
+        <>
+          <div className="fixed inset-0 z-[90] cursor-default" onClick={() => setIsOpen(false)} />
+          <div
+            className="fixed z-[100] max-h-64 overflow-y-auto border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg py-1 animate-scale-up"
+            style={{ top: pos.top, left: pos.left, width: pos.width }}
+          >
+            {options.map((opt, idx) => (
+              <button
+                key={idx}
+                type="button"
+                disabled={opt.disabled}
+                onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between gap-2 transition-colors font-mono disabled:opacity-40 disabled:cursor-not-allowed ${
+                  opt.value === value
+                    ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
+                    : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                }`}
+              >
+                <span className="truncate">{opt.label}</span>
+                {opt.value === value && <Check size={12} weight="bold" className="shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

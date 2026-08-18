@@ -235,21 +235,21 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               <button
                 type="button"
                 onClick={() => handleViewUnit(nodeUnit)}
-                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
               >
                 <Eye size={12} />
               </button>
               <button
                 type="button"
                 onClick={() => handleStartRenameUnit(nodeUnit)}
-                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
               >
                 <PencilSimple size={12} />
               </button>
               <button
                 type="button"
                 onClick={() => handleDeleteUnit(nodeUnit)}
-                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
               >
                 <Trash size={12} />
               </button>
@@ -657,7 +657,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       {activeTab === 'users' && (
       <>
       {/* Filter / Search Bar */}
-      <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm">
+      <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
           <div className="relative">
             <input
@@ -665,7 +665,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               placeholder="Tìm theo họ tên, email, chức vụ..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+              className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
             />
             <MagnifyingGlass size={16} className="absolute left-3 top-3 text-gray-400" />
           </div>
@@ -673,7 +673,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           <button
             type="button"
             onClick={() => setShowUserAdvancedFilter(prev => !prev)}
-            className={`flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center ${
+            className={`rounded-lg flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center ${
               showUserAdvancedFilter || userAdvancedFilterCount > 0
                 ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                 : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
@@ -850,7 +850,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                       <button
                         type="button"
                         onClick={() => handleOpenEditModal(u)}
-                        className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                        className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
                       >
                         <PencilSimple size={14} />
                       </button>
@@ -862,7 +862,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                         <button
                           type="button"
                           onClick={() => handleDeleteUser(u._id, u.fullName)}
-                          className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                          className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
                         >
                           <Trash size={14} />
                         </button>
@@ -991,7 +991,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     value={username}
                     onChange={e => setUsername(e.target.value)}
                     required
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
                   />
                 </div>
               ) : (
@@ -1002,7 +1002,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
                   />
                 </div>
               )}
@@ -1015,7 +1015,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                   />
                 </div>
               )}
@@ -1027,7 +1027,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
                   required
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold uppercase"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold uppercase rounded-lg"
                 />
               </div>
 
@@ -1099,7 +1099,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     type="text"
                     value={address}
                     onChange={e => setAddress(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                   />
                 </div>
               </div>
@@ -1191,7 +1191,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                   value={newUnitName}
                   onChange={e => setNewUnitName(e.target.value)}
                   placeholder="Đại đội Thông tin 3"
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
                 />
               </div>
 
@@ -1249,7 +1249,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => setViewingUnit(null)}
-                  className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                  className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
                 >
                   <X size={14} />
                 </button>
@@ -1321,7 +1321,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                             <button
                               type="button"
                               onClick={() => { setViewingUnit(null); handleOpenEditModal(u); }}
-                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
                             >
                               <PencilSimple size={12} />
                             </button>
@@ -1331,7 +1331,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                               <button
                                 type="button"
                                 onClick={() => handleDeleteUser(u._id, u.fullName)}
-                                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
                               >
                                 <Trash size={12} />
                               </button>

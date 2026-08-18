@@ -372,7 +372,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Tìm tên, cấp bậc, đơn vị..."
-                className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
               />
             </div>
 

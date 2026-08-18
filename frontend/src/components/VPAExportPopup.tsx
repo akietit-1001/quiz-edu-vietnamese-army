@@ -627,7 +627,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   id="popup-upperUnit"
                   value={upperUnit}
                   onChange={e => setUpperUnit(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
                 />
               </div>
               <div>
@@ -637,7 +637,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   id="popup-currentUnit"
                   value={currentUnit}
                   onChange={e => setCurrentUnit(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
                 />
               </div>
               <div>
@@ -647,7 +647,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   id="popup-position"
                   value={position}
                   onChange={e => setPosition(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
                 />
               </div>
 
@@ -661,7 +661,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                       value={signerRank}
                       onChange={e => setSignerRank(e.target.value)}
                       placeholder="VD: Đại tá"
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                     />
                   </div>
                   <div>
@@ -672,7 +672,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                       value={signerName}
                       onChange={e => setSignerName(e.target.value)}
                       placeholder="VD: Nguyễn Văn A"
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                     />
                   </div>
                 </div>
@@ -685,7 +685,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   id="popup-province"
                   value={province}
                   onChange={e => setProvince(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
                 />
               </div>
             </div>

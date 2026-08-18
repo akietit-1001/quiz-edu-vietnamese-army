@@ -56,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Dropdown Menu */}
             {showDropdown && (
-              <div className="absolute right-4 mt-2 w-48 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-2xl z-50 font-mono text-xs animate-scale-up">
+              <div className="absolute right-4 mt-2 w-48 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-2xl z-50 font-mono text-xs animate-scale-up rounded-lg overflow-hidden">
                 <button
                   onClick={() => {
                     setShowDropdown(false);

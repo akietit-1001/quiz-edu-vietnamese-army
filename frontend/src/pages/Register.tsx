@@ -198,7 +198,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                           placeholder="vd: nguyenvana01"
                           value={username}
                           onChange={e => setUsername(e.target.value)}
-                          className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                          className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                         />
                       </div>
                     </div>
@@ -218,7 +218,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                           placeholder="dongchi@gmail.com"
                           value={email}
                           onChange={e => setEmail(e.target.value)}
-                          className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                          className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                         />
                       </div>
                     </div>
@@ -239,7 +239,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                         placeholder="••••••••"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                       />
                     </div>
                   </div>
@@ -259,7 +259,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                         placeholder="Nguyễn Văn A"
                         value={fullName}
                         onChange={e => setFullName(e.target.value)}
-                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                       />
                     </div>
                   </div>
@@ -314,7 +314,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                         placeholder="Học viên / Trung đội trưởng"
                         value={position}
                         onChange={e => setPosition(e.target.value)}
-                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                       />
                     </div>
                   </div>
@@ -330,7 +330,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                           units={units}
                           value={unitId}
                           onChange={setUnitId}
-                          selectClassName="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand dark:bg-vpa-dark-card mb-2 last:mb-0"
+                          selectClassName="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2 mb-2 last:mb-0"
                         />
                       </div>
                     </div>
@@ -348,7 +348,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                       placeholder="Cao Lãnh, Đồng Tháp"
                       value={address}
                       onChange={e => setAddress(e.target.value)}
-                      className="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
                     />
                   </div>
                 </div>
@@ -406,7 +406,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                     placeholder="123456"
                     value={otpCode}
                     onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full text-center text-lg tracking-[8px] pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand font-mono"
+                    className="w-full text-center text-lg tracking-[8px] pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand font-mono rounded-lg"
                   />
                 </div>
               </div>
@@ -415,7 +415,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                 <button
                   type="button"
                   onClick={() => setRequiresVerification(false)}
-                  className="w-1/2 py-2 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand text-xs uppercase tracking-wider transition-colors hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark"
+                  className="w-1/2 py-2 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand text-xs uppercase tracking-wider transition-colors hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark rounded-lg"
                 >
                   Quay lại
                 </button>

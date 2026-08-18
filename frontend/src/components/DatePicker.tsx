@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarBlank, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 interface DatePickerProps {
@@ -26,6 +27,11 @@ const toISO = (y: number, m: number, d: number) =>
 // Custom datepicker đồng bộ giao diện quân sự (border/olive/gold, rounded-lg)
 // thay cho <input type="date"> mặc định của trình duyệt (mỗi hệ điều hành vẽ
 // popup lịch một kiểu khác nhau, không đồng bộ với theme của trang).
+//
+// Panel lịch được render qua portal vào document.body (position: fixed, toạ
+// độ lấy từ getBoundingClientRect() của nút bấm) thay vì absolute lồng trong
+// cây DOM — nếu không, ancestor có overflow-hidden/auto hoặc đang transition
+// (VD: khung lọc nâng cao trượt xuống) sẽ cắt/vỡ hình panel khi xổ xuống.
 export const DatePicker: React.FC<DatePickerProps> = ({
   value,
   onChange,
@@ -36,26 +42,25 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   className
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const selected = parseISO(value);
   const today = new Date();
   const [viewYear, setViewYear] = useState(selected?.y ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState((selected?.m ?? today.getMonth() + 1) - 1); // 0-based
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
+    const close = () => setIsOpen(false);
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false);
+      if (e.key === 'Escape') close();
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
     document.addEventListener('keydown', handleEscape);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen]);
@@ -64,6 +69,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     if (selected) {
       setViewYear(selected.y);
       setViewMonth(selected.m - 1);
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setPos({ top: rect.bottom + 4, left: rect.left });
     }
     setIsOpen(true);
   };
@@ -114,8 +123,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     !!selected && selected.y === viewYear && selected.m === viewMonth + 1 && selected.d === day;
 
   return (
-    <div className="relative" ref={wrapperRef}>
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         id={id}
         onClick={() => (isOpen ? setIsOpen(false) : openPicker())}
@@ -129,8 +139,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       <CalendarBlank size={15} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-vpa-olive-light pointer-events-none" />
       {required && <input type="hidden" name={name} value={value} required />}
 
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-64 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg p-3 animate-scale-up">
+      {isOpen && pos && createPortal(
+        <>
+          <div className="fixed inset-0 z-[90] cursor-default" onClick={() => setIsOpen(false)} />
+          <div
+            className="fixed z-[100] w-64 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg p-3 animate-scale-up"
+            style={{ top: pos.top, left: pos.left }}
+          >
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
@@ -197,7 +212,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               Hôm nay
             </button>
           </div>
-        </div>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

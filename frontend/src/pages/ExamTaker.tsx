@@ -612,7 +612,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
                       value={userSelection}
                       onChange={e => handleFillInChange(e.target.value)}
                       placeholder="Đáp án..."
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold"
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold rounded-lg"
                     />
                   </div>
                 )}
