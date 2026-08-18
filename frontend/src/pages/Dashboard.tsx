@@ -120,8 +120,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToUserMgmt,
   onStartPractice
 }) => {
+  // `quizzes`: danh sách đầy đủ (không phân trang) — chỉ tải khi mở modal
+  // "Tạo phòng thi" (cần thấy hết đề để chọn), không tải lúc vào Dashboard.
   const [quizzes, setQuizzes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quizzesLoadedForModal, setQuizzesLoadedForModal] = useState(false);
+
+  // `practiceQuizzes`: danh sách phân trang riêng cho lưới "Ôn luyện" — tải
+  // từng trang qua nút "Xem thêm" thay vì tải hết 1 lần lúc vào trang.
+  const [practiceQuizzes, setPracticeQuizzes] = useState<any[]>([]);
+  const [practiceLoading, setPracticeLoading] = useState(true);
+  const [practiceLoadingMore, setPracticeLoadingMore] = useState(false);
+  const [practicePage, setPracticePage] = useState(1);
+  const [practiceTotalPages, setPracticeTotalPages] = useState(1);
+  const [practiceTotalCount, setPracticeTotalCount] = useState(0);
+  const PRACTICE_PAGE_SIZE = 6;
+
   const [quizSkeletonCount] = useState(getInitialQuizSkeletonCount);
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
@@ -148,8 +161,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // (phục vụ bộ chọn mã đề khi tạo phòng bên dưới), nhưng lưới ôn luyện chỉ
   // nên hiện đề gốc, không hiện từng mã đề biến thể như một đề riêng.
   const rootQuizzesForPractice = React.useMemo(
-    () => quizzes.filter(q => !q.parentQuizId),
-    [quizzes]
+    () => practiceQuizzes.filter(q => !q.parentQuizId),
+    [practiceQuizzes]
   );
 
   // Filter quizzes for select box
@@ -222,7 +235,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   useEffect(() => {
-    fetchQuizzes();
+    fetchPracticeQuizzes(1);
     fetchInvitations();
     fetchMyRooms();
     fetchManagedUsers();
@@ -319,22 +332,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [user]);
 
-  const fetchQuizzes = async () => {
-    setLoading(true);
+  // Danh sách đầy đủ, chỉ dùng cho bộ chọn đề khi tạo phòng thi — tải khi mở
+  // modal (đã có sẵn thì thôi, không tải lại mỗi lần mở).
+  const fetchQuizzesForModal = async () => {
+    if (quizzesLoadedForModal) return;
     try {
-      // includeVariants=true: cần cả đề gốc lẫn các mã đề biến thể để nhóm lại
-      // và cho phép chọn mã đề cụ thể khi tạo phòng thi.
       const response = await axios.get('/api/quizzes?includeVariants=true');
       setQuizzes(response.data);
-      const rootCount = response.data.filter((q: any) => !q.parentQuizId).length;
-      if (rootCount > 0) {
-        localStorage.setItem(QUIZ_SKELETON_CACHE_KEY, String(rootCount));
+      setQuizzesLoadedForModal(true);
+    } catch (err) {
+      console.error('Lỗi lấy danh sách đề thi:', err);
+    }
+  };
+
+  const fetchPracticeQuizzes = async (page: number) => {
+    if (page === 1) setPracticeLoading(true);
+    else setPracticeLoadingMore(true);
+    try {
+      // includeVariants=true: cần cả đề gốc lẫn các mã đề biến thể để nhóm lại
+      // theo tab mã đề trên từng thẻ ôn luyện.
+      const response = await axios.get('/api/quizzes', {
+        params: { includeVariants: 'true', page, limit: PRACTICE_PAGE_SIZE }
+      });
+      setPracticeQuizzes(prev => (page === 1 ? response.data.quizzes : [...prev, ...response.data.quizzes]));
+      setPracticePage(response.data.currentPage);
+      setPracticeTotalPages(response.data.totalPages);
+      setPracticeTotalCount(response.data.totalCount);
+      if (response.data.totalCount > 0) {
+        localStorage.setItem(QUIZ_SKELETON_CACHE_KEY, String(response.data.totalCount));
       }
     } catch (err) {
       console.error('Lỗi lấy danh sách đề thi:', err);
     } finally {
-      setLoading(false);
+      setPracticeLoading(false);
+      setPracticeLoadingMore(false);
     }
+  };
+
+  const handleLoadMorePractice = () => {
+    if (practiceLoadingMore || practicePage >= practiceTotalPages) return;
+    fetchPracticeQuizzes(practicePage + 1);
   };
 
   const handleJoin = (e: React.FormEvent) => {
@@ -712,7 +749,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {(user?.role === 'admin' || user?.role === 'master-admin') && (
                   <>
                     <button
-                      onClick={() => { setShowCreateRoomModal(true); setSelectedQuiz(''); setSearchQuizQuery(''); setSelectedCategoryFilter(''); }}
+                      onClick={() => { setShowCreateRoomModal(true); setSelectedQuiz(''); setSearchQuizQuery(''); setSelectedCategoryFilter(''); fetchQuizzesForModal(); }}
                       className="w-full py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase tracking-wider font-bold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors text-center"
                     >
                       Tạo phòng thi mới
@@ -822,12 +859,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>Đề thi thử & Ôn luyện</span>
               </h3>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light text-gray-500">
-                {rootQuizzesForPractice.length} Đề thi
+                {practiceTotalCount} Đề thi
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2">
-            {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {practiceLoading ? (
               Array.from({ length: quizSkeletonCount }).map((_, idx) => (
                 <div
                   key={idx}
@@ -855,17 +892,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <PracticeQuizCard
                 key={quiz._id}
                 quiz={quiz}
-                variants={quizzes.filter(v => v.parentQuizId === quiz._id)}
+                variants={practiceQuizzes.filter(v => v.parentQuizId === quiz._id)}
                 onStartPractice={onStartPractice}
               />
             ))}
-            {!loading && rootQuizzesForPractice.length === 0 && (
+            {!practiceLoading && rootQuizzesForPractice.length === 0 && (
               <div className="col-span-2 text-center py-12 text-gray-400">
                 <BookOpen size={48} className="mx-auto mb-2 opacity-50" />
                 <p className="text-xs uppercase tracking-wider">Chưa có đề thi được xuất bản</p>
               </div>
             )}
           </div>
+
+          {!practiceLoading && practicePage < practiceTotalPages && (
+            <div className="flex justify-center mt-4">
+              <button
+                type="button"
+                onClick={handleLoadMorePractice}
+                disabled={practiceLoadingMore}
+                className="px-4 py-2 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand text-xs font-bold uppercase tracking-wider hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {practiceLoadingMore ? 'Đang tải...' : 'Xem thêm'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -971,7 +1021,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* Custom scrollable quizzes list */}
                 <div className="border border-vpa-olive-light/35 bg-white dark:bg-vpa-dark-card divide-y divide-vpa-olive-light/10 max-h-[260px] overflow-y-auto rounded shadow-inner">
-                  {filteredQuizzesForSelect.length === 0 ? (
+                  {!quizzesLoadedForModal ? (
+                    <div className="p-4 text-center text-xs text-gray-400 italic">Đang tải danh sách đề thi...</div>
+                  ) : filteredQuizzesForSelect.length === 0 ? (
                     <div className="p-4 text-center text-xs text-gray-400 italic">
                       {searchQuizQuery || selectedCategoryFilter ? 'Không tìm thấy đề thi phù hợp với bộ lọc.' : 'Không có đề thi nào trong kho.'}
                     </div>

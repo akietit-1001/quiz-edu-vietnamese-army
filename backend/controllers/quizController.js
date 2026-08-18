@@ -272,7 +272,36 @@ export const getQuizzes = async (req, res) => {
       sortQuery = { [sortField]: sortOrder === 'asc' ? 1 : -1 };
     }
 
-    if (page && limit) {
+    if (page && limit && includeVariants === 'true') {
+      // Trang hoá theo đề GỐC (Dashboard cần cả biến thể để nhóm mã đề dưới
+      // 1 thẻ) — không thể phân trang thẳng trên query đã trộn cả gốc lẫn
+      // biến thể vì 1 trang có thể chứa biến thể mồ côi không có đề gốc kèm.
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const skip = (pageNum - 1) * limitNum;
+      const rootQuery = { $and: [...andConditions, { parentQuizId: null }] };
+
+      const rootQuizzes = await Quiz.find(rootQuery)
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .populate('creatorId', 'fullName rank')
+        .sort(sortQuery)
+        .skip(skip)
+        .limit(limitNum);
+
+      const variants = await Quiz.find({ parentQuizId: { $in: rootQuizzes.map(q => q._id) } })
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .populate('creatorId', 'fullName rank');
+
+      const totalCount = await Quiz.countDocuments(rootQuery);
+      const totalPages = Math.ceil(totalCount / limitNum);
+
+      return res.status(200).json({
+        quizzes: [...rootQuizzes, ...variants],
+        totalCount,
+        totalPages,
+        currentPage: pageNum
+      });
+    } else if (page && limit) {
       const pageNum = parseInt(page) || 1;
       const limitNum = parseInt(limit) || 10;
       const skip = (pageNum - 1) * limitNum;
