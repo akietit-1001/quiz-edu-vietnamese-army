@@ -1334,7 +1334,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* Search & Filter Bar for Quizzes */}
           {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
-              <div className="p-4 flex gap-3 items-center">
+              <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative flex-1 min-w-0">
                   <input
                     type="text"
@@ -2579,7 +2579,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {!isAddingToBank && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
               <div className="p-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="flex gap-3 items-center">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="relative flex-1 min-w-0 sm:flex-initial">
                     <input
                       type="text"

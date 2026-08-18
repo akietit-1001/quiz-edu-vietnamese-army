@@ -664,7 +664,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       {/* Filter / Search Bar */}
       <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
         <div className="p-4 flex flex-col gap-3 md:grid md:grid-cols-3 md:gap-4 md:items-center">
-          <div className="flex gap-3 items-center md:contents">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center md:contents">
             <div className="relative flex-1 min-w-0">
               <input
                 type="text"
