@@ -234,13 +234,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                 type="button"
                 disabled={day === null}
                 onClick={() => day !== null && handlePickDay(day)}
-                className={`text-[11px] h-7 flex items-center justify-center transition-colors rounded-lg ${
+                className={`text-[11px] aspect-square flex items-center justify-center transition-colors rounded-lg ${
                   day === null
                     ? 'invisible'
                     : isSelected(day)
                     ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
                     : isToday(day)
-                    ? 'border border-vpa-gold text-vpa-gold font-bold'
+                    ? 'bg-vpa-gold dark:bg-vpa-gold-bright text-vpa-dark font-bold'
                     : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
                 }`}
               >

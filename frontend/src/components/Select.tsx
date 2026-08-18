@@ -56,6 +56,7 @@ export const Select: React.FC<SelectProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const options = extractOptions(children);
   const selected = options.find(o => o.value === value);
 
@@ -70,16 +71,23 @@ export const Select: React.FC<SelectProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    const close = () => setIsOpen(false);
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+    // Cuộn TRANG (hoặc ancestor khác) mới đóng dropdown vì toạ độ fixed lúc
+    // đó lệch khỏi nút bấm — cuộn ngay TRONG danh sách option (panelRef) thì
+    // bỏ qua, không thì không bao giờ lăn chuột xem hết được danh sách dài.
+    const handleScroll = (e: Event) => {
+      if (panelRef.current && panelRef.current.contains(e.target as Node)) return;
+      setIsOpen(false);
     };
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
+    const handleResize = () => setIsOpen(false);
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
     document.addEventListener('keydown', handleEscape);
     return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen]);
@@ -110,6 +118,7 @@ export const Select: React.FC<SelectProps> = ({
         <>
           <div className="fixed inset-0 z-[90] cursor-default" onClick={() => setIsOpen(false)} />
           <div
+            ref={panelRef}
             className="fixed z-[100] max-h-64 overflow-y-auto overflow-x-hidden border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg animate-scale-up"
             style={{ top: pos.top, left: pos.left, width: pos.width }}
           >
