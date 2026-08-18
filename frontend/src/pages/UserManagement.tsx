@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight } from '@phosphor-icons/react';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 
 interface UserManagementProps {
@@ -92,6 +92,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [unitSuccessMsg, setUnitSuccessMsg] = useState('');
   const [renamingUnitId, setRenamingUnitId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [showAddUnitModal, setShowAddUnitModal] = useState(false);
+  const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
 
   // Units this commander is allowed to assign people/sub-units into:
   // master-admin sees the whole tree, everyone else only their own branch.
@@ -121,6 +123,104 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     collect(ownUnitId);
     return result;
   }, [units, user]);
+
+  // Group assignableUnits by parent so the tree can be rendered collapsed —
+  // only direct children of an expanded node are ever shown.
+  const unitChildrenMap = React.useMemo(() => {
+    const map = new Map<string, UnitNode[]>();
+    assignableUnits.forEach(u => {
+      const key = u.parentId || '';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(u);
+    });
+    return map;
+  }, [assignableUnits]);
+
+  const rootUnitNodes = React.useMemo(() => {
+    const scopedIds = new Set(assignableUnits.map(u => u._id));
+    return assignableUnits.filter(u => !u.parentId || !scopedIds.has(u.parentId));
+  }, [assignableUnits]);
+
+  // Default "Đơn vị" khi mở popup thêm mới: master-admin -> đơn vị gốc duy nhất
+  // của toàn hệ thống; chỉ huy cấp dưới -> đơn vị của chính họ (chỉ được thêm
+  // đơn vị con trong phạm vi quản lý).
+  const defaultNewUnitParentId = user?.role === 'master-admin'
+    ? (rootUnitNodes[0]?._id || '')
+    : (user?.unit?.id || '');
+
+  const toggleUnitExpand = (id: string) => {
+    setExpandedUnitIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Cây đơn vị thu gọn theo mặc định — chỉ xổ ra đơn vị trực thuộc khi
+  // bấm vào, tránh liệt kê hết mọi cấp khi số lượng đơn vị tăng lên.
+  const renderUnitNode = (nodeUnit: UnitNode, depth: number): React.ReactNode => {
+    const children = unitChildrenMap.get(nodeUnit._id) || [];
+    const hasChildren = children.length > 0;
+    const isExpanded = expandedUnitIds.has(nodeUnit._id);
+
+    return (
+      <React.Fragment key={nodeUnit._id}>
+        <li
+          style={{ marginLeft: `${depth * 24}px` }}
+          className="flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs"
+        >
+          {renamingUnitId === nodeUnit._id ? (
+            <div className="flex items-center space-x-2 flex-1">
+              <input
+                autoFocus
+                type="text"
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleConfirmRenameUnit(); if (e.key === 'Escape') setRenamingUnitId(null); }}
+                className="text-xs p-1 bg-transparent border border-vpa-gold text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
+              />
+              <button type="button" onClick={handleConfirmRenameUnit} className="text-vpa-gold text-[10px] font-bold uppercase">Lưu</button>
+              <button type="button" onClick={() => setRenamingUnitId(null)} className="text-gray-400 text-[10px] font-bold uppercase">Hủy</button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => hasChildren && toggleUnitExpand(nodeUnit._id)}
+              className={`flex items-center space-x-2 text-left ${hasChildren ? 'cursor-pointer' : 'cursor-default'}`}
+            >
+              <CaretRight
+                size={10}
+                weight="bold"
+                className={`text-gray-400 transition-transform shrink-0 ${hasChildren ? '' : 'opacity-0'} ${isExpanded ? 'rotate-90' : ''}`}
+              />
+              <Buildings size={12} className="text-vpa-gold shrink-0" />
+              <span className="font-bold text-vpa-olive dark:text-vpa-sand uppercase">{nodeUnit.name}</span>
+            </button>
+          )}
+
+          {renamingUnitId !== nodeUnit._id && (
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => handleStartRenameUnit(nodeUnit)}
+                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+              >
+                <PencilSimple size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteUnit(nodeUnit)}
+                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+              >
+                <Trash size={12} />
+              </button>
+            </div>
+          )}
+        </li>
+        {hasChildren && isExpanded && children.map(child => renderUnitNode(child, depth + 1))}
+      </React.Fragment>
+    );
+  };
 
   const fetchUnits = async () => {
     try {
@@ -266,6 +366,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     }
   };
 
+  const handleOpenAddUnitModal = () => {
+    setUnitError('');
+    setNewUnitName('');
+    setNewUnitParentId(defaultNewUnitParentId);
+    setShowAddUnitModal(true);
+  };
+
   const handleCreateUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUnitError('');
@@ -281,6 +388,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       });
       setUnitSuccessMsg('Đã thêm đơn vị mới thành công.');
       setNewUnitName('');
+      setShowAddUnitModal(false);
+      if (newUnitParentId) {
+        setExpandedUnitIds(prev => new Set(prev).add(newUnitParentId));
+      }
       fetchUnits();
       setTimeout(() => setUnitSuccessMsg(''), 3000);
     } catch (err: any) {
@@ -378,6 +489,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const totalPages = Math.ceil(sortedUsers.length / pageSize);
   const startIndex = (page - 1) * pageSize;
   const displayedUsers = sortedUsers.slice(startIndex, startIndex + pageSize);
+
+  // fetchUsers() không xoá `users` trước khi gọi lại (thêm/sửa/xoá quân nhân,
+  // đổi trang...), nên filteredUsers vẫn giữ số liệu cũ trong lúc loading =
+  // true — dùng luôn số đó để đoán số dòng skeleton cho khớp trang hiện tại.
+  const userSkeletonRowCount = filteredUsers.length > 0
+    ? Math.max(1, Math.min(pageSize, filteredUsers.length - startIndex))
+    : pageSize;
 
   // Role hierarchy restrictions
   const getAvailableRoles = () => {
@@ -636,7 +754,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
             </thead>
             <tbody>
               {loading ?
-                Array.from({ length: 5 }).map((_, idx) => (
+                Array.from({ length: userSkeletonRowCount }).map((_, idx) => (
                   <tr key={idx} className="border-b border-vpa-olive-light/10 animate-pulse">
                     <td className="py-4 px-4">
                       <div className="w-32 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
@@ -963,99 +1081,90 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
 
       {activeTab === 'units' && (
         <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-none p-6">
-          <form onSubmit={handleCreateUnit} className="flex flex-col sm:flex-row gap-3 mb-6 pb-6 border-b border-vpa-olive-light/20">
-            <div className="flex-1">
-              <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị cha (bỏ trống nếu tạo đơn vị gốc)</label>
-              <select
-                value={newUnitParentId}
-                onChange={e => setNewUnitParentId(e.target.value)}
-                className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
-              >
-                <option value="" className="dark:bg-vpa-dark">— Đơn vị gốc (cấp 1) —</option>
-                {assignableUnits.map(u => (
-                  <option key={u._id} value={u._id} className="dark:bg-vpa-dark">
-                    {'—'.repeat(u.level - 1)} {u.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1">
-              <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Tên đơn vị mới</label>
-              <input
-                type="text"
-                value={newUnitName}
-                onChange={e => setNewUnitName(e.target.value)}
-                placeholder="Đại đội Thông tin 3"
-                className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs font-bold uppercase tracking-wider flex items-center space-x-2 hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors whitespace-nowrap"
-              >
-                <Plus size={14} />
-                <span>Thêm đơn vị</span>
-              </button>
-            </div>
-          </form>
+          <div className="flex items-center justify-between gap-3 mb-6 pb-6 border-b border-vpa-olive-light/20">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bấm vào một đơn vị để xem các đơn vị trực thuộc</p>
+            <button
+              type="button"
+              onClick={handleOpenAddUnitModal}
+              className="px-4 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs font-bold uppercase tracking-wider flex items-center space-x-2 hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors whitespace-nowrap"
+            >
+              <Plus size={14} />
+              <span>Thêm đơn vị</span>
+            </button>
+          </div>
 
           {unitsLoading ? (
             <p className="text-xs text-gray-400 uppercase tracking-wider">Đang tải cây đơn vị...</p>
           ) : (
             <ul className="space-y-1">
-              {assignableUnits.map(u => (
-                <li
-                  key={u._id}
-                  style={{ marginLeft: `${(u.level - 1) * 24}px` }}
-                  className="flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs"
-                >
-                  {renamingUnitId === u._id ? (
-                    <div className="flex items-center space-x-2 flex-1">
-                      <input
-                        autoFocus
-                        type="text"
-                        value={renameValue}
-                        onChange={e => setRenameValue(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleConfirmRenameUnit(); if (e.key === 'Escape') setRenamingUnitId(null); }}
-                        className="text-xs p-1 bg-transparent border border-vpa-gold text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
-                      />
-                      <button type="button" onClick={handleConfirmRenameUnit} className="text-vpa-gold text-[10px] font-bold uppercase">Lưu</button>
-                      <button type="button" onClick={() => setRenamingUnitId(null)} className="text-gray-400 text-[10px] font-bold uppercase">Hủy</button>
-                    </div>
-                  ) : (
-                    <span className="font-bold text-vpa-olive dark:text-vpa-sand uppercase flex items-center space-x-2">
-                      <Buildings size={12} className="text-vpa-gold" />
-                      <span>{u.name}</span>
-                      <span className="text-[9px] text-gray-400 font-mono normal-case">(cấp {u.level})</span>
-                    </span>
-                  )}
-
-                  {renamingUnitId !== u._id && (
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStartRenameUnit(u)}
-                        className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
-                      >
-                        <PencilSimple size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteUnit(u)}
-                        className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
-                      >
-                        <Trash size={12} />
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
+              {rootUnitNodes.map(root => renderUnitNode(root, 0))}
               {assignableUnits.length === 0 && (
                 <p className="text-xs text-gray-400 uppercase tracking-wider py-4 text-center">Chưa có đơn vị nào.</p>
               )}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* Add Unit Modal */}
+      {showAddUnitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn">
+            <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
+              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
+              <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
+                Thêm đơn vị mới
+              </h3>
+            </div>
+
+            <form onSubmit={handleCreateUnit} className="space-y-4">
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị</label>
+                <select
+                  value={newUnitParentId}
+                  onChange={e => setNewUnitParentId(e.target.value)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                >
+                  {assignableUnits.map(u => (
+                    <option key={u._id} value={u._id} className="dark:bg-vpa-dark">
+                      {'—'.repeat(u.level - 1)} {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Tên đơn vị mới</label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newUnitName}
+                  onChange={e => setNewUnitName(e.target.value)}
+                  placeholder="Đại đội Thông tin 3"
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                />
+              </div>
+
+              {unitError && (
+                <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">{unitError}</p>
+              )}
+
+              <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUnitModal(false)}
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
+                >
+                  Thêm đơn vị
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

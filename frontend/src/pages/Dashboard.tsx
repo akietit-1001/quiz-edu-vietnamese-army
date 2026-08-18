@@ -5,6 +5,16 @@ import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPl
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
+// fetchQuizzes() chỉ chạy đúng 1 lần lúc mount nên không có số liệu cũ trong
+// session để đoán số dòng skeleton. Nhớ lại số đề của lần tải trước (qua
+// localStorage) để những lần mở trang sau, skeleton khớp đúng ngay từ đầu
+// thay vì luôn cố định 4 thẻ bất kể thực tế có bao nhiêu đề.
+const QUIZ_SKELETON_CACHE_KEY = 'vpa_dashboard_quiz_skeleton_count';
+const getInitialQuizSkeletonCount = () => {
+  const cached = parseInt(localStorage.getItem(QUIZ_SKELETON_CACHE_KEY) || '', 10);
+  return Number.isFinite(cached) && cached > 0 ? Math.min(cached, 6) : 4;
+};
+
 interface DashboardProps {
   user: any;
   setUser: (user: any) => void;
@@ -24,6 +34,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [quizSkeletonCount] = useState(getInitialQuizSkeletonCount);
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
   
@@ -227,6 +238,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       // và cho phép chọn mã đề cụ thể khi tạo phòng thi.
       const response = await axios.get('/api/quizzes?includeVariants=true');
       setQuizzes(response.data);
+      const rootCount = response.data.filter((q: any) => !q.parentQuizId).length;
+      if (rootCount > 0) {
+        localStorage.setItem(QUIZ_SKELETON_CACHE_KEY, String(rootCount));
+      }
     } catch (err) {
       console.error('Lỗi lấy danh sách đề thi:', err);
     } finally {
@@ -717,7 +732,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2">
             {loading ? (
-              Array.from({ length: 4 }).map((_, idx) => (
+              Array.from({ length: quizSkeletonCount }).map((_, idx) => (
                 <div
                   key={idx}
                   className="border border-vpa-olive-light/30 bg-vpa-sand/30 dark:bg-vpa-dark/15 p-4 animate-pulse flex flex-col justify-between h-40"

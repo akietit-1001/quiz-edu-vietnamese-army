@@ -189,6 +189,17 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const startQuizIndex = (quizPage - 1) * quizPageSize;
   const displayedQuizzes = quizzes;
 
+  // Số dòng skeleton nên khớp với số dòng thực tế của trang hiện tại. Ngay
+  // sau lần fetch đầu tiên, totalQuizCount/totalBankCount đã có giá trị thật
+  // và KHÔNG bị reset khi loading bật lại (chỉ cập nhật khi fetch thành công),
+  // nên các lần load sau (đổi trang, lọc, tìm kiếm) sẽ đoán đúng số dòng.
+  const quizSkeletonRowCount = totalQuizCount > 0
+    ? Math.max(1, Math.min(quizPageSize, totalQuizCount - startQuizIndex))
+    : quizPageSize;
+  const bankSkeletonRowCount = totalBankCount > 0
+    ? Math.max(1, Math.min(bankPageSize, totalBankCount - startBankIndex))
+    : bankPageSize;
+
   // Sorting state for Quizzes
   const [quizSortField, setQuizSortField] = useState<string>('createdAt');
   const [quizSortOrder, setQuizSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -1542,7 +1553,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </thead>
                   <tbody>
                     {quizzesLoading ? (
-                      Array.from({ length: 5 }).map((_, idx) => (
+                      Array.from({ length: quizSkeletonRowCount }).map((_, idx) => (
                         <tr key={idx} className="border-b border-vpa-olive-light/10 animate-pulse">
                           <td className="py-4 px-4">
                             <div className="w-40 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
@@ -2698,7 +2709,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </thead>
                   <tbody>
                     {bankLoading ? (
-                      Array.from({ length: 5 }).map((_, idx) => (
+                      Array.from({ length: bankSkeletonRowCount }).map((_, idx) => (
                         <tr key={idx} className="border-b border-vpa-olive-light/10 animate-pulse">
                           <td className="py-4 px-4 w-1/2">
                             <div className="w-full h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded mb-2"></div>
