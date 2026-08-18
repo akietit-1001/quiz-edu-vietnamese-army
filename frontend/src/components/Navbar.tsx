@@ -21,35 +21,35 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-40 w-full h-16 border-b border-vpa-olive-light/50 bg-vpa-sand-light/95 dark:bg-vpa-dark/95 backdrop-blur-md transition-colors px-6 flex items-center justify-between">
+    <nav className="sticky top-0 z-40 w-full h-20 border-b border-vpa-olive-light/50 bg-vpa-sand-light/95 dark:bg-vpa-dark/95 backdrop-blur-md transition-colors px-6 flex items-center justify-between">
       {/* Brand Logo */}
-      <div className="flex items-center space-x-3">
-        <img src="/BQP.png" alt="Bộ Quốc Phòng" className="w-8 h-8 object-contain" />
+      <div className="flex items-center space-x-4">
+        <img src="/BQP.png" alt="Bộ Quốc Phòng" className="w-11 h-11 object-contain" />
         <div className="hidden sm:block">
-          <span className="text-md font-bold tracking-widest text-vpa-olive dark:text-vpa-sand block">BỘ QUỐC PHÒNG</span>
-          <span className="text-[12px] uppercase tracking-wider text-vpa-gold-bright block -mt-2 font-mono">Cổng thi trực tuyến</span>
+          <span className="text-lg font-bold tracking-widest text-vpa-olive dark:text-vpa-sand block leading-tight">BỘ QUỐC PHÒNG</span>
+          <span className="text-[13px] uppercase tracking-wider text-vpa-gold dark:text-vpa-gold-bright block font-mono">Cổng thi trực tuyến</span>
         </div>
       </div>
 
       {/* Right Side Options */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-5">
         {/* User Card with Dropdown */}
         {user && (
           <div className="relative">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center space-x-3 border-r border-vpa-olive-light/30 pr-4 text-left focus:outline-none hover:opacity-80 transition-opacity cursor-pointer"
+              className="flex items-center space-x-3 border-r border-vpa-olive-light/30 pr-5 text-left focus:outline-none hover:opacity-80 transition-opacity cursor-pointer"
             >
-              <UserCircle size={32} className="text-vpa-olive dark:text-vpa-gold-bright" />
+              <UserCircle size={38} className="text-vpa-olive dark:text-vpa-gold-bright" />
               <div className="text-left hidden md:block">
-                <p className="text-xs font-bold text-vpa-olive dark:text-vpa-sand leading-tight">
+                <p className="text-sm font-bold text-vpa-olive dark:text-vpa-sand leading-tight">
                   {user.rank ? `${user.rank} ` : ''}{user.fullName}
                 </p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">
                   {user.position} | {user.unit?.name}
                 </p>
               </div>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light bg-vpa-sand dark:bg-vpa-olive-light/30 text-vpa-olive dark:text-vpa-gold">
+              <span className="text-[11px] uppercase font-mono px-2.5 py-1 border border-vpa-olive-light bg-vpa-sand dark:bg-vpa-olive-light/30 text-vpa-olive dark:text-vpa-gold">
                 {user.role}
               </span>
             </button>
@@ -95,10 +95,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Theme Toggle */}
         <button
           onClick={() => setDarkMode(!darkMode)}
-          className="p-2 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 transition-colors"
+          className="p-2.5 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 transition-colors"
           title={darkMode ? 'Chế độ sáng' : 'Chế độ tối'}
         >
-          {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
       </div>
     </nav>

@@ -680,7 +680,7 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
           <div className="w-full max-w-lg border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn max-h-[90vh] overflow-y-auto">
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-gold-bright rounded-none" />
+              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
               <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
                 Cập nhật hồ sơ cá nhân
               </h3>

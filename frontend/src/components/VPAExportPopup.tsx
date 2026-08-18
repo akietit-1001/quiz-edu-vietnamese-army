@@ -361,7 +361,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
           <div>
             {/* Header decoration */}
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3.5 h-3.5 bg-vpa-gold-bright rounded-none" />
+              <div className="w-3.5 h-3.5 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
               <h3 className="text-sm font-black tracking-wide uppercase text-vpa-olive dark:text-vpa-sand">
                 Cấu hình
               </h3>

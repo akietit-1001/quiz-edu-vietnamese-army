@@ -121,7 +121,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
               <h2 className="text-xl font-extrabold uppercase tracking-widest text-vpa-olive dark:text-vpa-sand">
                 ĐĂNG KÝ TÀI KHOẢN QUÂN NHÂN
               </h2>
-              <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
+              <p className="text-[10px] uppercase tracking-wider text-vpa-gold dark:text-vpa-gold-bright mt-1 font-mono">
                 Đồng chí thuộc đối tượng nào?
               </p>
             </div>
@@ -163,7 +163,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
               <h2 className="text-xl font-extrabold uppercase tracking-widest text-vpa-olive dark:text-vpa-sand">
                 ĐĂNG KÝ TÀI KHOẢN {personnelType === 'soldier' ? 'CHIẾN SĨ' : 'CÁN BỘ'}
               </h2>
-              <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
+              <p className="text-[10px] uppercase tracking-wider text-vpa-gold dark:text-vpa-gold-bright mt-1 font-mono">
                 Khai báo thông tin chính xác phục vụ thi cử & ôn luyện
               </p>
               <button
@@ -384,7 +384,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
               <h2 className="text-xl font-extrabold uppercase tracking-widest text-vpa-olive dark:text-vpa-sand">
                 XÁC THỰC EMAIL ĐĂNG KÝ
               </h2>
-              <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
+              <p className="text-[10px] uppercase tracking-wider text-vpa-gold dark:text-vpa-gold-bright mt-1 font-mono">
                 Bộ CHQS tỉnh Đồng Tháp
               </p>
             </div>

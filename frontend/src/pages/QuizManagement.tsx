@@ -1267,7 +1267,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 </button>
                 <button
                   onClick={() => setIsGenerating(true)}
-                  className="px-3 py-1.5 border border-vpa-gold text-vpa-gold-bright hover:bg-vpa-gold/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
+                  className="px-3 py-1.5 border border-vpa-gold text-vpa-gold dark:text-vpa-gold-bright hover:bg-vpa-gold/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
                 >
                   <ShuffleIcon size={16} />
                   <span>Rút đề ngẫu nhiên</span>

@@ -766,7 +766,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           <div className="w-full max-w-lg border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn max-h-[90vh] overflow-y-auto">
             {/* Header decoration */}
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-gold-bright rounded-none" />
+              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
               <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand">
                 {isEditing ? 'Cập nhật thông tin quân nhân' : 'Thêm quân nhân mới vào đơn vị'}
               </h3>

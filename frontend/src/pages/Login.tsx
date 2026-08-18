@@ -84,7 +84,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
           <h2 className="text-xl font-extrabold uppercase tracking-widest text-vpa-olive dark:text-vpa-sand">
             {requires2FA ? 'XÁC THỰC 2FA' : 'ĐĂNG NHẬP'}
           </h2>
-          <p className="text-[10px] uppercase tracking-wider text-vpa-gold-bright mt-1 font-mono">
+          <p className="text-[10px] uppercase tracking-wider text-vpa-gold dark:text-vpa-gold-bright mt-1 font-mono">
             Bộ CHQS tỉnh Đồng Tháp
           </p>
         </div>
