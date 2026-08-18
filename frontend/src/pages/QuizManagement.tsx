@@ -1808,14 +1808,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tên đề thi</label>
-                    <input
-                      type="text"
-                      required
-                      value={title}
-                      onChange={e => setTitle(e.target.value)}
-                      placeholder="Kiểm tra lý luận chính trị năm 2026"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                    />
+                    <Tooltip content={title} className="block">
+                      <input
+                        type="text"
+                        required
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        placeholder="Kiểm tra lý luận chính trị năm 2026"
+                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                      />
+                    </Tooltip>
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành</label>
@@ -1843,13 +1845,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Mô tả tóm tắt</label>
-                    <input
-                      type="text"
-                      value={description}
-                      onChange={e => setDescription(e.target.value)}
-                      placeholder="Dành cho Chiến sĩ, Hạ sĩ quan"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                    />
+                    <Tooltip content={description} className="block">
+                      <input
+                        type="text"
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        placeholder="Dành cho Chiến sĩ, Hạ sĩ quan"
+                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                      />
+                    </Tooltip>
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Phần trăm đạt yêu cầu (%)</label>
@@ -1939,14 +1943,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="md:col-span-2">
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Nội dung câu hỏi</label>
-                        <input
-                          type="text"
-                          required
-                          value={q.questionText}
-                          onChange={e => handleQuestionChange(qIdx, 'questionText', e.target.value)}
-                          placeholder="Câu hỏi..."
-                          className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                        />
+                        <Tooltip content={q.questionText} className="block">
+                          <input
+                            type="text"
+                            required
+                            value={q.questionText}
+                            onChange={e => handleQuestionChange(qIdx, 'questionText', e.target.value)}
+                            placeholder="Câu hỏi..."
+                            className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                          />
+                        </Tooltip>
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Dạng câu hỏi</label>
@@ -1998,14 +2004,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                 >
                                   {isCorrect ? <Check size={14} /> : letter}
                                 </button>
-                                <input
-                                  type="text"
-                                  required
-                                  value={opt}
-                                  onChange={e => handleOptionChange(qIdx, optIdx, e.target.value)}
-                                  placeholder={`Lựa chọn ${letter}`}
-                                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                                />
+                                <Tooltip content={opt} className="block flex-1 min-w-0">
+                                  <input
+                                    type="text"
+                                    required
+                                    value={opt}
+                                    onChange={e => handleOptionChange(qIdx, optIdx, e.target.value)}
+                                    placeholder={`Lựa chọn ${letter}`}
+                                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                                  />
+                                </Tooltip>
                               </div>
                             );
                           })}
@@ -2043,26 +2051,30 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     {q.questionType === 'fill-in-the-blank' && (
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Đáp án đúng chính xác</label>
-                        <input
-                          type="text"
-                          required
-                          value={q.correctAnswers[0] || ''}
-                          onChange={e => handleQuestionChange(qIdx, 'correctAnswers', [e.target.value])}
-                          placeholder="Cụm từ đáp án đúng..."
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                        />
+                        <Tooltip content={q.correctAnswers[0]} className="block">
+                          <input
+                            type="text"
+                            required
+                            value={q.correctAnswers[0] || ''}
+                            onChange={e => handleQuestionChange(qIdx, 'correctAnswers', [e.target.value])}
+                            placeholder="Cụm từ đáp án đúng..."
+                            className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                          />
+                        </Tooltip>
                       </div>
                     )}
 
                     <div>
                       <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Lời giải thích bổ sung</label>
-                      <input
-                        type="text"
-                        value={q.explanation}
-                        onChange={e => handleQuestionChange(qIdx, 'explanation', e.target.value)}
-                        placeholder="Căn cứ pháp lý..."
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                      />
+                      <Tooltip content={q.explanation} className="block">
+                        <input
+                          type="text"
+                          value={q.explanation}
+                          onChange={e => handleQuestionChange(qIdx, 'explanation', e.target.value)}
+                          placeholder="Căn cứ pháp lý..."
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                        />
+                      </Tooltip>
                     </div>
                   </div>
                 ))}
@@ -2098,24 +2110,28 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tên đề thi tự động</label>
-                    <input
-                      type="text"
-                      required
-                      value={genTitle}
-                      onChange={e => setGenTitle(e.target.value)}
-                      placeholder="Đề kiểm tra ngẫu nhiên chuyên ngành"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                    />
+                    <Tooltip content={genTitle} className="block">
+                      <input
+                        type="text"
+                        required
+                        value={genTitle}
+                        onChange={e => setGenTitle(e.target.value)}
+                        placeholder="Đề kiểm tra ngẫu nhiên chuyên ngành"
+                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                      />
+                    </Tooltip>
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Mô tả tóm tắt</label>
-                    <input
-                      type="text"
-                      value={genDescription}
-                      onChange={e => setGenDescription(e.target.value)}
-                      placeholder="Tự động rút đề khách quan dựa trên ngân hàng câu hỏi..."
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                    />
+                    <Tooltip content={genDescription} className="block">
+                      <input
+                        type="text"
+                        value={genDescription}
+                        onChange={e => setGenDescription(e.target.value)}
+                        placeholder="Tự động rút đề khách quan dựa trên ngân hàng câu hỏi..."
+                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                      />
+                    </Tooltip>
                   </div>
                 </div>
 
@@ -2245,14 +2261,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tên đề thi sau khi nhập</label>
-                    <input
-                      type="text"
-                      required
-                      value={importTitle}
-                      onChange={e => setImportTitle(e.target.value)}
-                      placeholder="Đề thi trắc nghiệm quân sự tổng hợp"
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                    />
+                    <Tooltip content={importTitle} className="block">
+                      <input
+                        type="text"
+                        required
+                        value={importTitle}
+                        onChange={e => setImportTitle(e.target.value)}
+                        placeholder="Đề thi trắc nghiệm quân sự tổng hợp"
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                      />
+                    </Tooltip>
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành</label>
@@ -2886,14 +2904,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2">
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Nội dung câu hỏi</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankQText}
-                      onChange={e => setBankQText(e.target.value)}
-                      placeholder="VD: Ngày thành lập Quân đội nhân dân Việt Nam là ngày nào?"
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                    />
+                    <Tooltip content={bankQText} className="block">
+                      <input
+                        type="text"
+                        required
+                        value={bankQText}
+                        onChange={e => setBankQText(e.target.value)}
+                        placeholder="VD: Ngày thành lập Quân đội nhân dân Việt Nam là ngày nào?"
+                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                      />
+                    </Tooltip>
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Dạng câu hỏi</label>
@@ -2968,18 +2988,20 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                             >
                               {isCorrect ? <Check size={14} /> : letter}
                             </button>
-                            <input
-                              type="text"
-                              required
-                              value={opt}
-                              onChange={e => {
-                                const updated = [...bankQOptions];
-                                updated[optIdx] = e.target.value;
-                                setBankQOptions(updated);
-                              }}
-                              placeholder={`Lựa chọn ${letter}`}
-                              className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                            />
+                            <Tooltip content={opt} className="block flex-1 min-w-0">
+                              <input
+                                type="text"
+                                required
+                                value={opt}
+                                onChange={e => {
+                                  const updated = [...bankQOptions];
+                                  updated[optIdx] = e.target.value;
+                                  setBankQOptions(updated);
+                                }}
+                                placeholder={`Lựa chọn ${letter}`}
+                                className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                              />
+                            </Tooltip>
                           </div>
                         );
                       })}
@@ -3017,26 +3039,30 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 {bankQType === 'fill-in-the-blank' && (
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Cụm từ đáp án chính xác</label>
-                    <input
-                      type="text"
-                      required
-                      value={bankQAnswers[0] || ''}
-                      onChange={e => setBankQAnswers([e.target.value])}
-                      placeholder="Cụm từ chính xác..."
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                    />
+                    <Tooltip content={bankQAnswers[0]} className="block">
+                      <input
+                        type="text"
+                        required
+                        value={bankQAnswers[0] || ''}
+                        onChange={e => setBankQAnswers([e.target.value])}
+                        placeholder="Cụm từ chính xác..."
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                      />
+                    </Tooltip>
                   </div>
                 )}
 
                 <div>
                   <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Giải thích chi tiết</label>
-                  <input
-                    type="text"
-                    value={bankQExplanation}
-                    onChange={e => setBankQExplanation(e.target.value)}
-                    placeholder="VD: Căn cứ Điều 1 Luật Nghĩa vụ Quân sự..."
-                    className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
-                  />
+                  <Tooltip content={bankQExplanation} className="block">
+                    <input
+                      type="text"
+                      value={bankQExplanation}
+                      onChange={e => setBankQExplanation(e.target.value)}
+                      placeholder="VD: Căn cứ Điều 1 Luật Nghĩa vụ Quân sự..."
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light/50 focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                    />
+                  </Tooltip>
                 </div>
               </div>
 

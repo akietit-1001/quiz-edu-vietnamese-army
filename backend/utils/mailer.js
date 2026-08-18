@@ -66,7 +66,7 @@ export const sendRegistrationOTPEmail = async (toEmail, otpCode) => {
 
   try {
     const info = await sendViaBrevoApi({
-      senderName: 'Quiz-Edu Học viện KTQS',
+      senderName: 'Quiz-Edu',
       toEmail,
       subject: 'XÁC THỰC ĐĂNG KÝ TÀI KHOẢN - HỆ THỐNG QUIZ-EDU',
       html
@@ -101,7 +101,7 @@ export const send2FAOTPEmail = async (toEmail, otpCode) => {
       </p>
       <br/>
       <div style="border-top: 1px solid #d2d7d4; padding-top: 15px; font-size: 12px; color: #555; text-align: center; font-style: italic;">
-        <p>HỆ THỐNG AN NINH QUIZ-EDU - HỌC VIỆN KỸ THUẬT QUÂN SỰ</p>
+        <p>HỆ THỐNG AN NINH QUIZ-EDU</p>
         <p>Hệ thống quản lý ôn luyện và thi trực tuyến an toàn</p>
       </div>
     </div>
@@ -109,7 +109,7 @@ export const send2FAOTPEmail = async (toEmail, otpCode) => {
 
   try {
     const info = await sendViaBrevoApi({
-      senderName: 'Quiz-Edu Bảo mật',
+      senderName: 'Quiz-Edu',
       toEmail,
       subject: 'MÃ XÁC THỰC 2FA (BẢO MẬT) - HỆ THỐNG QUIZ-EDU',
       html
@@ -154,7 +154,7 @@ export const sendInvitationEmail = async (toEmail, senderName, roomCode, role, l
       </p>
       <br/>
       <div style="border-top: 1px solid #d2d7d4; padding-top: 15px; font-size: 12px; color: #555; text-align: center; font-style: italic;">
-        <p>HỆ THỐNG QUIZ-EDU - HỌC VIỆN KỸ THUẬT QUÂN SỰ</p>
+        <p>HỆ THỐNG QUIZ-EDU</p>
         <p>Hệ thống ôn luyện và thi trực tuyến đồng bộ</p>
       </div>
     </div>
@@ -162,7 +162,7 @@ export const sendInvitationEmail = async (toEmail, senderName, roomCode, role, l
 
   try {
     const info = await sendViaBrevoApi({
-      senderName: 'Quiz-Edu Lời mời',
+      senderName: 'Quiz-Edu',
       toEmail,
       subject: `THƯ MỜI THAM GIA PHÒNG THI ${roomCode} - HỆ THỐNG QUIZ-EDU`,
       html
