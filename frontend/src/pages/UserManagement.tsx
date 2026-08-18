@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X, ArrowsLeftRight, IdentificationBadge } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X, ArrowsLeftRight, IdentificationBadge, DotsThreeVertical } from '@phosphor-icons/react';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 import { compareUnitSiblings } from '../constants/unitSort';
 import { useSubviewBack } from '../hooks/useSubviewBack';
@@ -172,8 +172,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [movingUnit, setMovingUnit] = useState<UnitNode | null>(null);
   const [moveTargetParentId, setMoveTargetParentId] = useState('');
   const [moveError, setMoveError] = useState('');
-  const [draggedUnitId, setDraggedUnitId] = useState<string | null>(null);
+  // Danh sách đơn vị đang được kéo — kéo 1 đơn vị đã tick chọn (khi đang
+  // chọn nhiều) thì cả nhóm đã chọn cùng di chuyển; kéo 1 đơn vị chưa chọn
+  // thì chỉ mình nó di chuyển, không đụng tới lựa chọn hiện có.
+  const [draggedUnitIds, setDraggedUnitIds] = useState<string[]>([]);
   const [dragOverUnitId, setDragOverUnitId] = useState<string | null>(null);
+  const [selectedUnitIds, setSelectedUnitIds] = useState<Set<string>>(new Set());
+
+  // Menu "..." gộp các thao tác ít dùng (đổi tên/thêm con/di chuyển/chức
+  // vụ/xoá) lại 1 chỗ thay vì xếp 6 icon liền nhau trên mỗi dòng.
+  const [openMenuUnitId, setOpenMenuUnitId] = useState<string | null>(null);
 
   // Xoá đơn vị — hỗ trợ xoá cả cây con, yêu cầu gõ đúng tên để xác nhận
   const [deletingUnit, setDeletingUnit] = useState<UnitNode | null>(null);
@@ -314,18 +322,24 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     const hasChildren = children.length > 0;
     const isExpanded = expandedUnitIds.has(nodeUnit._id);
 
-    const isDragging = draggedUnitId === nodeUnit._id;
+    const isDragging = draggedUnitIds.includes(nodeUnit._id);
     const isDropTarget = dragOverUnitId === nodeUnit._id;
+    const isSelected = selectedUnitIds.has(nodeUnit._id);
+    const isMenuOpen = openMenuUnitId === nodeUnit._id;
 
     return (
       <React.Fragment key={nodeUnit._id}>
         <li
           style={{ marginLeft: `${depth * 24}px` }}
           draggable={!!nodeUnit.parentId && renamingUnitId !== nodeUnit._id}
-          onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDraggedUnitId(nodeUnit._id); }}
-          onDragEnd={() => { setDraggedUnitId(null); setDragOverUnitId(null); }}
+          onDragStart={e => {
+            e.dataTransfer.effectAllowed = 'move';
+            const ids = isSelected && selectedUnitIds.size > 1 ? Array.from(selectedUnitIds) : [nodeUnit._id];
+            setDraggedUnitIds(ids);
+          }}
+          onDragEnd={() => { setDraggedUnitIds([]); setDragOverUnitId(null); }}
           onDragOver={e => {
-            if (!draggedUnitId || draggedUnitId === nodeUnit._id) return;
+            if (draggedUnitIds.length === 0 || draggedUnitIds.includes(nodeUnit._id)) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             setDragOverUnitId(nodeUnit._id);
@@ -333,90 +347,117 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           onDragLeave={() => setDragOverUnitId(prev => (prev === nodeUnit._id ? null : prev))}
           onDrop={e => {
             e.preventDefault();
-            if (draggedUnitId) handleDropUnit(draggedUnitId, nodeUnit._id);
+            if (draggedUnitIds.length > 0) handleDropUnit(draggedUnitIds, nodeUnit._id);
           }}
-          className={`flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs transition-colors ${nodeUnit.parentId ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isDropTarget ? 'bg-vpa-gold/10 ring-1 ring-vpa-gold' : ''}`}
+          className={`flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs transition-colors ${nodeUnit.parentId ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isDropTarget ? 'bg-vpa-gold/10 ring-1 ring-vpa-gold' : ''} ${isSelected ? 'bg-vpa-gold/5' : ''}`}
         >
-          {renamingUnitId === nodeUnit._id ? (
-            <div className="flex items-center space-x-2 flex-1">
+          <div className="flex items-center space-x-2 flex-1 min-w-0">
+            {nodeUnit.parentId && (
               <input
-                autoFocus
-                type="text"
-                value={renameValue}
-                onChange={e => setRenameValue(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleConfirmRenameUnit(); if (e.key === 'Escape') setRenamingUnitId(null); }}
-                className="text-xs p-1 bg-transparent border border-vpa-gold text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleUnitSelected(nodeUnit._id)}
+                onClick={e => e.stopPropagation()}
+                draggable={false}
+                className="w-3.5 h-3.5 accent-vpa-gold shrink-0"
+                title="Chọn để di chuyển hàng loạt"
               />
-              <button type="button" onClick={handleConfirmRenameUnit} className="text-vpa-gold text-[10px] font-bold uppercase">Lưu</button>
-              <button type="button" onClick={() => setRenamingUnitId(null)} className="text-gray-400 text-[10px] font-bold uppercase">Hủy</button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => hasChildren && toggleUnitExpand(nodeUnit._id)}
-              className={`flex items-center space-x-2 text-left ${hasChildren ? 'cursor-pointer' : 'cursor-default'}`}
-            >
-              <CaretRight
-                size={10}
-                weight="bold"
-                className={`text-gray-400 transition-transform shrink-0 ${hasChildren ? '' : 'opacity-0'} ${isExpanded ? 'rotate-90' : ''}`}
-              />
-              <Buildings size={12} className="text-vpa-gold shrink-0" />
-              <span className="font-bold text-vpa-olive dark:text-vpa-sand uppercase">{nodeUnit.name}</span>
-            </button>
-          )}
+            )}
+
+            {renamingUnitId === nodeUnit._id ? (
+              <div className="flex items-center space-x-2 flex-1">
+                <input
+                  autoFocus
+                  type="text"
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleConfirmRenameUnit(); if (e.key === 'Escape') setRenamingUnitId(null); }}
+                  className="text-xs p-1 bg-transparent border border-vpa-gold text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
+                />
+                <button type="button" onClick={handleConfirmRenameUnit} className="text-vpa-gold text-[10px] font-bold uppercase">Lưu</button>
+                <button type="button" onClick={() => setRenamingUnitId(null)} className="text-gray-400 text-[10px] font-bold uppercase">Hủy</button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => hasChildren && toggleUnitExpand(nodeUnit._id)}
+                className={`flex items-center space-x-2 text-left min-w-0 ${hasChildren ? 'cursor-pointer' : 'cursor-default'}`}
+              >
+                <CaretRight
+                  size={10}
+                  weight="bold"
+                  className={`text-gray-400 transition-transform shrink-0 ${hasChildren ? '' : 'opacity-0'} ${isExpanded ? 'rotate-90' : ''}`}
+                />
+                <Buildings size={12} className="text-vpa-gold shrink-0" />
+                <span className="font-bold text-vpa-olive dark:text-vpa-sand uppercase truncate">{nodeUnit.name}</span>
+              </button>
+            )}
+          </div>
 
           {renamingUnitId !== nodeUnit._id && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 relative shrink-0">
               <button
                 type="button"
                 onClick={() => handleViewUnit(nodeUnit)}
                 className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                title="Xem chi tiết"
               >
                 <Eye size={12} />
               </button>
               <button
                 type="button"
-                onClick={() => handleStartRenameUnit(nodeUnit)}
-                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
-                title="Đổi tên"
+                data-menu-trigger={nodeUnit._id}
+                onClick={() => setOpenMenuUnitId(isMenuOpen ? null : nodeUnit._id)}
+                className={`p-1.5 border transition-colors rounded-lg ${isMenuOpen ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark border-transparent' : 'border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark'}`}
+                title="Thao tác khác"
               >
-                <PencilSimple size={12} />
+                <DotsThreeVertical size={12} weight="bold" />
               </button>
-              <button
-                type="button"
-                onClick={() => handleOpenAddUnitModalForParent(nodeUnit._id)}
-                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
-                title="Thêm đơn vị con"
-              >
-                <Plus size={12} />
-              </button>
-              {nodeUnit.parentId && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenMoveUnit(nodeUnit)}
-                  className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
-                  title="Di chuyển sang đơn vị cha khác"
+
+              {isMenuOpen && (
+                <div
+                  data-unit-menu={nodeUnit._id}
+                  className="absolute right-0 top-full mt-1 z-20 w-48 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-xl rounded-lg overflow-hidden animate-fadeIn"
                 >
-                  <ArrowsLeftRight size={12} />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOpenMenuUnitId(null); handleStartRenameUnit(nodeUnit); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] uppercase tracking-wide text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive/10 dark:hover:bg-vpa-gold/10"
+                  >
+                    <PencilSimple size={12} /> <span>Đổi tên</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOpenMenuUnitId(null); handleOpenAddUnitModalForParent(nodeUnit._id); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] uppercase tracking-wide text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive/10 dark:hover:bg-vpa-gold/10"
+                  >
+                    <Plus size={12} /> <span>Thêm đơn vị con</span>
+                  </button>
+                  {nodeUnit.parentId && (
+                    <button
+                      type="button"
+                      onClick={() => { setOpenMenuUnitId(null); handleOpenMoveUnit(nodeUnit); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] uppercase tracking-wide text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive/10 dark:hover:bg-vpa-gold/10"
+                    >
+                      <ArrowsLeftRight size={12} /> <span>Di chuyển</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setOpenMenuUnitId(null); handleOpenManagePositions(nodeUnit); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] uppercase tracking-wide text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive/10 dark:hover:bg-vpa-gold/10"
+                  >
+                    <IdentificationBadge size={12} /> <span>Quản lý chức vụ</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOpenMenuUnitId(null); handleDeleteUnit(nodeUnit); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] uppercase tracking-wide text-vpa-red hover:bg-vpa-red/10 border-t border-vpa-olive-light/20"
+                  >
+                    <Trash size={12} /> <span>Xoá</span>
+                  </button>
+                </div>
               )}
-              <button
-                type="button"
-                onClick={() => handleOpenManagePositions(nodeUnit)}
-                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
-                title="Quản lý chức vụ"
-              >
-                <IdentificationBadge size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDeleteUnit(nodeUnit)}
-                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
-                title="Xoá"
-              >
-                <Trash size={12} />
-              </button>
             </div>
           )}
         </li>
@@ -441,6 +482,19 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     fetchUsers();
     fetchUnits();
   }, []);
+
+  // Đóng menu "..." của 1 dòng đơn vị khi bấm ra ngoài (cả nút mở lẫn menu).
+  useEffect(() => {
+    if (!openMenuUnitId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const insideMenu = target.closest(`[data-unit-menu="${openMenuUnitId}"]`);
+      const onTrigger = target.closest(`[data-menu-trigger="${openMenuUnitId}"]`);
+      if (!insideMenu && !onTrigger) setOpenMenuUnitId(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openMenuUnitId]);
 
   useEffect(() => {
     setPage(1);
@@ -699,30 +753,51 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     }
   };
 
-  // Kéo-thả 1 đơn vị vào dòng của đơn vị khác để di chuyển nhanh, không cần
-  // mở modal. Vẫn chặn thả vào chính nó hoặc vào hậu duệ của nó ở phía
-  // client trước khi gọi API (API cũng tự chặn lại, đây chỉ để phản hồi
-  // nhanh không cần round-trip).
-  const handleDropUnit = async (draggedId: string, targetParentId: string) => {
+  // Kéo-thả 1 hoặc nhiều đơn vị (đã tick chọn) vào dòng của đơn vị khác để
+  // di chuyển nhanh, không cần mở modal. Nếu trong nhóm kéo có cả 1 đơn vị
+  // VÀ hậu duệ của chính nó (cả 2 cùng được tick), chỉ di chuyển đơn vị tổ
+  // tiên — hậu duệ tự đi theo, gọi API riêng cho nó nữa sẽ kéo nó ra khỏi
+  // cha thật của nó một cách sai ý người dùng.
+  const handleDropUnit = async (draggedIds: string[], targetParentId: string) => {
     setDragOverUnitId(null);
-    setDraggedUnitId(null);
-    if (draggedId === targetParentId) return;
-    const draggedUnit = units.find(u => u._id === draggedId);
-    if (!draggedUnit || !draggedUnit.parentId) return; // không cho kéo đơn vị gốc
-    const excludedIds = new Set(getUnitAndDescendantIds(draggedId));
-    if (excludedIds.has(targetParentId)) {
+    setDraggedUnitIds([]);
+
+    const idsToMove = draggedIds.filter(id => {
+      if (id === targetParentId) return false;
+      const unit = units.find(u => u._id === id);
+      if (!unit || !unit.parentId) return false; // không cho kéo đơn vị gốc
+      const isDescendantOfAnotherDragged = draggedIds.some(
+        otherId => otherId !== id && getUnitAndDescendantIds(otherId).includes(id)
+      );
+      return !isDescendantOfAnotherDragged;
+    });
+    if (idsToMove.length === 0) return;
+
+    const blockedByCycle = idsToMove.filter(id => getUnitAndDescendantIds(id).includes(targetParentId));
+    if (blockedByCycle.length > 0) {
       setUnitError('Không thể di chuyển 1 đơn vị vào chính hậu duệ của nó.');
       setTimeout(() => setUnitError(''), 3000);
       return;
     }
-    const result = await performMoveUnit(draggedId, targetParentId);
-    if (result.ok) {
-      setUnitSuccessMsg('Đã di chuyển đơn vị thành công.');
+
+    const results = await Promise.all(idsToMove.map(id => performMoveUnit(id, targetParentId)));
+    const failures = results.filter(r => !r.ok) as { ok: false; message: string }[];
+    setSelectedUnitIds(new Set());
+    if (failures.length === 0) {
+      setUnitSuccessMsg(idsToMove.length > 1 ? `Đã di chuyển ${idsToMove.length} đơn vị thành công.` : 'Đã di chuyển đơn vị thành công.');
       setTimeout(() => setUnitSuccessMsg(''), 3000);
     } else {
-      setUnitError(result.message);
+      setUnitError(failures[0].message);
       setTimeout(() => setUnitError(''), 3000);
     }
+  };
+
+  const toggleUnitSelected = (id: string) => {
+    setSelectedUnitIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   const handleOpenManagePositions = (unitToManage: UnitNode) => {
@@ -1566,6 +1641,19 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               <span>Thêm đơn vị</span>
             </button>
           </div>
+
+          {selectedUnitIds.size > 0 && (
+            <div className="flex items-center justify-between gap-3 mb-3 px-3 py-2 bg-vpa-gold/10 border border-vpa-gold/40 rounded-lg text-[11px] uppercase tracking-wide text-vpa-olive dark:text-vpa-sand">
+              <span>Đã chọn {selectedUnitIds.size} đơn vị — kéo 1 trong số đó vào đơn vị cha mới để di chuyển cả nhóm</span>
+              <button
+                type="button"
+                onClick={() => setSelectedUnitIds(new Set())}
+                className="text-vpa-red font-bold shrink-0"
+              >
+                Bỏ chọn
+              </button>
+            </div>
+          )}
 
           {unitsLoading ? (
             <p className="text-xs text-gray-400 uppercase tracking-wider">Đang tải cây đơn vị...</p>
