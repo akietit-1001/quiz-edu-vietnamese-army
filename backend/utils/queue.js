@@ -95,9 +95,11 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
   return result;
 }, { connection });
 
-// 2. Exam Submission Worker
-export const examSubmitWorker = new Worker('examSubmit', async (job) => {
-  const { userId, roomId, quizId, answers, mode, antiCheatViolations } = job.data;
+// 2. Exam Submission — logic chấm điểm tách riêng thành hàm thuần tuý
+// (nhận job.data, không phụ thuộc BullMQ/Redis) để có thể unit test trực
+// tiếp mà không cần dựng Redis thật trong môi trường kiểm thử.
+export const processExamSubmission = async (data) => {
+  const { userId, roomId, quizId, answers, mode, antiCheatViolations } = data;
 
   // Check if user has already submitted for this room (Only 1 attempt allowed in rooms)
   if (roomId) {
@@ -170,7 +172,13 @@ export const examSubmitWorker = new Worker('examSubmit', async (job) => {
   }
 
   return attempt;
-}, { connection });
+};
+
+export const examSubmitWorker = new Worker(
+  'examSubmit',
+  async (job) => processExamSubmission(job.data),
+  { connection }
+);
 
 // Log workers status
 quizGenWorker.on('completed', (job) => {
