@@ -575,7 +575,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-vpa-olive-light/30">
         <div className="flex items-center space-x-4">
           <button
-            onClick={onNavigateBack}
+            onClick={() => {
+              if (showFormModal) { setShowFormModal(false); return; }
+              if (showAddUnitModal) { setShowAddUnitModal(false); return; }
+              if (viewingUnit) { setViewingUnit(null); return; }
+              onNavigateBack();
+            }}
             className="p-2 border border-vpa-olive-light/30 hover:bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand transition-colors"
           >
             <ArrowLeft size={18} />
@@ -665,7 +670,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               placeholder="Tìm theo họ tên, email, chức vụ..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
+              className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
             />
             <MagnifyingGlass size={16} className="absolute left-3 top-3 text-gray-400" />
           </div>
@@ -673,7 +678,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           <button
             type="button"
             onClick={() => setShowUserAdvancedFilter(prev => !prev)}
-            className={`rounded-lg flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center ${
+            className={`flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center ${
               showUserAdvancedFilter || userAdvancedFilterCount > 0
                 ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                 : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'

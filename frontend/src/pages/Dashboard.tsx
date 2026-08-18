@@ -88,7 +88,7 @@ const PracticeQuizCard: React.FC<{
           </button>
           <button
             onClick={() => onStartPractice(active._id, 'mock')}
-            className="px-2 py-1 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors font-bold uppercase text-[9px]"
+            className="px-2 py-1 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors font-bold uppercase text-[9px] rounded-lg"
           >
             Thi thử
           </button>

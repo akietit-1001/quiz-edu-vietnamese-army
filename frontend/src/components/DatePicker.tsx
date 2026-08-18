@@ -24,12 +24,32 @@ const parseISO = (iso: string) => {
 const toISO = (y: number, m: number, d: number) =>
   `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
+const formatDisplay = (iso: string) => {
+  const parsed = parseISO(iso);
+  if (!parsed) return '';
+  return `${String(parsed.d).padStart(2, '0')}/${String(parsed.m).padStart(2, '0')}/${parsed.y}`;
+};
+
+// Chấp nhận gõ tay dd/mm/yyyy — chỉ coi là hợp lệ khi đủ 3 phần và tạo được
+// đúng ngày đó thật (chặn kiểu 31/02/2026 tự động lăn sang tháng 3).
+const parseDisplay = (text: string) => {
+  const match = text.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const d = Number(match[1]);
+  const m = Number(match[2]);
+  const y = Number(match[3]);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const test = new Date(y, m - 1, d);
+  if (test.getFullYear() !== y || test.getMonth() !== m - 1 || test.getDate() !== d) return null;
+  return { y, m, d };
+};
+
 // Custom datepicker đồng bộ giao diện quân sự (border/olive/gold, rounded-lg)
-// thay cho <input type="date"> mặc định của trình duyệt (mỗi hệ điều hành vẽ
-// popup lịch một kiểu khác nhau, không đồng bộ với theme của trang).
+// thay cho <input type="date"> mặc định của trình duyệt — vừa gõ tay
+// dd/mm/yyyy được, vừa chọn trên lịch, cả hai luôn khớp nhau.
 //
 // Panel lịch được render qua portal vào document.body (position: fixed, toạ
-// độ lấy từ getBoundingClientRect() của nút bấm) thay vì absolute lồng trong
+// độ lấy từ getBoundingClientRect() của ô nhập) thay vì absolute lồng trong
 // cây DOM — nếu không, ancestor có overflow-hidden/auto hoặc đang transition
 // (VD: khung lọc nâng cao trượt xuống) sẽ cắt/vỡ hình panel khi xổ xuống.
 export const DatePicker: React.FC<DatePickerProps> = ({
@@ -42,12 +62,22 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   className
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [text, setText] = useState(() => formatDisplay(value));
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const selected = parseISO(value);
   const today = new Date();
   const [viewYear, setViewYear] = useState(selected?.y ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState((selected?.m ?? today.getMonth() + 1) - 1); // 0-based
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Đồng bộ lại ô nhập mỗi khi value đổi từ bên ngoài (chọn ngày trên lịch,
+  // "Hôm nay", "Xóa", reset form...) — trừ khi người dùng đang gõ dở.
+  useEffect(() => {
+    if (!isFocused) {
+      setText(formatDisplay(value));
+    }
+  }, [value, isFocused]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -70,11 +100,33 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       setViewYear(selected.y);
       setViewMonth(selected.m - 1);
     }
-    const rect = triggerRef.current?.getBoundingClientRect();
+    const rect = inputRef.current?.getBoundingClientRect();
     if (rect) {
       setPos({ top: rect.bottom + 4, left: rect.left });
     }
     setIsOpen(true);
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    openPicker();
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    // Gõ dở/không hợp lệ lúc rời ô thì khôi phục lại đúng giá trị đang lưu.
+    setText(formatDisplay(value));
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    setText(raw);
+    const parsed = parseDisplay(raw);
+    if (parsed) {
+      onChange(toISO(parsed.y, parsed.m, parsed.d));
+      setViewYear(parsed.y);
+      setViewMonth(parsed.m - 1);
+    }
   };
 
   const goToPrevMonth = () => {
@@ -113,10 +165,6 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
   ];
 
-  const displayText = selected
-    ? `${String(selected.d).padStart(2, '0')}/${String(selected.m).padStart(2, '0')}/${selected.y}`
-    : '';
-
   const isToday = (day: number) =>
     viewYear === today.getFullYear() && viewMonth === today.getMonth() && day === today.getDate();
   const isSelected = (day: number) =>
@@ -124,20 +172,25 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
   return (
     <div className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
+      <input
+        ref={inputRef}
+        type="text"
         id={id}
-        onClick={() => (isOpen ? setIsOpen(false) : openPicker())}
+        name={name}
+        required={required}
+        autoComplete="off"
+        inputMode="numeric"
+        value={text}
+        onChange={handleTextChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        placeholder={placeholder}
         className={
           className ||
-          'w-full text-xs p-2 pr-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold text-left rounded-lg'
+          'w-full text-xs p-2 pr-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg'
         }
-      >
-        {displayText || <span className="text-gray-400">{placeholder}</span>}
-      </button>
+      />
       <CalendarBlank size={15} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-vpa-olive-light pointer-events-none" />
-      {required && <input type="hidden" name={name} value={value} required />}
 
       {isOpen && pos && createPortal(
         <>

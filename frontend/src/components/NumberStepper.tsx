@@ -69,7 +69,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
           tabIndex={-1}
           disabled={disabled}
           onClick={() => handleStep(1)}
-          className="flex-1 px-1.5 flex items-center justify-center text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light leading-none disabled:opacity-40 rounded-lg"
+          className="flex-1 px-1.5 flex items-center justify-center text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light leading-none disabled:opacity-40"
         >
           <CaretUp size={9} weight="bold" />
         </button>
@@ -78,7 +78,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
           tabIndex={-1}
           disabled={disabled}
           onClick={() => handleStep(-1)}
-          className="flex-1 px-1.5 flex items-center justify-center text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors leading-none disabled:opacity-40 rounded-lg"
+          className="flex-1 px-1.5 flex items-center justify-center text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors leading-none disabled:opacity-40"
         >
           <CaretDown size={9} weight="bold" />
         </button>

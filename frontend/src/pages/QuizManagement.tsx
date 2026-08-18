@@ -1243,7 +1243,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-vpa-olive-light/30">
         <div className="flex items-center space-x-4">
           <button
-            onClick={onNavigateBack}
+            onClick={() => (isQuizSubviewOpen ? closeQuizSubview() : onNavigateBack())}
             className="p-2 border border-vpa-olive-light/30 hover:bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand transition-colors"
           >
             <ArrowLeft size={18} />
@@ -1340,7 +1340,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     value={searchQuiz}
                     onChange={e => setSearchQuiz(e.target.value)}
                     placeholder="Tìm kiếm đề thi..."
-                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64 rounded-lg"
+                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64"
                   />
                   <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
                 </div>
@@ -1348,7 +1348,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => setShowQuizAdvancedFilter(prev => !prev)}
-                  className={`rounded-lg ml-auto flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                  className={`ml-auto flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
                     showQuizAdvancedFilter || quizAdvancedFilterCount > 0
                       ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                       : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
@@ -1673,34 +1673,34 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
                                   {/* Dropdown Menu Box — rendered via portal so the table's overflow-x-auto wrapper can't clip it */}
                                   <div
-                                    className="fixed w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-50 rounded-lg flex flex-col py-1 animate-fadeIn"
+                                    className="fixed w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-50 rounded-lg overflow-hidden flex flex-col animate-fadeIn"
                                     style={{ top: dropdownPos.top, left: dropdownPos.left }}
                                   >
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleViewQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10 rounded-lg"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
                                     >
                                       Xem đề
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10 rounded-lg"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
                                     >
                                       Sửa đề
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleOpenExportPopup(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10 rounded-lg"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
                                     >
                                       Xuất bản
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
                                     >
                                       Xóa đề
                                     </button>
@@ -2563,7 +2563,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     value={searchBank}
                     onChange={e => setSearchBank(e.target.value)}
                     placeholder="Tìm câu hỏi..."
-                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-48 rounded-lg"
+                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-48"
                   />
                   <MagnifyingGlass size={14} className="absolute left-2.5 top-3 text-gray-500" />
                 </div>
@@ -2572,7 +2572,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <button
                     type="button"
                     onClick={() => setShowBankAdvancedFilter(prev => !prev)}
-                    className={`rounded-lg flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                    className={`flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
                       showBankAdvancedFilter || bankAdvancedFilterCount > 0
                         ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                         : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'

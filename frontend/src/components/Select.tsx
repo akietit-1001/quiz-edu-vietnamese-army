@@ -110,7 +110,7 @@ export const Select: React.FC<SelectProps> = ({
         <>
           <div className="fixed inset-0 z-[90] cursor-default" onClick={() => setIsOpen(false)} />
           <div
-            className="fixed z-[100] max-h-64 overflow-y-auto border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg py-1 animate-scale-up"
+            className="fixed z-[100] max-h-64 overflow-y-auto overflow-x-hidden border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg animate-scale-up"
             style={{ top: pos.top, left: pos.left, width: pos.width }}
           >
             {options.map((opt, idx) => (
