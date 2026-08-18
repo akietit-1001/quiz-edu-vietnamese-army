@@ -3,6 +3,7 @@ dotenv.config();
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import express from 'express';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
 import app from './app.js';
