@@ -72,7 +72,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
         <img src="/BQP.png" alt="Bộ Quốc Phòng" className="w-14 h-14 object-contain" />
       </div>
 
-      <div className="w-full max-w-md bg-vpa-sand-light/65 dark:bg-vpa-dark-card/50 backdrop-blur-md border border-vpa-olive-light/20 dark:border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.35)] relative z-10 rounded-none">
+      <div className="w-full max-w-md bg-vpa-sand-light/65 dark:bg-vpa-dark-card/50 backdrop-blur-md border border-vpa-olive-light/20 dark:border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.35)] relative z-10 rounded-lg">
         
         {/* Border corner decorations */}
         <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-vpa-gold" />
@@ -167,7 +167,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
         ) : (
           /* 2FA OTP Form */
           <form onSubmit={handle2FAVerify} className="space-y-6">
-            <div className="p-3 bg-vpa-olive/5 border border-vpa-olive-light/30 text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed rounded-none">
+            <div className="p-3 bg-vpa-olive/5 border border-vpa-olive-light/30 text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed rounded-lg">
               {message2FA}
             </div>
 

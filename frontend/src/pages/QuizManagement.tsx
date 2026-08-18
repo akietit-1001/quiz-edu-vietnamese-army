@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon } from '@phosphor-icons/react';
+import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
 import { PrintPreviewModal } from '../components/PrintPreviewModal';
+import { useSubviewBack } from '../hooks/useSubviewBack';
+import { DatePicker } from '../components/DatePicker';
+import { NumberStepper } from '../components/NumberStepper';
+import { Select } from '../components/Select';
 
 interface QuizManagementProps {
   user?: any;
@@ -1053,6 +1057,21 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setGenRules([{ category: 'Chính trị', difficulty: 'Dễ', count: 10 }]);
   };
 
+  // Đóng bất kỳ sub-view (form tạo/sửa, import, rút đề, sinh AI, xem chi
+  // tiết...) nào đang mở, kèm reset state tương ứng — dùng chung cho cả nút
+  // "Hủy bỏ"/"Đóng lại" lẫn khi nút Back trình duyệt được bấm.
+  const closeQuizSubview = () => {
+    if (isCreating) { setIsCreating(false); resetManualForm(); }
+    if (isGenerating) { setIsGenerating(false); resetGenForm(); }
+    if (isImporting) { setIsImporting(false); setSelectedFile(null); }
+    if (isGeneratingAI) { setIsGeneratingAI(false); setAiFiles([]); }
+    if (isAddingToBank) { setIsAddingToBank(false); resetBankQForm(); }
+    if (viewingQuiz) setViewingQuiz(null);
+  };
+
+  const isQuizSubviewOpen = isCreating || isGenerating || isImporting || isGeneratingAI || isAddingToBank || !!viewingQuiz;
+  useSubviewBack(isQuizSubviewOpen, closeQuizSubview);
+
   // Nội dung layout đề thi dùng chung cho cả bản in thật (portal) và bản xem
   // trước (modal) — đảm bảo xem trước khớp 100% với file in ra.
   const renderQuizPrintContent = (data: QuizPrintData) => (
@@ -1341,26 +1360,26 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chuyên ngành</label>
-                      <select
+                      <Select
                         value={quizCategoryFilter}
-                        onChange={e => setQuizCategoryFilter(e.target.value)}
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                        onChange={setQuizCategoryFilter}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
                       >
                         <option value="">Tất cả</option>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Trạng thái</label>
-                      <select
+                      <Select
                         value={quizStatusFilter}
-                        onChange={e => setQuizStatusFilter(e.target.value)}
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                        onChange={setQuizStatusFilter}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
                       >
                         <option value="">Tất cả</option>
                         <option value="true">Công khai</option>
                         <option value="false">Nội bộ</option>
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đồng chí soạn</label>
@@ -1406,20 +1425,18 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Tạo từ ngày</label>
-                      <input
-                        type="date"
+                      <DatePicker
                         value={quizCreatedFrom}
-                        onChange={e => setQuizCreatedFrom(e.target.value)}
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                        onChange={setQuizCreatedFrom}
+                        className="w-full text-xs p-2 pr-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold text-left rounded-lg"
                       />
                     </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đến ngày</label>
-                      <input
-                        type="date"
+                      <DatePicker
                         value={quizCreatedTo}
-                        onChange={e => setQuizCreatedTo(e.target.value)}
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold"
+                        onChange={setQuizCreatedTo}
+                        className="w-full text-xs p-2 pr-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold text-left rounded-lg"
                       />
                     </div>
                     <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
@@ -1440,7 +1457,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
           {/* List Quizzes Table */}
           {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
               <div className="overflow-x-auto">
                 <table className={`w-full text-left border-collapse text-xs ${quizResized ? 'table-fixed' : ''}`}>
                   <thead>
@@ -1646,7 +1663,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
                                   {/* Dropdown Menu Box — rendered via portal so the table's overflow-x-auto wrapper can't clip it */}
                                   <div
-                                    className="fixed w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-50 rounded-none flex flex-col py-1 animate-fadeIn"
+                                    className="fixed w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-50 rounded-lg flex flex-col py-1 animate-fadeIn"
                                     style={{ top: dropdownPos.top, left: dropdownPos.left }}
                                   >
                                     <button
@@ -1760,7 +1777,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* Manual creation form */}
           {isCreating && (
             <form onSubmit={handleSaveManualQuiz} className="space-y-6">
-              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
+              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg space-y-4">
                 <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30">
                   Thông tin soạn đề thi
                 </h3>
@@ -1790,23 +1807,23 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành</label>
-                    <select
+                    <Select
                       value={category}
-                      onChange={e => setCategory(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                      onChange={setCategory}
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                     >
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Thời gian làm bài (Phút)</label>
-                    <input
-                      type="number"
+                    <NumberStepper
                       required
                       min={1}
                       value={duration}
-                      onChange={e => setDuration(parseInt(e.target.value))}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      onChange={setDuration}
+                      className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                      inputClassName="w-full min-w-0 text-xs p-2.5 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1824,14 +1841,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Phần trăm đạt yêu cầu (%)</label>
-                    <input
-                      type="number"
+                    <NumberStepper
                       required
                       min={1}
                       max={100}
                       value={passingScore}
-                      onChange={e => setPassingScore(parseInt(e.target.value))}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      onChange={setPassingScore}
+                      className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                      inputClassName="w-full min-w-0 text-xs p-2.5 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                     />
                   </div>
                   <div className="flex items-center pt-5">
@@ -1850,16 +1867,16 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-vpa-olive-light/20 pt-4">
                     <div className="md:col-span-2">
                       <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Xáo trộn và sinh nhiều mã đề thi (Tối đa 4 mã đề)</label>
-                      <select
-                        value={numCodes}
-                        onChange={e => setNumCodes(parseInt(e.target.value))}
-                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand font-bold"
+                      <Select
+                        value={String(numCodes)}
+                        onChange={v => setNumCodes(parseInt(v))}
+                        className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand font-bold rounded-lg flex items-center justify-between gap-2"
                       >
-                        <option value={1} className="dark:bg-vpa-dark">Không xáo trộn (Chỉ tạo 1 đề)</option>
-                        <option value={2} className="dark:bg-vpa-dark">Tạo 2 mã đề</option>
-                        <option value={3} className="dark:bg-vpa-dark">Tạo 3 mã đề</option>
-                        <option value={4} className="dark:bg-vpa-dark">Tạo 4 mã đề</option>
-                      </select>
+                        <option value="1">Không xáo trộn (Chỉ tạo 1 đề)</option>
+                        <option value="2">Tạo 2 mã đề</option>
+                        <option value="3">Tạo 3 mã đề</option>
+                        <option value="4">Tạo 4 mã đề</option>
+                      </Select>
                       <span className="text-[9px] text-gray-400 mt-1 block">Hệ thống sẽ tự động xáo trộn ngẫu nhiên thứ tự câu hỏi và thứ tự đáp án (A, B, C, D) cho từng mã đề thi khi đồng chí bấm Lưu.</span>
                     </div>
                   </div>
@@ -1883,7 +1900,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 {questions.map((q, qIdx) => (
                   <div
                     key={qIdx}
-                    className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4"
+                    className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg space-y-4"
                   >
                     <div className="flex justify-between items-start">
                       <span className="font-mono text-xs font-bold text-vpa-gold">CÂU HỎI {qIdx + 1}</span>
@@ -1921,10 +1938,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Dạng câu hỏi</label>
-                        <select
+                        <Select
                           value={q.questionType}
-                          onChange={e => {
-                            const type = e.target.value;
+                          onChange={(type: string) => {
                             let options: string[] = [];
                             let correctAnswers: string[] = ['0'];
                             if (type === 'multiple-choice') options = ['', '', '', ''];
@@ -1940,12 +1956,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                             updated[qIdx] = { ...updated[qIdx], questionType: type, options, correctAnswers };
                             setQuestions(updated);
                           }}
-                          className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                          className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                         >
                           <option value="multiple-choice">Trắc nghiệm A, B, C, D</option>
                           <option value="true-false">Đúng / Sai</option>
                           <option value="fill-in-the-blank">Điền vào ô trống</option>
-                        </select>
+                        </Select>
                       </div>
                     </div>
 
@@ -2061,7 +2077,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* C. AUTO GENERATION FORM */}
           {isGenerating && (
             <form onSubmit={handleAutoGenerateSubmit} className="space-y-6">
-              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
+              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg space-y-4">
                 <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30 flex items-center space-x-2">
                   <Shuffle size={18} className="text-vpa-gold" />
                   <span>Rút đề ngẫu nhiên từ Ngân hàng câu hỏi tập trung</span>
@@ -2094,25 +2110,25 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Thời gian làm bài (Phút)</label>
-                    <input
-                      type="number"
+                    <NumberStepper
                       required
                       min={1}
                       value={genDuration}
-                      onChange={e => setGenDuration(parseInt(e.target.value))}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      onChange={setGenDuration}
+                      className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                      inputClassName="w-full min-w-0 text-xs p-2.5 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Phần trăm đạt yêu cầu (%)</label>
-                    <input
-                      type="number"
+                    <NumberStepper
                       required
                       min={1}
                       max={100}
                       value={genPassingScore}
-                      onChange={e => setGenPassingScore(parseInt(e.target.value))}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      onChange={setGenPassingScore}
+                      className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                      inputClassName="w-full min-w-0 text-xs p-2.5 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                     />
                   </div>
                   <div className="flex items-center pt-5">
@@ -2129,7 +2145,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               </div>
 
               {/* Rút đề criteria rules builder */}
-              <div className="space-y-4 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+              <div className="space-y-4 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
                 <div className="flex justify-between items-center border-b border-vpa-olive-light/20 pb-2 mb-4">
                   <h4 className="text-xs font-bold uppercase tracking-wider">Tiêu chí rút ngẫu nhiên câu hỏi</h4>
                   <button
@@ -2146,33 +2162,33 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     <div key={idx} className="flex items-center space-x-4">
                       <div className="w-1/3">
                         <label className="block text-[9px] uppercase text-gray-500 mb-1">Chuyên ngành</label>
-                        <select
+                        <Select
                           value={rule.category}
-                          onChange={e => handleRuleChange(idx, 'category', e.target.value)}
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand focus:outline-none"
+                          onChange={v => handleRuleChange(idx, 'category', v)}
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none rounded-lg flex items-center justify-between gap-2"
                         >
                           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        </Select>
                       </div>
                       <div className="w-1/3">
                         <label className="block text-[9px] uppercase text-gray-500 mb-1">Độ khó</label>
-                        <select
+                        <Select
                           value={rule.difficulty}
-                          onChange={e => handleRuleChange(idx, 'difficulty', e.target.value)}
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand focus:outline-none"
+                          onChange={v => handleRuleChange(idx, 'difficulty', v)}
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none rounded-lg flex items-center justify-between gap-2"
                         >
                           {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                        </select>
+                        </Select>
                       </div>
                       <div className="w-1/4">
                         <label className="block text-[9px] uppercase text-gray-500 mb-1">Số lượng câu</label>
-                        <input
-                          type="number"
+                        <NumberStepper
                           required
                           min={1}
                           value={rule.count}
-                          onChange={e => handleRuleChange(idx, 'count', parseInt(e.target.value))}
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none"
+                          onChange={v => handleRuleChange(idx, 'count', v)}
+                          className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                          inputClassName="w-full min-w-0 text-xs p-2 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                         />
                       </div>
                       <button
@@ -2209,7 +2225,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* Import file form */}
           {isImporting && (
             <form onSubmit={handleImportSubmit} className="space-y-6">
-              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
+              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg space-y-4">
                 <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30">
                   Cài đặt bộ đề nhập tệp (Import)
                 </h3>
@@ -2228,38 +2244,38 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành</label>
-                    <select
+                    <Select
                       value={importCategory}
-                      onChange={e => setImportCategory(e.target.value)}
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                      onChange={setImportCategory}
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                     >
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Thời gian làm bài (Phút)</label>
-                    <input
-                      type="number"
+                    <NumberStepper
                       required
                       min={1}
                       value={importDuration}
-                      onChange={e => setImportDuration(parseInt(e.target.value))}
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      onChange={setImportDuration}
+                      className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                      inputClassName="w-full min-w-0 text-xs p-2 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Điểm đạt (%)</label>
-                    <input
-                      type="number"
+                    <NumberStepper
                       required
                       min={1}
                       max={100}
                       value={importPassingScore}
-                      onChange={e => setImportPassingScore(parseInt(e.target.value))}
-                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                      onChange={setImportPassingScore}
+                      className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                      inputClassName="w-full min-w-0 text-xs p-2 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                     />
                   </div>
                 </div>
@@ -2305,7 +2321,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {isGeneratingAI && (
             <div className="space-y-6">
               {aiLoading ? (
-                <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 shadow-md rounded-none flex flex-col items-center justify-center min-h-[380px] space-y-6">
+                <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 shadow-md rounded-lg flex flex-col items-center justify-center min-h-[380px] space-y-6">
                   {/* Rotating AI/Brain Icon with pulsating light */}
                   <div className="relative">
                     <div className="absolute inset-0 animate-ping rounded-full bg-vpa-gold/15 filter blur-sm"></div>
@@ -2378,7 +2394,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 </div>
               ) : (
                 <form onSubmit={handleAIGenerateSubmit} className="space-y-6">
-                  <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
+                  <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg space-y-4">
                     <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30 flex items-center space-x-2">
                       <Brain size={18} className="text-vpa-gold" />
                       <span>Tạo đề trắc nghiệm bằng Trí tuệ Nhân tạo (AI)</span>
@@ -2391,38 +2407,38 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành học tập</label>
-                        <select
+                        <Select
                           value={aiCategory}
-                          onChange={e => setAiCategory(e.target.value)}
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                          onChange={setAiCategory}
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                         >
                           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        </Select>
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Số lượng câu hỏi cần tạo</label>
-                        <input
-                          type="number"
+                        <NumberStepper
                           required
                           min={5}
                           max={50}
                           value={aiNumQuestions}
-                          onChange={e => setAiNumQuestions(parseInt(e.target.value))}
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                          onChange={setAiNumQuestions}
+                          className="flex items-stretch w-full border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                          inputClassName="w-full min-w-0 text-xs p-2 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none"
                         />
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Tạo nhiều mã đề thi</label>
-                        <select
-                          value={numCodes}
-                          onChange={e => setNumCodes(parseInt(e.target.value))}
-                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand font-bold"
+                        <Select
+                          value={String(numCodes)}
+                          onChange={v => setNumCodes(parseInt(v))}
+                          className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand font-bold rounded-lg flex items-center justify-between gap-2"
                         >
-                          <option value={1} className="dark:bg-vpa-dark">Không xáo trộn (Chỉ 1 đề)</option>
-                          <option value={2} className="dark:bg-vpa-dark">Tạo 2 mã đề</option>
-                          <option value={3} className="dark:bg-vpa-dark">Tạo 3 mã đề</option>
-                          <option value={4} className="dark:bg-vpa-dark">Tạo 4 mã đề</option>
-                        </select>
+                          <option value="1">Không xáo trộn (Chỉ 1 đề)</option>
+                          <option value="2">Tạo 2 mã đề</option>
+                          <option value="3">Tạo 3 mã đề</option>
+                          <option value="4">Tạo 4 mã đề</option>
+                        </Select>
                       </div>
                   </div>
 
@@ -2577,38 +2593,38 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chuyên ngành</label>
-                      <select
+                      <Select
                         value={categoryFilter}
-                        onChange={e => setCategoryFilter(e.target.value)}
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                        onChange={setCategoryFilter}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
                       >
                         <option value="">Tất cả</option>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Độ khó</label>
-                      <select
+                      <Select
                         value={difficultyFilter}
-                        onChange={e => setDifficultyFilter(e.target.value)}
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                        onChange={setDifficultyFilter}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
                       >
                         <option value="">Tất cả</option>
                         {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Dạng câu hỏi</label>
-                      <select
+                      <Select
                         value={typeFilter}
-                        onChange={e => setTypeFilter(e.target.value)}
-                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                        onChange={setTypeFilter}
+                        className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
                       >
                         <option value="">Tất cả</option>
                         <option value="multiple-choice">Trắc nghiệm</option>
                         <option value="true-false">Đúng / Sai</option>
                         <option value="fill-in-the-blank">Điền vào ô trống</option>
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đồng chí soạn</label>
@@ -2638,7 +2654,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
           {/* List bank questions */}
           {!isAddingToBank && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
               <div className="overflow-x-auto">
                 <table className={`w-full text-left border-collapse text-xs ${bankResized ? 'table-fixed' : ''}`}>
                   <thead>
@@ -2846,7 +2862,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* Add/Edit Question to Bank form */}
           {isAddingToBank && (
             <form onSubmit={handleAddQuestionToBank} className="space-y-6">
-              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none space-y-4">
+              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg space-y-4">
                 <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand pb-2 border-b border-vpa-olive-light/30 flex items-center space-x-2">
                   <Database size={18} className="text-vpa-gold" />
                   <span>{editingBankQId ? 'Chỉnh sửa câu hỏi trong ngân hàng chung' : 'Khai báo câu hỏi mới vào ngân hàng chung'}</span>
@@ -2866,10 +2882,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Dạng câu hỏi</label>
-                    <select
+                    <Select
                       value={bankQType}
-                      onChange={e => {
-                        const type = e.target.value;
+                      onChange={(type: string) => {
                         let options: string[] = [];
                         let correctAnswers: string[] = ['0'];
                         if (type === 'multiple-choice') options = ['', '', '', ''];
@@ -2885,35 +2900,35 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         setBankQOptions(options);
                         setBankQAnswers(correctAnswers);
                       }}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                     >
                       <option value="multiple-choice">Trắc nghiệm A, B, C, D</option>
                       <option value="true-false">Đúng / Sai</option>
                       <option value="fill-in-the-blank">Điền vào ô trống</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Chuyên ngành</label>
-                    <select
+                    <Select
                       value={bankQCategory}
-                      onChange={e => setBankQCategory(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                      onChange={setBankQCategory}
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                     >
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Độ khó của câu hỏi</label>
-                    <select
+                    <Select
                       value={bankQDifficulty}
-                      onChange={e => setBankQDifficulty(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand"
+                      onChange={setBankQDifficulty}
+                      className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                     >
                       {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
@@ -3046,7 +3061,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <div className="w-full max-w-4xl h-[90vh] max-h-[900px] border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none flex flex-col relative">
+            <div className="w-full max-w-4xl h-[90vh] max-h-[900px] border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg flex flex-col relative">
               
               {/* Header */}
               <div className="flex justify-between items-center border-b border-vpa-olive-light pb-3 mb-6 flex-shrink-0">
@@ -3056,24 +3071,30 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     {currentQuizToShow.title}
                   </h3>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
                   <button
+                    type="button"
                     onClick={() => { setViewingQuiz(null); handleEditQuiz(currentQuizToShow); }}
-                    className="text-xs uppercase font-bold hover:underline text-vpa-olive dark:text-vpa-gold"
+                    title="Sửa mã đề này"
+                    className="p-2 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
                   >
-                    Sửa mã đề này
+                    <PencilSimple size={16} />
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleDeleteQuiz(currentQuizToShow, activeVersionTab === 'parent' ? variants.length : undefined)}
-                    className="text-xs uppercase font-bold hover:underline text-vpa-red"
+                    title="Xóa mã đề này"
+                    className="p-2 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
                   >
-                    Xóa mã đề này
+                    <Trash size={16} />
                   </button>
                   <button
+                    type="button"
                     onClick={() => setViewingQuiz(null)}
-                    className="text-xs uppercase font-bold hover:underline text-vpa-olive dark:text-vpa-sand"
+                    title="Đóng lại"
+                    className="p-2 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
                   >
-                    Đóng lại
+                    <X size={16} />
                   </button>
                 </div>
               </div>
@@ -3086,7 +3107,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       key={ver.id}
                       type="button"
                       onClick={() => setActiveVersionTab(ver.id)}
-                      className={`px-4 py-1.5 text-xs font-bold transition-all uppercase rounded-none ${
+                      className={`px-4 py-1.5 text-xs font-bold transition-all uppercase rounded-lg ${
                         activeVersionTab === ver.id
                           ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark shadow'
                           : 'text-vpa-olive-light dark:text-vpa-sand hover:bg-vpa-sand-light dark:hover:bg-vpa-dark-card/50'

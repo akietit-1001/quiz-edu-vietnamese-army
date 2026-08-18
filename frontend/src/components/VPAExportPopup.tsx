@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from '@phosphor-icons/react';
+import { NumberStepper } from './NumberStepper';
 
 interface VPAExportPopupProps {
   isOpen: boolean;
@@ -344,13 +345,13 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn lg:h-[85vh] lg:max-h-[850px] max-h-[95vh] overflow-y-auto lg:overflow-hidden relative">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn lg:h-[85vh] lg:max-h-[850px] max-h-[95vh] overflow-y-auto lg:overflow-hidden relative">
         
         {/* Absolute Close Button (X) */}
         <button
           type="button"
           onClick={onCancel}
-          className="absolute top-4 right-4 text-vpa-olive-light hover:text-vpa-red dark:text-vpa-sand/50 dark:hover:text-vpa-red transition-colors p-1.5 z-50 rounded-none border border-transparent hover:border-vpa-red/20 hover:bg-vpa-red/5"
+          className="absolute top-4 right-4 text-vpa-olive-light hover:text-vpa-red dark:text-vpa-sand/50 dark:hover:text-vpa-red transition-colors p-1.5 z-50 rounded-lg border border-transparent hover:border-vpa-red/20 hover:bg-vpa-red/5"
           title="Đóng"
         >
           <X size={18} weight="bold" />
@@ -361,7 +362,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
           <div>
             {/* Header decoration */}
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3.5 h-3.5 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
+              <div className="w-3.5 h-3.5 bg-vpa-gold dark:bg-vpa-gold-bright rounded-lg" />
               <h3 className="text-sm font-black tracking-wide uppercase text-vpa-olive dark:text-vpa-sand">
                 Cấu hình
               </h3>
@@ -376,7 +377,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 <button
                   type="button"
                   onClick={() => setFormat('docx')}
-                  className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-none ${
+                  className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-lg ${
                     format === 'docx'
                       ? 'border-blue-600 bg-blue-50/10 text-blue-800 dark:text-blue-300 shadow'
                       : 'border-vpa-olive-light/30 text-gray-400 hover:border-vpa-olive-light'
@@ -389,7 +390,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 <button
                   type="button"
                   onClick={() => setFormat('pdf')}
-                  className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-none ${
+                  className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-lg ${
                     format === 'pdf'
                       ? 'border-red-600 bg-red-50/10 text-red-800 dark:text-red-300 shadow'
                       : 'border-vpa-olive-light/30 text-gray-400 hover:border-vpa-olive-light'
@@ -404,7 +405,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                     <button
                       type="button"
                       onClick={() => setFormat('xlsx')}
-                      className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-none ${
+                      className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-lg ${
                         format === 'xlsx'
                           ? 'border-green-600 bg-green-50/10 text-green-800 dark:text-green-300 shadow'
                           : 'border-vpa-olive-light/30 text-gray-400 hover:border-vpa-olive-light'
@@ -417,7 +418,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                     <button
                       type="button"
                       onClick={() => setFormat('csv')}
-                      className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-none ${
+                      className={`p-3 border flex flex-col items-center justify-center space-y-1.5 transition-all rounded-lg ${
                         format === 'csv'
                           ? 'border-green-700 bg-green-50/20 text-green-800 dark:text-green-300 shadow'
                           : 'border-vpa-olive-light/30 text-gray-400 hover:border-vpa-olive-light'
@@ -450,7 +451,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                           setSelectedQuizIds(prev => prev.filter(id => id !== previewData._id));
                         }
                       }}
-                      className="w-4 h-4 accent-vpa-gold rounded-none cursor-pointer"
+                      className="w-4 h-4 accent-vpa-gold rounded-lg cursor-pointer"
                     />
                     <span className="text-xs text-vpa-olive dark:text-vpa-sand">
                       Mã đề {previewData.examCode || 'Gốc'}
@@ -471,7 +472,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                               setSelectedQuizIds(prev => prev.filter(id => id !== v._id));
                             }
                           }}
-                          className="w-4 h-4 accent-vpa-gold rounded-none cursor-pointer"
+                          className="w-4 h-4 accent-vpa-gold rounded-lg cursor-pointer"
                         />
                         <span className="text-xs text-vpa-olive dark:text-vpa-sand">
                           Mã đề {v.examCode || 'N/A'}
@@ -524,46 +525,46 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                     <div className="grid grid-cols-4 gap-1.5">
                       <div>
                         <span className="block text-[8px] text-gray-400 text-center mb-0.5">Trên (Top)</span>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
+                        <NumberStepper
+                          step={0.1}
+                          min={0}
                           value={marginTop}
-                          onChange={e => setMarginTop(parseFloat(e.target.value) || 0)}
-                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                          onChange={setMarginTop}
+                          className="flex items-stretch w-full border border-vpa-olive-light/30 bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                          inputClassName="w-full min-w-0 text-xs p-1 text-center bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
                         />
                       </div>
                       <div>
                         <span className="block text-[8px] text-gray-400 text-center mb-0.5">Dưới (Bot)</span>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
+                        <NumberStepper
+                          step={0.1}
+                          min={0}
                           value={marginBottom}
-                          onChange={e => setMarginBottom(parseFloat(e.target.value) || 0)}
-                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                          onChange={setMarginBottom}
+                          className="flex items-stretch w-full border border-vpa-olive-light/30 bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                          inputClassName="w-full min-w-0 text-xs p-1 text-center bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
                         />
                       </div>
                       <div>
                         <span className="block text-[8px] text-gray-400 text-center mb-0.5">Trái (Left)</span>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
+                        <NumberStepper
+                          step={0.1}
+                          min={0}
                           value={marginLeft}
-                          onChange={e => setMarginLeft(parseFloat(e.target.value) || 0)}
-                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                          onChange={setMarginLeft}
+                          className="flex items-stretch w-full border border-vpa-olive-light/30 bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                          inputClassName="w-full min-w-0 text-xs p-1 text-center bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
                         />
                       </div>
                       <div>
                         <span className="block text-[8px] text-gray-400 text-center mb-0.5">Phải (Right)</span>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
+                        <NumberStepper
+                          step={0.1}
+                          min={0}
                           value={marginRight}
-                          onChange={e => setMarginRight(parseFloat(e.target.value) || 0)}
-                          className="w-full text-xs p-1 text-center bg-transparent border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                          onChange={setMarginRight}
+                          className="flex items-stretch w-full border border-vpa-olive-light/30 bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                          inputClassName="w-full min-w-0 text-xs p-1 text-center bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono"
                         />
                       </div>
                     </div>
@@ -578,7 +579,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                       type="checkbox"
                       checked={mirrorMargins}
                       onChange={e => setMirrorMargins(e.target.checked)}
-                      className="w-4 h-4 accent-vpa-gold rounded-none cursor-pointer"
+                      className="w-4 h-4 accent-vpa-gold rounded-lg cursor-pointer"
                     />
                   </div>
                 </div>
@@ -596,7 +597,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 id="popup-showSignature"
                 checked={showSignature}
                 onChange={e => setShowSignature(e.target.checked)}
-                className="w-4.5 h-4.5 accent-vpa-gold rounded-none cursor-pointer"
+                className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
               />
             </div>
 
@@ -612,7 +613,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   id="popup-includeAnswers"
                   checked={includeAnswers}
                   onChange={e => setIncludeAnswers(e.target.checked)}
-                  className="w-4.5 h-4.5 accent-vpa-gold rounded-none cursor-pointer"
+                  className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
                 />
               </div>
             )}
@@ -694,7 +695,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
             <button
               type="button"
               onClick={handleConfirmClick}
-              className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold w-full md:w-auto text-center"
+              className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-lg font-bold w-full md:w-auto text-center"
             >
               {format === 'pdf' ? 'Xác nhận in PDF' : 'Xác nhận tải tệp'}
             </button>
@@ -714,7 +715,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   key={ver.id}
                   type="button"
                   onClick={() => setActivePreviewTab(ver.id)}
-                  className={`px-3 py-1 text-[10px] font-bold transition-all uppercase rounded-none flex items-center space-x-1.5 ${
+                  className={`px-3 py-1 text-[10px] font-bold transition-all uppercase rounded-lg flex items-center space-x-1.5 ${
                     activePreviewTab === ver.id
                       ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark shadow'
                       : 'text-vpa-olive-light dark:text-vpa-sand hover:bg-vpa-sand-light dark:hover:bg-vpa-dark-card/50'

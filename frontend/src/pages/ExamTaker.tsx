@@ -648,7 +648,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
         </div>
 
         {/* Right Side: Map Grid Selection Panel */}
-        <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none flex flex-col justify-between">
+        <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg flex flex-col justify-between">
           <div>
             <h3 className="text-[10px] font-mono font-bold uppercase tracking-wider border-b border-vpa-olive-light/30 pb-2 mb-4">
               Câu hỏi

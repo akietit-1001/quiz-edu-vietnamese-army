@@ -26,6 +26,9 @@ const RoomLobby = lazy(() => import('./pages/RoomLobby'));
 const ExamTaker = lazy(() => import('./pages/ExamTaker'));
 const RoomResults = lazy(() => import('./pages/RoomResults'));
 import { ArrowUp } from '@phosphor-icons/react';
+import { useSubviewBack } from './hooks/useSubviewBack';
+import { DatePicker } from './components/DatePicker';
+import { Select } from './components/Select';
 
 // Redux Integration
 import { useAppDispatch, useAppSelector } from './store/hooks';
@@ -506,6 +509,12 @@ export const App: React.FC = () => {
     dispatch(setCurrentView('dashboard'));
   };
 
+  // Cho phép nút Back trình duyệt đóng từng modal thay vì thoát thẳng ra
+  // trang trước đó — xem chi tiết trong useSubviewBack. Đặt trước early
+  // return của checkingAuth để không vi phạm Rules of Hooks.
+  useSubviewBack(showEditProfileModal, () => setShowEditProfileModal(false));
+  useSubviewBack(showChangePasswordModal, () => setShowChangePasswordModal(false));
+
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-[#070a09] flex flex-col items-center justify-center font-mono">
@@ -632,7 +641,7 @@ export const App: React.FC = () => {
       {showScrollTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-6 right-6 z-50 p-3 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark border border-vpa-olive-light/35 shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center rounded-none"
+          className="fixed bottom-6 right-6 z-50 p-3 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark border border-vpa-olive-light/35 shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center rounded-lg"
           title="Lên đầu trang"
         >
           <ArrowUp size={18} weight="bold" />
@@ -678,9 +687,9 @@ export const App: React.FC = () => {
       {/* Edit Profile Modal */}
       {showEditProfileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-          <div className="w-full max-w-lg border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn max-h-[90vh] overflow-y-auto">
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
+              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-lg" />
               <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
                 Cập nhật hồ sơ cá nhân
               </h3>
@@ -701,28 +710,28 @@ export const App: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cấp bậc</label>
-                  <select
+                  <Select
                     value={profileRank}
-                    onChange={e => setProfileRank(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    onChange={setProfileRank}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
                     {RANKS.map(rk => (
-                      <option key={rk} value={rk} className="dark:bg-vpa-dark">{rk}</option>
+                      <option key={rk} value={rk}>{rk}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ</label>
-                  <select
+                  <Select
                     value={profilePosition}
-                    onChange={e => setProfilePosition(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    onChange={setProfilePosition}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
                     {POSITIONS.map(ps => (
-                      <option key={ps} value={ps} className="dark:bg-vpa-dark">{ps}</option>
+                      <option key={ps} value={ps}>{ps}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -736,11 +745,10 @@ export const App: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Ngày sinh</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={profileDOB}
-                    onChange={e => setProfileDOB(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    onChange={setProfileDOB}
+                    className="w-full text-xs p-2 pr-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono text-left rounded-lg"
                   />
                 </div>
 
@@ -767,13 +775,13 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowEditProfileModal(false)}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
+                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-lg font-bold"
                 >
                   Cập nhật
                 </button>
@@ -786,9 +794,9 @@ export const App: React.FC = () => {
       {/* CHANGE PASSWORD MODAL */}
       {showChangePasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn">
+          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn">
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-red rounded-none" />
+              <div className="w-3 h-3 bg-vpa-red rounded-lg" />
               <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
                 Thay đổi mật khẩu quân nhân
               </h3>
@@ -843,14 +851,14 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowChangePasswordModal(false)}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={pwLoading}
-                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
+                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-lg font-bold"
                 >
                   {pwLoading ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
                 </button>

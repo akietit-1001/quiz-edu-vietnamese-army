@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Lock, ShieldWarningIcon, EnvelopeIcon, UserIcon, CalendarIcon, IdentificationCardIcon, BuildingOfficeIcon, Key } from '@phosphor-icons/react';
+import { Lock, ShieldWarningIcon, EnvelopeIcon, UserIcon, IdentificationCardIcon, BuildingOfficeIcon, Key } from '@phosphor-icons/react';
+import { DatePicker } from '../components/DatePicker';
+import { Select } from '../components/Select';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 
 interface RegisterProps {
@@ -100,7 +102,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
       <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-vpa-olive/15 dark:bg-vpa-olive/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-vpa-gold/10 dark:bg-vpa-gold/5 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="w-full max-w-2xl bg-vpa-sand-light/65 dark:bg-vpa-dark-card/50 backdrop-blur-md border border-vpa-olive-light/20 dark:border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.35)] relative z-10 rounded-none">
+      <div className="w-full max-w-2xl bg-vpa-sand-light/65 dark:bg-vpa-dark-card/50 backdrop-blur-md border border-vpa-olive-light/20 dark:border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.35)] relative z-10 rounded-lg">
         
         {/* Border corner decorations */}
         <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-vpa-gold" />
@@ -266,19 +268,14 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                     <label htmlFor="register-dateOfBirth" className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">
                       Ngày tháng năm sinh
                     </label>
-                    <div className="relative">
-                      <CalendarIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
-                      <input
-                        type="date"
-                        id="register-dateOfBirth"
-                        name="dateOfBirth"
-                        autoComplete="bday"
-                        required
-                        value={dateOfBirth}
-                        onChange={e => setDateOfBirth(e.target.value)}
-                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand"
-                      />
-                    </div>
+                    <DatePicker
+                      id="register-dateOfBirth"
+                      name="dateOfBirth"
+                      required
+                      value={dateOfBirth}
+                      onChange={setDateOfBirth}
+                      className="w-full text-sm p-2 pr-9 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand text-left rounded-lg"
+                    />
                   </div>
                 </div>
 
@@ -289,17 +286,16 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                       Cấp bậc quân hàm
                     </label>
                     <div className="relative">
-                      <select
+                      <Select
                         id="register-rank"
-                        name="rank"
                         value={rank}
-                        onChange={e => setRank(e.target.value)}
-                        className="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand dark:bg-vpa-dark-card"
+                        onChange={setRank}
+                        className="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                       >
                         {MILITARY_RANKS.map(r => (
                           <option key={r} value={r}>{r}</option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   </div>
 
@@ -390,7 +386,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
             </div>
 
             <form onSubmit={handleOTPVerify} className="space-y-6">
-              <div className="p-3 bg-vpa-olive/5 border border-vpa-olive-light/30 text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed rounded-none">
+              <div className="p-3 bg-vpa-olive/5 border border-vpa-olive-light/30 text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed rounded-lg">
                 {verificationMessage}
               </div>
 

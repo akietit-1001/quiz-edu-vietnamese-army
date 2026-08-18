@@ -317,7 +317,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={handleDeleteRoom}
-              className="px-4 py-2 bg-vpa-red hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded-none"
+              className="px-4 py-2 bg-vpa-red hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded-lg"
             >
               <Trash size={16} />
               <span>Xóa phòng thi</span>
@@ -336,7 +336,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
         {isHost && roomStatus === 'active' && (
           <button
             onClick={() => handleEndExam(false)}
-            className="px-4 py-2 bg-vpa-red hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded-none"
+            className="px-4 py-2 bg-vpa-red hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded-lg"
           >
             <WarningIcon size={16} />
             <span>Kết thúc cuộc thi (Đóng phòng)</span>
@@ -364,7 +364,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           <div className="space-y-6">
             
             {/* Room Info */}
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
               <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand mb-4 pb-2 border-b border-vpa-olive-light/20">
                 Thông tin phòng thi
               </h3>
@@ -408,7 +408,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                       {isHost && roomStatus === 'waiting' && (
                         <button
                           onClick={() => setIsEditingDuration(true)}
-                          className="ml-2 p-0.5 text-vpa-olive dark:text-vpa-sand hover:text-vpa-gold border border-vpa-olive-light/30 hover:border-vpa-gold rounded-none inline-flex items-center"
+                          className="ml-2 p-0.5 text-vpa-olive dark:text-vpa-sand hover:text-vpa-gold border border-vpa-olive-light/30 hover:border-vpa-gold rounded-lg inline-flex items-center"
                           title="Sửa thời gian"
                         >
                           <PencilSimple size={10} />
@@ -430,7 +430,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             </div>
 
             {/* Waiting Notice */}
-            <div className="border border-vpa-olive-light/50 bg-vpa-olive/5 dark:bg-vpa-gold/5 p-6 rounded-none">
+            <div className="border border-vpa-olive-light/50 bg-vpa-olive/5 dark:bg-vpa-gold/5 p-6 rounded-lg">
               <p className="text-xs text-vpa-olive dark:text-vpa-gold-bright font-bold uppercase tracking-wider leading-relaxed text-center animate-pulse-slow">
                 {roomStatus === 'waiting' 
                   ? 'Đang chờ chỉ huy mở đề thi...' 
@@ -441,7 +441,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               {!isHost && roomStatus === 'waiting' && (
                 <button
                   onClick={() => handleExitLobby(true)}
-                  className="w-full mt-4 py-2 border border-vpa-red/40 hover:bg-vpa-red text-vpa-red hover:text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-none"
+                  className="w-full mt-4 py-2 border border-vpa-red/40 hover:bg-vpa-red text-vpa-red hover:text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-lg"
                 >
                   Rời phòng thi
                 </button>
@@ -456,7 +456,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Left Half: Examinees */}
-              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand mb-6 pb-2 border-b border-vpa-olive-light/20 flex items-center space-x-2">
                   <Users size={18} className="text-vpa-olive dark:text-vpa-gold-bright" />
                   <span>Danh sách thí sinh ({examinees.length})</span>
@@ -469,7 +469,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                       className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-3 flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-vpa-olive/10 dark:bg-vpa-gold/10 border border-vpa-olive-light/30 flex items-center justify-center text-[10px] font-bold text-vpa-olive dark:text-vpa-gold font-mono uppercase rounded-none">
+                        <div className="w-8 h-8 bg-vpa-olive/10 dark:bg-vpa-gold/10 border border-vpa-olive-light/30 flex items-center justify-center text-[10px] font-bold text-vpa-olive dark:text-vpa-gold font-mono uppercase rounded-lg">
                           {part.userId.fullName.substring(0, 2)}
                         </div>
                         <div>
@@ -498,7 +498,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                         {isHost && roomStatus !== 'finished' && (
                           <button
                             onClick={() => handleKickParticipant(part.userId._id, part.userId.fullName)}
-                            className="p-1 border border-vpa-red/30 hover:bg-vpa-red text-vpa-red hover:text-white rounded-none transition-colors flex items-center justify-center"
+                            className="p-1 border border-vpa-red/30 hover:bg-vpa-red text-vpa-red hover:text-white rounded-lg transition-colors flex items-center justify-center"
                             title="Trục xuất"
                           >
                             <X size={10} weight="bold" />
@@ -514,7 +514,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               </div>
 
               {/* Right Half: Examiners */}
-              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+              <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand mb-6 pb-2 border-b border-vpa-olive-light/20 flex items-center space-x-2">
                   <ShieldCheck size={18} className="text-vpa-olive dark:text-vpa-gold-bright" />
                   <span>Ban giám khảo ({examiners.length})</span>
@@ -527,7 +527,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                       className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-3 flex items-center justify-between border-l-2 border-l-vpa-red"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-vpa-red/10 border border-vpa-red/30 flex items-center justify-center text-[10px] font-bold text-vpa-red font-mono uppercase rounded-none">
+                        <div className="w-8 h-8 bg-vpa-red/10 border border-vpa-red/30 flex items-center justify-center text-[10px] font-bold text-vpa-red font-mono uppercase rounded-lg">
                           {part.userId.fullName.substring(0, 2)}
                         </div>
                         <div>
@@ -548,7 +548,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                         {isHost && roomStatus !== 'finished' && (
                           <button
                             onClick={() => handleKickParticipant(part.userId._id, part.userId.fullName)}
-                            className="p-1 border border-vpa-red/30 hover:bg-vpa-red text-vpa-red hover:text-white rounded-none transition-colors flex items-center justify-center"
+                            className="p-1 border border-vpa-red/30 hover:bg-vpa-red text-vpa-red hover:text-white rounded-lg transition-colors flex items-center justify-center"
                             title="Trục xuất"
                           >
                             <X size={10} weight="bold" />

@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X } from '@phosphor-icons/react';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
+import { useSubviewBack } from '../hooks/useSubviewBack';
+import { DatePicker } from '../components/DatePicker';
+import { Select } from '../components/Select';
 
 interface UserManagementProps {
   user: any;
@@ -94,6 +97,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [renameValue, setRenameValue] = useState('');
   const [showAddUnitModal, setShowAddUnitModal] = useState(false);
   const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
+  const [viewingUnit, setViewingUnit] = useState<UnitNode | null>(null);
+  const [unitDetailIncludeSubUnits, setUnitDetailIncludeSubUnits] = useState(false);
 
   // Units this commander is allowed to assign people/sub-units into:
   // master-admin sees the whole tree, everyone else only their own branch.
@@ -140,6 +145,33 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     const scopedIds = new Set(assignableUnits.map(u => u._id));
     return assignableUnits.filter(u => !u.parentId || !scopedIds.has(u.parentId));
   }, [assignableUnits]);
+
+  // Full lookup (không giới hạn theo phạm vi quản lý) để dựng breadcrumb —
+  // GET /api/units trả về toàn bộ cây cho mọi người dùng đã đăng nhập.
+  const unitsById = React.useMemo(() => new Map(units.map(u => [u._id, u])), [units]);
+
+  const getUnitBreadcrumb = (unitId: string): UnitNode[] => {
+    const chain: UnitNode[] = [];
+    let current = unitsById.get(unitId);
+    while (current) {
+      chain.unshift(current);
+      current = current.parentId ? unitsById.get(current.parentId) : undefined;
+    }
+    return chain;
+  };
+
+  const getUnitAndDescendantIds = (unitId: string): string[] => {
+    const ids = [unitId];
+    (unitChildrenMap.get(unitId) || []).forEach(child => {
+      ids.push(...getUnitAndDescendantIds(child._id));
+    });
+    return ids;
+  };
+
+  const handleViewUnit = (unitToView: UnitNode) => {
+    setUnitDetailIncludeSubUnits(false);
+    setViewingUnit(unitToView);
+  };
 
   // Default "Đơn vị" khi mở popup thêm mới: master-admin -> đơn vị gốc duy nhất
   // của toàn hệ thống; chỉ huy cấp dưới -> đơn vị của chính họ (chỉ được thêm
@@ -200,6 +232,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
 
           {renamingUnitId !== nodeUnit._id && (
             <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => handleViewUnit(nodeUnit)}
+                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+              >
+                <Eye size={12} />
+              </button>
               <button
                 type="button"
                 onClick={() => handleStartRenameUnit(nodeUnit)}
@@ -272,6 +311,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     setError('');
     setSuccessMsg('');
     setShowFormModal(true);
+  };
+
+  // Mở form thêm quân nhân với đơn vị đã chốt sẵn (dùng từ popup chi tiết
+  // đơn vị) — gọi lại handleOpenCreateModal() rồi ghi đè unitId mặc định.
+  const handleOpenCreateModalForUnit = (presetUnitId: string) => {
+    handleOpenCreateModal();
+    setUnitId(presetUnitId);
   };
 
   const handleOpenEditModal = (targetUser: any) => {
@@ -517,6 +563,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     ];
   };
 
+  // Cho phép nút Back trình duyệt đóng từng modal thay vì thoát thẳng ra
+  // trang trước đó (VD: Dashboard) — xem chi tiết trong useSubviewBack.
+  useSubviewBack(showFormModal, () => setShowFormModal(false));
+  useSubviewBack(showAddUnitModal, () => setShowAddUnitModal(false));
+  useSubviewBack(!!viewingUnit, () => setViewingUnit(null));
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
@@ -647,68 +699,68 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
             <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cấp bậc</label>
-                <select
+                <Select
                   value={rankFilter}
-                  onChange={e => setRankFilter(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                  onChange={setRankFilter}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
-                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  <option value="">Tất cả</option>
                   {RANKS.map(rk => (
-                    <option key={rk} value={rk} className="dark:bg-vpa-dark">{rk}</option>
+                    <option key={rk} value={rk}>{rk}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ</label>
-                <select
+                <Select
                   value={positionFilter}
-                  onChange={e => setPositionFilter(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                  onChange={setPositionFilter}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
-                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  <option value="">Tất cả</option>
                   {POSITIONS.map(ps => (
-                    <option key={ps} value={ps} className="dark:bg-vpa-dark">{ps}</option>
+                    <option key={ps} value={ps}>{ps}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị</label>
-                <select
+                <Select
                   value={unitFilter}
-                  onChange={e => setUnitFilter(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                  onChange={setUnitFilter}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
-                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
+                  <option value="">Tất cả</option>
                   {assignableUnits.map(u => (
-                    <option key={u._id} value={u._id} className="dark:bg-vpa-dark">{u.name}</option>
+                    <option key={u._id} value={u._id}>{u.name}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Quyền hạn</label>
-                <select
+                <Select
                   value={roleFilter}
-                  onChange={e => setRoleFilter(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                  onChange={setRoleFilter}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
-                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
-                  <option value="user" className="dark:bg-vpa-dark">User</option>
-                  <option value="sub-admin" className="dark:bg-vpa-dark">Sub-Admin</option>
-                  <option value="admin" className="dark:bg-vpa-dark">Admin</option>
-                  <option value="master-admin" className="dark:bg-vpa-dark">Master-Admin</option>
-                </select>
+                  <option value="">Tất cả</option>
+                  <option value="user">User</option>
+                  <option value="sub-admin">Sub-Admin</option>
+                  <option value="admin">Admin</option>
+                  <option value="master-admin">Master-Admin</option>
+                </Select>
               </div>
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đối tượng</label>
-                <select
+                <Select
                   value={personnelTypeFilter}
-                  onChange={e => setPersonnelTypeFilter(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono dark:bg-vpa-dark-card"
+                  onChange={setPersonnelTypeFilter}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
-                  <option value="" className="dark:bg-vpa-dark">Tất cả</option>
-                  <option value="soldier" className="dark:bg-vpa-dark">Chiến sĩ</option>
-                  <option value="officer" className="dark:bg-vpa-dark">Cán bộ</option>
-                </select>
+                  <option value="">Tất cả</option>
+                  <option value="soldier">Chiến sĩ</option>
+                  <option value="officer">Cán bộ</option>
+                </Select>
               </div>
               <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
                 <button
@@ -726,7 +778,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       </div>
 
       {/* Users Table */}
-      <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-none overflow-hidden">
+      <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
@@ -881,10 +933,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       {/* Create / Edit Form Modal */}
       {showFormModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn max-h-[90vh] overflow-y-auto">
             {/* Header decoration */}
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
+              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-lg" />
               <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand">
                 {isEditing ? 'Cập nhật thông tin quân nhân' : 'Thêm quân nhân mới vào đơn vị'}
               </h3>
@@ -982,28 +1034,28 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Cấp bậc</label>
-                  <select
+                  <Select
                     value={rank}
-                    onChange={e => setRank(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    onChange={setRank}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
                     {RANKS.map(rk => (
-                      <option key={rk} value={rk} className="dark:bg-vpa-dark">{rk}</option>
+                      <option key={rk} value={rk}>{rk}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ</label>
-                  <select
+                  <Select
                     value={position}
-                    onChange={e => setPosition(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    onChange={setPosition}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
                     {POSITIONS.map(ps => (
-                      <option key={ps} value={ps} className="dark:bg-vpa-dark">{ps}</option>
+                      <option key={ps} value={ps}>{ps}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -1019,26 +1071,25 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
 
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Quyền truy cập hệ thống</label>
-                  <select
+                  <Select
                     value={role}
-                    onChange={e => setRole(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    onChange={setRole}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
                     {getAvailableRoles().map(rl => (
-                      <option key={rl.value} value={rl.value} className="dark:bg-vpa-dark">{rl.label}</option>
+                      <option key={rl.value} value={rl.value}>{rl.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Ngày sinh</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={dateOfBirth}
-                    onChange={e => setDateOfBirth(e.target.value)}
-                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                    onChange={setDateOfBirth}
+                    className="w-full text-xs p-2 pr-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono text-left rounded-lg"
                   />
                 </div>
 
@@ -1061,13 +1112,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => setShowFormModal(false)}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
+                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-lg font-bold"
                 >
                   Xác nhận lưu
                 </button>
@@ -1080,7 +1131,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       )}
 
       {activeTab === 'units' && (
-        <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-none p-6">
+        <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-lg p-6">
           <div className="flex items-center justify-between gap-3 mb-6 pb-6 border-b border-vpa-olive-light/20">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bấm vào một đơn vị để xem các đơn vị trực thuộc</p>
             <button
@@ -1109,9 +1160,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       {/* Add Unit Modal */}
       {showAddUnitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none animate-fadeIn">
+          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn">
             <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
-              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-none" />
+              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-lg" />
               <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
                 Thêm đơn vị mới
               </h3>
@@ -1120,17 +1171,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
             <form onSubmit={handleCreateUnit} className="space-y-4">
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị</label>
-                <select
+                <Select
                   value={newUnitParentId}
-                  onChange={e => setNewUnitParentId(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+                  onChange={setNewUnitParentId}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
                   {assignableUnits.map(u => (
-                    <option key={u._id} value={u._id} className="dark:bg-vpa-dark">
+                    <option key={u._id} value={u._id}>
                       {'—'.repeat(u.level - 1)} {u.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Tên đơn vị mới</label>
@@ -1152,13 +1203,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => setShowAddUnitModal(false)}
-                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-none"
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-none font-bold"
+                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-lg font-bold"
                 >
                   Thêm đơn vị
                 </button>
@@ -1167,6 +1218,142 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           </div>
         </div>
       )}
+
+      {/* Unit Detail Modal */}
+      {viewingUnit && (() => {
+        const breadcrumb = getUnitBreadcrumb(viewingUnit._id);
+        const childCount = (unitChildrenMap.get(viewingUnit._id) || []).length;
+        const scopeIds = new Set(
+          unitDetailIncludeSubUnits ? getUnitAndDescendantIds(viewingUnit._id) : [viewingUnit._id]
+        );
+        const unitPersonnel = users.filter(u => u.unit?.id && scopeIds.has(u.unit.id));
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+            <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn">
+              <div className="flex items-start justify-between border-b border-vpa-olive-light pb-4 mb-4">
+                <div>
+                  <p className="text-[9px] uppercase tracking-wider text-gray-400 font-mono mb-1">
+                    {breadcrumb.map((u, i) => (
+                      <React.Fragment key={u._id}>
+                        {i > 0 && <span className="mx-1">›</span>}
+                        <span className={i === breadcrumb.length - 1 ? 'text-vpa-gold font-bold' : ''}>{u.name}</span>
+                      </React.Fragment>
+                    ))}
+                  </p>
+                  <h3 className="text-base font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand flex items-center space-x-2">
+                    <Buildings size={18} className="text-vpa-gold" />
+                    <span>{viewingUnit.name}</span>
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewingUnit(null)}
+                  className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] uppercase font-mono px-2.5 py-1 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand">
+                    {unitPersonnel.length} quân nhân
+                  </span>
+                  {childCount > 0 && (
+                    <span className="text-[10px] uppercase font-mono px-2.5 py-1 border border-vpa-olive-light text-gray-500">
+                      {childCount} đơn vị con
+                    </span>
+                  )}
+                </div>
+
+                {childCount > 0 && (
+                  <label className="flex items-center space-x-2 text-[10px] uppercase tracking-wider text-gray-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={unitDetailIncludeSubUnits}
+                      onChange={e => setUnitDetailIncludeSubUnits(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-vpa-gold"
+                    />
+                    <span>Gồm cả đơn vị con</span>
+                  </label>
+                )}
+              </div>
+
+              <div className="flex justify-end mb-3">
+                <button
+                  type="button"
+                  onClick={() => { const uid = viewingUnit._id; setViewingUnit(null); handleOpenCreateModalForUnit(uid); }}
+                  className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs font-bold uppercase tracking-wider flex items-center space-x-2 hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors"
+                >
+                  <Plus size={14} />
+                  <span>Thêm quân nhân</span>
+                </button>
+              </div>
+
+              <div className="border border-vpa-olive-light/50 overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
+                      <th className="py-2.5 px-3 whitespace-nowrap">Họ và tên</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Cấp bậc</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Chức vụ</th>
+                      {unitDetailIncludeSubUnits && <th className="py-2.5 px-3 whitespace-nowrap">Đơn vị</th>}
+                      <th className="py-2.5 px-3 whitespace-nowrap">Quyền hạn</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unitPersonnel.map(u => (
+                      <tr key={u._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
+                        <td className="py-2.5 px-3 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{u.fullName}</td>
+                        <td className="py-2.5 px-3">{u.rank}</td>
+                        <td className="py-2.5 px-3">{u.position}</td>
+                        {unitDetailIncludeSubUnits && <td className="py-2.5 px-3">{u.unit?.name}</td>}
+                        <td className="py-2.5 px-3">
+                          {u.role === 'master-admin' && <span className="bg-red-600/10 text-red-600 border border-red-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Master-Admin</span>}
+                          {u.role === 'admin' && <span className="bg-vpa-gold/10 text-vpa-gold border border-vpa-gold/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Admin</span>}
+                          {u.role === 'sub-admin' && <span className="bg-blue-600/10 text-blue-600 border border-blue-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Sub-Admin</span>}
+                          {u.role === 'user' && <span className="bg-green-600/10 text-green-600 border border-green-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">User</span>}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => { setViewingUnit(null); handleOpenEditModal(u); }}
+                              className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors"
+                            >
+                              <PencilSimple size={12} />
+                            </button>
+                            {((user?.role === 'master-admin' && u.role !== 'master-admin') ||
+                              (user?.role === 'admin' && u.role !== 'admin' && u.role !== 'master-admin') ||
+                              (user?.role === 'sub-admin' && u.role === 'user')) && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUser(u._id, u.fullName)}
+                                className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                              >
+                                <Trash size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {unitPersonnel.length === 0 && (
+                      <tr>
+                        <td colSpan={unitDetailIncludeSubUnits ? 6 : 5} className="text-center py-8 text-gray-400 text-xs uppercase tracking-wider">
+                          Chưa có quân nhân nào trực thuộc.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -17,7 +17,9 @@ html {
   --color-vpa-red: #da251d;
   --color-vpa-sand: #e6e2d5;     /* Màu cát ấm áp dịu mắt, tránh chói */
   --color-vpa-sand-light: #f5f3eb; /* Màu kem nhạt cao cấp cho thẻ nội dung */
-  --font-serif: "Times New Roman", Times, serif;
+  --font-sans: "Roboto", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: "Times New Roman", Times, serif; /* Giữ nguyên cho văn bản xuất/in chính thức */
+  --font-brand: "Roboto Serif", ui-serif, Georgia, serif; /* Riêng cho tiêu đề thương hiệu "BỘ QUỐC PHÒNG" */
 }
 
 .font-serif {
@@ -144,4 +146,16 @@ button:not(:disabled):hover {
 
 button:not(:disabled):active {
   scale: 0.97;
+}
+
+/* Ẩn mũi tên lên/xuống mặc định của hệ điều hành cho input[type=number] —
+   thay bằng cặp nút CaretUp/CaretDown tự vẽ trong NumberStepper.tsx để đồng
+   bộ với giao diện quân sự thay vì mỗi trình duyệt/OS vẽ một kiểu khác nhau. */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

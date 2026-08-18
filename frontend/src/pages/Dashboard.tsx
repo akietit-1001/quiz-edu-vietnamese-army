@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users, SignIn } from '@phosphor-icons/react';
+import { useSubviewBack } from '../hooks/useSubviewBack';
+import { Select } from '../components/Select';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -422,10 +424,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
         );
   }, [inviteEmail, managedUsers]);
 
+  // Cho phép nút Back trình duyệt đóng từng modal thay vì thoát thẳng ra
+  // trang trước đó — xem chi tiết trong useSubviewBack.
+  useSubviewBack(showCreateRoomModal, () => setShowCreateRoomModal(false));
+  useSubviewBack(showInviteModal, () => setShowInviteModal(false));
+  useSubviewBack(show2FAModal, () => setShow2FAModal(false));
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Welcome Banner */}
-      <div className="relative border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 mb-8 overflow-hidden rounded-none shadow-md">
+      <div className="relative border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 mb-8 overflow-hidden rounded-lg shadow-md">
         <div className="absolute top-0 right-0 w-48 h-48 bg-vpa-olive/5 dark:bg-vpa-gold/5 rounded-full filter blur-3xl" />
 
         <h1 className="text-xl md:text-2xl font-extrabold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider">
@@ -472,10 +480,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Offline Pending Submissions Banner */}
       {pendingSubmissions.length > 0 && (
-        <div className="border border-vpa-red bg-vpa-red/5 p-6 mb-8 rounded-none shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="border border-vpa-red bg-vpa-red/5 p-6 mb-8 rounded-lg shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center space-x-2 border-b border-vpa-red/20 pb-2 mb-2">
-              <span className="w-2.5 h-2.5 bg-vpa-red rounded-none" />
+              <span className="w-2.5 h-2.5 bg-vpa-red rounded-lg" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-red">
                 Báo cáo: Phát hiện bài thi lưu ngoại tuyến (Offline)
               </h3>
@@ -494,7 +502,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <button
             onClick={handleSyncSubmissions}
             disabled={syncing}
-            className="md:self-start px-4 py-2 bg-vpa-red hover:bg-vpa-red-light text-white text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-2 rounded-none"
+            className="md:self-start px-4 py-2 bg-vpa-red hover:bg-vpa-red-light text-white text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-2 rounded-lg"
           >
             {syncing ? (
               <>
@@ -510,7 +518,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Pending Invitations Section */}
       {invitations.length > 0 && (
-        <div className="border border-vpa-gold bg-vpa-gold/5 dark:bg-vpa-gold/10 p-6 mb-8 rounded-none shadow-md">
+        <div className="border border-vpa-gold bg-vpa-gold/5 dark:bg-vpa-gold/10 p-6 mb-8 rounded-lg shadow-md">
           <div className="flex items-center space-x-2 border-b border-vpa-gold/30 pb-3 mb-4">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-vpa-gold opacity-75 animate-duration-1000"></span>
@@ -573,7 +581,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="space-y-8">
           
           {/* Join Exam Room */}
-          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
             <h3 className="text-sm font-bold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider mb-4 pb-2 border-b border-vpa-olive-light/30 flex items-center space-x-2">
               <Play size={18} />
               <span>Tham gia phòng thi</span>
@@ -608,7 +616,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Quick Actions for Admins & Commanders */}
           {(user?.role === 'admin' || user?.role === 'master-admin' || user?.role === 'sub-admin') && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
               <h3 className="text-sm font-bold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider mb-4 pb-2 border-b border-vpa-olive-light/30 flex items-center space-x-2">
                 <Plus size={18} />
                 <span>Nhiệm vụ Quản trị</span>
@@ -649,7 +657,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           
           {/* Created Exam Rooms (Host only) */}
           {(user?.role === 'admin' || user?.role === 'master-admin') && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none animate-fadeIn">
+            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg animate-fadeIn">
               <div className="flex justify-between items-center mb-6 pb-2 border-b border-vpa-olive-light/30">
                 <h3 className="text-sm font-bold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider flex items-center space-x-2 font-semibold">
                   <Users size={20} className="text-vpa-olive dark:text-vpa-gold-bright" />
@@ -719,7 +727,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
 
           {/* Quiz List */}
-          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
             <div className="flex justify-between items-center mb-6 pb-2 border-b border-vpa-olive-light/30">
               <h3 className="text-sm font-bold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider flex items-center space-x-2">
                 <ClipboardText size={20} />
@@ -812,7 +820,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* 2FA SETUP MODAL */}
       {show2FAModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none">
+          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg">
             <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand border-b border-vpa-olive-light pb-2 mb-4">
               XÁC MINH KÍCH HOẠT 2FA
             </h3>
@@ -855,7 +863,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* CREATE ROOM MODAL */}
       {showCreateRoomModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-5 shadow-2xl rounded-none">
+          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-5 shadow-2xl rounded-lg">
             <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand border-b border-vpa-olive-light pb-2 mb-3">
               Khởi tạo phòng thi mới
             </h3>
@@ -1068,7 +1076,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* INVITE USER MODAL */}
       {showInviteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-xl border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-none relative">
+          <div className="w-full max-w-xl border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg relative">
             <button 
               onClick={() => setShowInviteModal(false)}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
@@ -1184,14 +1192,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <label className="block text-[9px] uppercase tracking-wider text-gray-500 mb-1 font-mono">
                   Vai trò trong phòng thi
                 </label>
-                <select
+                <Select
                   value={inviteRole}
-                  onChange={e => setInviteRole(e.target.value as 'examinee' | 'examiner')}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold dark:bg-vpa-dark-card"
+                  onChange={v => setInviteRole(v as 'examinee' | 'examiner')}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
                 >
                   <option value="examinee">Thí sinh (Tham gia làm bài thi)</option>
                   <option value="examiner">Giám khảo/Giám thị (Giám sát phòng thi)</option>
-                </select>
+                </Select>
               </div>
 
               {inviteSuccess && (

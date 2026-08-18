@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { Select } from './Select';
 
 export interface UnitNode {
   _id: string;
@@ -88,17 +89,17 @@ export const UnitTreeSelect: React.FC<UnitTreeSelectProps> = ({ units, value, on
       if (options.length === 0) return null;
       const selected = chain[idx + 1] || options[0]._id;
       return (
-        <select
+        <Select
           key={parentId}
           value={selected}
           disabled={disabled}
-          onChange={e => handleLevelChange(e.target.value)}
-          className={selectClassName || 'w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono disabled:opacity-60'}
+          onChange={handleLevelChange}
+          className={selectClassName || 'w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2 disabled:opacity-60'}
         >
           {options.map(o => (
-            <option key={o._id} value={o._id} className="dark:bg-vpa-dark">{o.name}</option>
+            <option key={o._id} value={o._id}>{o.name}</option>
           ))}
-        </select>
+        </Select>
       );
     })
     .filter(Boolean);

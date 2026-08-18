@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { ArrowLeft, DownloadSimpleIcon, Funnel, ShieldWarning } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
+import { Select } from '../components/Select';
 import { PrintPreviewModal } from '../components/PrintPreviewModal';
 
 
@@ -364,7 +365,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
         <div className="space-y-6">
           
           {/* Controls: Search, Sort */}
-          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 shadow-sm flex flex-wrap gap-4 items-center justify-between rounded-none">
+          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 shadow-sm flex flex-wrap gap-4 items-center justify-between rounded-lg">
             <div className="relative w-full md:w-72">
               <input
                 type="text"
@@ -379,30 +380,30 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
               <div className="flex items-center space-x-2">
                 <Funnel size={14} className="text-vpa-gold" />
                 <span className="text-gray-500 uppercase text-[9px]">Sắp xếp:</span>
-                <select
+                <Select
                   value={sortBy}
-                  onChange={e => setSortBy(e.target.value)}
-                  className="bg-transparent border-b border-vpa-olive-light focus:outline-none text-vpa-olive dark:text-vpa-sand dark:bg-vpa-dark-card"
+                  onChange={setSortBy}
+                  className="bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg px-2 py-1 flex items-center justify-between gap-2"
                 >
                   <option value="completedAt">Mới nộp nhất</option>
                   <option value="score">Điểm số</option>
                   <option value="antiCheatViolations">Vi phạm gian lận</option>
-                </select>
+                </Select>
               </div>
 
-              <select
+              <Select
                 value={sortOrder}
-                onChange={e => setSortOrder(e.target.value)}
-                className="bg-transparent border-b border-vpa-olive-light focus:outline-none text-vpa-olive dark:text-vpa-sand dark:bg-vpa-dark-card"
+                onChange={setSortOrder}
+                className="bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg px-2 py-1 flex items-center justify-between gap-2"
               >
                 <option value="desc">Giảm dần</option>
                 <option value="asc">Tăng dần</option>
-              </select>
+              </Select>
             </div>
           </div>
 
           {/* Results Table */}
-          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-none">
+          <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
