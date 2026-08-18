@@ -22,7 +22,8 @@ export async function createTestUnit(overrides = {}) {
   const unit = await Unit.create({
     name: overrides.name || `Đơn vị test ${unitCounter}`,
     level: overrides.level ?? 3,
-    parentId: overrides.parentId ?? null
+    parentId: overrides.parentId ?? null,
+    order: overrides.order ?? 0
   });
   return unit;
 }

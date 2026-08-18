@@ -182,3 +182,74 @@ describe('PUT /api/units/:id/positions (chức vụ theo đơn vị)', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('PATCH /api/units/:id/reorder (sắp xếp thứ tự anh em)', () => {
+  it('kéo đơn vị cuối lên trước đơn vị đầu -> order đánh lại tuần tự đúng vị trí mới', async () => {
+    const { accessToken } = await registerAndLogin(app, { role: 'master-admin', unitId: rootUnit._id });
+    const parent = await createTestUnit({ name: 'Cha sắp xếp A', level: 2, parentId: rootUnit._id });
+    const a = await createTestUnit({ name: 'Con A1', level: 3, parentId: parent._id, order: 0 });
+    const b = await createTestUnit({ name: 'Con A2', level: 3, parentId: parent._id, order: 1 });
+    const c = await createTestUnit({ name: 'Con A3', level: 3, parentId: parent._id, order: 2 });
+
+    const res = await request(app)
+      .patch(`/api/units/${c._id}/reorder`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ targetId: a._id.toString(), position: 'before' });
+
+    expect(res.status).toBe(200);
+
+    const Unit = (await import('../models/Unit.js')).default;
+    const siblings = await Unit.find({ parentId: parent._id }).sort({ order: 1 });
+    expect(siblings.map(s => s.name)).toEqual(['Con A3', 'Con A1', 'Con A2']);
+    expect(siblings.map(s => s.order)).toEqual([0, 1, 2]);
+  });
+
+  it('thả "after" 1 đơn vị -> đứng ngay sau đơn vị đích', async () => {
+    const { accessToken } = await registerAndLogin(app, { role: 'master-admin', unitId: rootUnit._id });
+    const parent = await createTestUnit({ name: 'Cha sắp xếp B', level: 2, parentId: rootUnit._id });
+    const a = await createTestUnit({ name: 'Con B1', level: 3, parentId: parent._id, order: 0 });
+    const b = await createTestUnit({ name: 'Con B2', level: 3, parentId: parent._id, order: 1 });
+    const c = await createTestUnit({ name: 'Con B3', level: 3, parentId: parent._id, order: 2 });
+
+    const res = await request(app)
+      .patch(`/api/units/${a._id}/reorder`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ targetId: b._id.toString(), position: 'after' });
+
+    expect(res.status).toBe(200);
+
+    const Unit = (await import('../models/Unit.js')).default;
+    const siblings = await Unit.find({ parentId: parent._id }).sort({ order: 1 });
+    expect(siblings.map(s => s.name)).toEqual(['Con B2', 'Con B1', 'Con B3']);
+  });
+
+  it('không cho sắp xếp giữa 2 đơn vị khác cha -> 400', async () => {
+    const { accessToken } = await registerAndLogin(app, { role: 'master-admin', unitId: rootUnit._id });
+    const parentX = await createTestUnit({ name: 'Cha X', level: 2, parentId: rootUnit._id });
+    const parentY = await createTestUnit({ name: 'Cha Y', level: 2, parentId: rootUnit._id });
+    const x1 = await createTestUnit({ name: 'Con X1', level: 3, parentId: parentX._id });
+    const y1 = await createTestUnit({ name: 'Con Y1', level: 3, parentId: parentY._id });
+
+    const res = await request(app)
+      .patch(`/api/units/${x1._id}/reorder`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ targetId: y1._id.toString(), position: 'before' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('đơn vị mới tạo luôn có order lớn hơn tất cả anh em hiện có (thêm vào cuối)', async () => {
+    const { accessToken } = await registerAndLogin(app, { role: 'master-admin', unitId: rootUnit._id });
+    const parent = await createTestUnit({ name: 'Cha thêm cuối', level: 2, parentId: rootUnit._id });
+    await createTestUnit({ name: 'Con cũ 1', level: 3, parentId: parent._id, order: 5 });
+    await createTestUnit({ name: 'Con cũ 2', level: 3, parentId: parent._id, order: 9 });
+
+    const res = await request(app)
+      .post('/api/units')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ name: 'Con mới nhất', parentId: parent._id.toString() });
+
+    expect(res.status).toBe(201);
+    expect(res.body.order).toBe(10);
+  });
+});

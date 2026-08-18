@@ -178,6 +178,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   // thì chỉ mình nó di chuyển, không đụng tới lựa chọn hiện có.
   const [draggedUnitIds, setDraggedUnitIds] = useState<string[]>([]);
   const [dragOverUnitId, setDragOverUnitId] = useState<string | null>(null);
+  // 'before'/'after' = thả vào rìa trên/dưới dòng đích để SẮP XẾP làm anh em
+  // (giữ nguyên cha, chỉ đổi vị trí hiển thị); 'inside' = thả vào giữa dòng
+  // để DI CHUYỂN thành con của đích (đổi cha, như trước giờ).
+  const [dragOverZone, setDragOverZone] = useState<'before' | 'after' | 'inside' | null>(null);
   const [selectedUnitIds, setSelectedUnitIds] = useState<Set<string>>(new Set());
 
   // Menu "..." gộp các thao tác ít dùng (đổi tên/thêm con/di chuyển/chức
@@ -325,6 +329,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
 
     const isDragging = draggedUnitIds.includes(nodeUnit._id);
     const isDropTarget = dragOverUnitId === nodeUnit._id;
+    const activeZone = isDropTarget ? dragOverZone : null;
     const isSelected = selectedUnitIds.has(nodeUnit._id);
     const isMenuOpen = openMenuUnitId === nodeUnit._id;
 
@@ -338,19 +343,25 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
             const ids = isSelected && selectedUnitIds.size > 1 ? Array.from(selectedUnitIds) : [nodeUnit._id];
             setDraggedUnitIds(ids);
           }}
-          onDragEnd={() => { setDraggedUnitIds([]); setDragOverUnitId(null); }}
+          onDragEnd={() => { setDraggedUnitIds([]); setDragOverUnitId(null); setDragOverZone(null); }}
           onDragOver={e => {
             if (draggedUnitIds.length === 0 || draggedUnitIds.includes(nodeUnit._id)) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
+            // Rìa trên/dưới (25% đầu/cuối chiều cao dòng) = sắp xếp làm anh
+            // em; vùng giữa = thả vào bên trong để đổi cha (như trước giờ).
+            const rect = e.currentTarget.getBoundingClientRect();
+            const relativeY = (e.clientY - rect.top) / rect.height;
+            const zone: 'before' | 'after' | 'inside' = relativeY < 0.25 ? 'before' : relativeY > 0.75 ? 'after' : 'inside';
             setDragOverUnitId(nodeUnit._id);
+            setDragOverZone(zone);
           }}
           onDragLeave={() => setDragOverUnitId(prev => (prev === nodeUnit._id ? null : prev))}
           onDrop={e => {
             e.preventDefault();
-            if (draggedUnitIds.length > 0) handleDropUnit(draggedUnitIds, nodeUnit._id);
+            if (draggedUnitIds.length > 0) handleDropOnUnit(draggedUnitIds, nodeUnit, dragOverZone || 'inside');
           }}
-          className={`flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs transition-colors ${nodeUnit.parentId ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isDropTarget ? 'bg-vpa-gold/10 ring-1 ring-vpa-gold' : ''} ${isSelected ? 'bg-vpa-gold/5' : ''}`}
+          className={`flex items-center justify-between py-2 px-3 border-b-2 text-xs transition-colors ${nodeUnit.parentId ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${activeZone === 'inside' ? 'bg-vpa-gold/10 ring-1 ring-vpa-gold border-vpa-olive-light/10' : activeZone === 'before' ? 'border-t-2 border-t-vpa-gold border-b-vpa-olive-light/10' : activeZone === 'after' ? 'border-b-vpa-gold' : 'border-vpa-olive-light/10'} ${isSelected ? 'bg-vpa-gold/5' : ''}`}
         >
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             {nodeUnit.parentId && (
@@ -463,15 +474,20 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     );
   };
 
+  // Chỉ hiện "Đang tải cây đơn vị..." (thay hẳn danh sách) ở lần tải ĐẦU
+  // TIÊN — các lần gọi lại sau (sau khi thêm/sửa/xoá/di chuyển/đổi chức vụ)
+  // âm thầm thay dữ liệu mới vào chỗ cũ, không unmount rồi mount lại cả cây,
+  // tránh cảm giác trang bị chớp/giật như đang load lại từ đầu.
   const fetchUnits = async () => {
+    const isFirstLoad = units.length === 0;
     try {
-      setUnitsLoading(true);
+      if (isFirstLoad) setUnitsLoading(true);
       const res = await axios.get('/api/units');
       setUnits(res.data);
     } catch (err: any) {
       setUnitError('Không thể tải cây đơn vị.');
     } finally {
-      setUnitsLoading(false);
+      if (isFirstLoad) setUnitsLoading(false);
     }
   };
 
@@ -750,15 +766,24 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     }
   };
 
+  // Gọi API sắp xếp thật sự — thả 1 đơn vị vào rìa trên/dưới 1 đơn vị anh em
+  // khác (cùng cha) để đổi thứ tự hiển thị, không đổi cha.
+  const performReorderUnit = async (unitId: string, targetId: string, position: 'before' | 'after'): Promise<{ ok: true } | { ok: false; message: string }> => {
+    try {
+      await axios.patch(`/api/units/${unitId}/reorder`, { targetId, position });
+      fetchUnits();
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, message: err.response?.data?.message || 'Không thể sắp xếp đơn vị.' };
+    }
+  };
+
   // Kéo-thả 1 hoặc nhiều đơn vị (đã tick chọn) vào dòng của đơn vị khác để
   // di chuyển nhanh, không cần mở modal. Nếu trong nhóm kéo có cả 1 đơn vị
   // VÀ hậu duệ của chính nó (cả 2 cùng được tick), chỉ di chuyển đơn vị tổ
   // tiên — hậu duệ tự đi theo, gọi API riêng cho nó nữa sẽ kéo nó ra khỏi
   // cha thật của nó một cách sai ý người dùng.
-  const handleDropUnit = async (draggedIds: string[], targetParentId: string) => {
-    setDragOverUnitId(null);
-    setDraggedUnitIds([]);
-
+  const handleMoveDropUnit = async (draggedIds: string[], targetParentId: string) => {
     const idsToMove = draggedIds.filter(id => {
       if (id === targetParentId) return false;
       const unit = units.find(u => u._id === id);
@@ -787,6 +812,32 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       setUnitError(failures[0].message);
       setTimeout(() => setUnitError(''), 3000);
     }
+  };
+
+  // Điều phối khi thả — thả vào rìa trên/dưới 1 đơn vị ANH EM (cùng cha) thì
+  // sắp xếp lại vị trí; mọi trường hợp khác (thả vào giữa dòng, thả nhiều
+  // đơn vị cùng lúc, hoặc khác cha) vẫn xử lý như di chuyển/đổi cha như cũ.
+  const handleDropOnUnit = async (draggedIds: string[], targetUnit: UnitNode, zone: 'before' | 'after' | 'inside') => {
+    setDragOverUnitId(null);
+    setDragOverZone(null);
+    setDraggedUnitIds([]);
+
+    if (zone !== 'inside' && draggedIds.length === 1) {
+      const draggedUnit = units.find(u => u._id === draggedIds[0]);
+      if (draggedUnit && draggedUnit.parentId === targetUnit.parentId && draggedUnit._id !== targetUnit._id) {
+        const result = await performReorderUnit(draggedUnit._id, targetUnit._id, zone);
+        if (result.ok) {
+          setUnitSuccessMsg('Đã sắp xếp lại thứ tự đơn vị.');
+          setTimeout(() => setUnitSuccessMsg(''), 3000);
+        } else {
+          setUnitError(result.message);
+          setTimeout(() => setUnitError(''), 3000);
+        }
+        return;
+      }
+    }
+
+    await handleMoveDropUnit(draggedIds, targetUnit._id);
   };
 
   const toggleUnitSelected = (id: string) => {

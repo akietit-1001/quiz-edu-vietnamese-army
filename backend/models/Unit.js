@@ -28,6 +28,14 @@ const unitSchema = new mongoose.Schema({
     // hiện ra khi chọn đơn vị này trong form thêm/sửa quân nhân. Quản lý qua
     // UI (không còn suy theo tên/tiền tố đơn vị như trước).
   },
+  order: {
+    type: Number,
+    default: 0
+    // Thứ tự hiển thị giữa các đơn vị con CÙNG 1 cha — số nhỏ hơn hiện
+    // trước. Mặc định 0 cho mọi đơn vị (kể cả cũ) nên khi chưa ai kéo-thả
+    // sắp xếp thủ công, thứ tự vẫn rơi về so sánh phụ (xem unitSort.ts ở
+    // frontend: "Ban Chỉ huy" trước, còn lại theo alphabet).
+  },
   createdAt: {
     type: Date,
     default: Date.now

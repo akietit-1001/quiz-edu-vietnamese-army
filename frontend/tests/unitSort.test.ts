@@ -26,4 +26,24 @@ describe('unitSort: compareUnitSiblings', () => {
     const units = [{ name: 'Ban Chỉ huy' }, { name: 'Ban Chỉ huy' }];
     expect(() => [...units].sort(compareUnitSiblings)).not.toThrow();
   });
+
+  it('order thủ công luôn thắng, kể cả kéo "Ban Chỉ huy" xuống dưới', () => {
+    const units = [
+      { name: 'Ban Chỉ huy', order: 2 },
+      { name: 'Ban Bảo vệ an ninh', order: 0 },
+      { name: 'Ban Tuyên huấn', order: 1 }
+    ];
+    const sorted = [...units].sort(compareUnitSiblings);
+    expect(sorted.map(u => u.name)).toEqual(['Ban Bảo vệ an ninh', 'Ban Tuyên huấn', 'Ban Chỉ huy']);
+  });
+
+  it('order bằng nhau (mặc định 0, chưa ai sắp xếp) -> rơi về quy tắc "Ban Chỉ huy" trước + alphabet', () => {
+    const units = [
+      { name: 'Ban Tuyên huấn', order: 0 },
+      { name: 'Ban Chỉ huy', order: 0 },
+      { name: 'Ban Cán bộ', order: 0 }
+    ];
+    const sorted = [...units].sort(compareUnitSiblings);
+    expect(sorted.map(u => u.name)).toEqual(['Ban Chỉ huy', 'Ban Cán bộ', 'Ban Tuyên huấn']);
+  });
 });

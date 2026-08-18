@@ -7,7 +7,7 @@ import { isUnitDescendantOf, getUnitAndDescendantIds } from '../utils/unitHierar
 // trang Đăng ký lọc đúng chức vụ theo đơn vị đang chọn (giống UserManagement).
 export const getPublicUnitTree = async (req, res) => {
   try {
-    const units = await Unit.find().select('name level parentId positions').sort({ level: 1, name: 1 });
+    const units = await Unit.find().select('name level parentId positions order').sort({ level: 1, order: 1, name: 1 });
     res.status(200).json(units);
   } catch (error) {
     console.error('Lỗi lấy cây đơn vị (public):', error.message);
@@ -19,7 +19,7 @@ export const getPublicUnitTree = async (req, res) => {
 // Có kèm `positions` để form thêm/sửa quân nhân lọc đúng chức vụ theo đơn vị.
 export const getUnitTree = async (req, res) => {
   try {
-    const units = await Unit.find().select('name level parentId positions').sort({ level: 1, name: 1 });
+    const units = await Unit.find().select('name level parentId positions order').sort({ level: 1, order: 1, name: 1 });
     res.status(200).json(units);
   } catch (error) {
     console.error('Lỗi lấy cây đơn vị:', error.message);
@@ -64,7 +64,7 @@ export const createUnit = async (req, res) => {
       if (existingRoot > 0) {
         return res.status(400).json({ message: 'Đã tồn tại đơn vị cấp cao nhất, không thể tạo thêm' });
       }
-      const unit = await Unit.create({ name: name.trim(), level: 1, parentId: null });
+      const unit = await Unit.create({ name: name.trim(), level: 1, parentId: null, order: 0 });
       return res.status(201).json(unit);
     }
 
@@ -79,7 +79,11 @@ export const createUnit = async (req, res) => {
       }
     }
 
-    const unit = await Unit.create({ name: name.trim(), level: parent.level + 1, parentId: parent._id });
+    // Đơn vị mới luôn thêm vào CUỐI danh sách con hiện có (order lớn nhất + 1).
+    const lastSibling = await Unit.findOne({ parentId: parent._id }).sort({ order: -1 });
+    const nextOrder = lastSibling ? lastSibling.order + 1 : 0;
+
+    const unit = await Unit.create({ name: name.trim(), level: parent.level + 1, parentId: parent._id, order: nextOrder });
     res.status(201).json(unit);
   } catch (error) {
     if (error.code === 11000) {
@@ -242,6 +246,59 @@ export const moveUnit = async (req, res) => {
   } catch (error) {
     console.error('Lỗi di chuyển đơn vị:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi di chuyển đơn vị' });
+  }
+};
+
+// Sắp xếp lại thứ tự hiển thị giữa các đơn vị con CÙNG 1 cha (kéo-thả 1 đơn
+// vị lên trước/sau 1 đơn vị anh em khác) — khác với moveUnit (đổi cha).
+// Đánh lại order tuần tự (0,1,2,...) cho toàn bộ anh em để tránh trôi dần
+// theo thời gian.
+export const reorderUnit = async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const { targetId, position } = req.body;
+
+    if (!targetId || !['before', 'after'].includes(position)) {
+      return res.status(400).json({ message: 'Thiếu targetId hoặc position không hợp lệ (before/after)' });
+    }
+
+    const unit = await Unit.findById(req.params.id);
+    if (!unit) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn vị' });
+    }
+    const target = await Unit.findById(targetId);
+    if (!target) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn vị đích' });
+    }
+    if (String(unit._id) === String(target._id)) {
+      return res.status(200).json(unit);
+    }
+    if (String(unit.parentId) !== String(target.parentId)) {
+      return res.status(400).json({ message: 'Chỉ sắp xếp được giữa các đơn vị cùng cấp, cùng đơn vị cha' });
+    }
+
+    if (currentUser.role !== 'master-admin') {
+      const allowed = await isUnitDescendantOf(unit._id, currentUser.unitId?._id || currentUser.unitId);
+      if (!allowed) {
+        return res.status(403).json({ message: 'Bạn không có quyền sắp xếp đơn vị này' });
+      }
+    }
+
+    const siblings = await Unit.find({ parentId: unit.parentId }).sort({ order: 1, name: 1 });
+    const withoutDragged = siblings.filter(s => String(s._id) !== String(unit._id));
+    const targetIndex = withoutDragged.findIndex(s => String(s._id) === String(target._id));
+    const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+    withoutDragged.splice(insertIndex, 0, unit);
+
+    await Promise.all(withoutDragged.map((s, idx) =>
+      Unit.updateOne({ _id: s._id }, { $set: { order: idx } })
+    ));
+
+    const updated = await Unit.findById(unit._id);
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error('Lỗi sắp xếp đơn vị:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi sắp xếp đơn vị' });
   }
 };
 

@@ -8,6 +8,7 @@ export interface UnitNode {
   level: number;
   parentId: string | null;
   positions?: string[];
+  order?: number;
 }
 
 interface UnitTreeSelectProps {
