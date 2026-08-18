@@ -65,7 +65,16 @@ export const Select: React.FC<SelectProps> = ({
     if (disabled) return;
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
-      setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      // max-h-64 (256px) là chiều cao tối đa panel có thể chiếm — màn hình
+      // mobile hay không đủ chỗ bên dưới, lúc đó lật panel lên trên trigger
+      // thay vì để nó tràn ra ngoài/đè lên phần tử khác phía dưới.
+      const panelHeightEstimate = 256;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const shouldFlipUp = spaceBelow < panelHeightEstimate && rect.top > panelHeightEstimate;
+      const top = shouldFlipUp
+        ? Math.max(8, rect.top - panelHeightEstimate - 4)
+        : rect.bottom + 4;
+      setPos({ top, left: rect.left, width: rect.width });
     }
     setIsOpen(true);
   };

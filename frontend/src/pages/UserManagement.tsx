@@ -663,35 +663,37 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       <>
       {/* Filter / Search Bar */}
       <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
-        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Tìm theo họ tên, email, chức vụ..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
-            />
-            <MagnifyingGlass size={16} className="absolute left-3 top-3 text-gray-400" />
-          </div>
+        <div className="p-4 flex flex-col gap-3 md:grid md:grid-cols-3 md:gap-4 md:items-center">
+          <div className="flex gap-3 items-center md:contents">
+            <div className="relative flex-1 min-w-0">
+              <input
+                type="text"
+                placeholder="Tìm theo họ tên, email, chức vụ..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full text-xs p-2.5 pl-9 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono"
+              />
+              <MagnifyingGlass size={16} className="absolute left-3 top-3 text-gray-400" />
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setShowUserAdvancedFilter(prev => !prev)}
-            className={`flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center ${
-              showUserAdvancedFilter || userAdvancedFilterCount > 0
-                ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
-                : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
-            }`}
-          >
-            <Funnel size={14} />
-            <span>Bộ lọc nâng cao</span>
-            {userAdvancedFilterCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-vpa-red text-white text-[9px] flex items-center justify-center font-mono">
-                {userAdvancedFilterCount}
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowUserAdvancedFilter(prev => !prev)}
+              className={`shrink-0 flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center ${
+                showUserAdvancedFilter || userAdvancedFilterCount > 0
+                  ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
+                  : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+              }`}
+            >
+              <Funnel size={14} />
+              <span>Bộ lọc nâng cao</span>
+              {userAdvancedFilterCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-vpa-red text-white text-[9px] flex items-center justify-center font-mono">
+                  {userAdvancedFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
 
           <div className="flex items-center justify-end text-[10px] text-gray-500 uppercase tracking-widest font-mono">
             Số lượng quân nhân: {filteredUsers.length} / {users.length}

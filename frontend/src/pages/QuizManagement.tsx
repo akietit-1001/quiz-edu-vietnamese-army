@@ -1334,14 +1334,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* Search & Filter Bar for Quizzes */}
           {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
-              <div className="p-4 flex flex-wrap gap-4 items-center">
-                <div className="relative">
+              <div className="p-4 flex gap-3 items-center">
+                <div className="relative flex-1 min-w-0">
                   <input
                     type="text"
                     value={searchQuiz}
                     onChange={e => setSearchQuiz(e.target.value)}
                     placeholder="Tìm kiếm đề thi..."
-                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-64"
+                    className="w-full text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
                   />
                   <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
                 </div>
@@ -1349,7 +1349,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <button
                   type="button"
                   onClick={() => setShowQuizAdvancedFilter(prev => !prev)}
-                  className={`ml-auto flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                  className={`shrink-0 flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
                     showQuizAdvancedFilter || quizAdvancedFilterCount > 0
                       ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                       : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
@@ -2578,23 +2578,23 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* Question Bank controls */}
           {!isAddingToBank && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
-              <div className="p-4 flex flex-wrap gap-4 items-center justify-between">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchBank}
-                    onChange={e => setSearchBank(e.target.value)}
-                    placeholder="Tìm câu hỏi..."
-                    className="text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand w-48"
-                  />
-                  <MagnifyingGlass size={14} className="absolute left-2.5 top-3 text-gray-500" />
-                </div>
+              <div className="p-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex gap-3 items-center">
+                  <div className="relative flex-1 min-w-0 sm:flex-initial">
+                    <input
+                      type="text"
+                      value={searchBank}
+                      onChange={e => setSearchBank(e.target.value)}
+                      placeholder="Tìm câu hỏi..."
+                      className="w-full sm:w-48 text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
+                    />
+                    <MagnifyingGlass size={14} className="absolute left-2.5 top-3 text-gray-500" />
+                  </div>
 
-                <div className="flex items-center space-x-3 ml-auto">
                   <button
                     type="button"
                     onClick={() => setShowBankAdvancedFilter(prev => !prev)}
-                    className={`flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
+                    className={`shrink-0 flex items-center space-x-1.5 px-2.5 py-1.5 border text-xs font-bold uppercase tracking-wider transition-colors ${
                       showBankAdvancedFilter || bankAdvancedFilterCount > 0
                         ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
                         : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
@@ -2608,15 +2608,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       </span>
                     )}
                   </button>
-
-                  <button
-                    onClick={() => setIsAddingToBank(true)}
-                    className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold flex items-center space-x-2 justify-center"
-                  >
-                    <Plus size={16} />
-                    <span>Thêm câu hỏi vào ngân hàng</span>
-                  </button>
                 </div>
+
+                <button
+                  onClick={() => setIsAddingToBank(true)}
+                  className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold flex items-center space-x-2 justify-center"
+                >
+                  <Plus size={16} />
+                  <span>Thêm câu hỏi vào ngân hàng</span>
+                </button>
               </div>
 
               {/* Advanced filter panel — trượt xuống thay vì popup */}

@@ -560,13 +560,14 @@ export const App: React.FC = () => {
       ) : (
         /* Authenticated view container */
         <>
-          <Navbar 
+          <Navbar
             user={user}
             onLogout={handleLogout}
             darkMode={darkMode}
             setDarkMode={(val: boolean) => dispatch(setDarkMode(val))}
             onOpenEditProfile={handleOpenEditProfile}
             onOpenChangePassword={handleOpenChangePassword}
+            onNavigateHome={() => dispatch(setCurrentView('dashboard'))}
           />
           <main className="transition-colors duration-300">
             <Suspense fallback={

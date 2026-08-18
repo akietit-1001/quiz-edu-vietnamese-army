@@ -102,7 +102,25 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     }
     const rect = inputRef.current?.getBoundingClientRect();
     if (rect) {
-      setPos({ top: rect.bottom + 4, left: rect.left });
+      // Ước lượng kích thước panel lịch để tính chỗ trống — màn hình mobile
+      // thường không đủ chỗ bên dưới input, lúc đó phải lật panel lên trên
+      // thay vì để nó tràn ra ngoài/đè lên phần tử khác phía dưới.
+      const panelWidth = 256; // w-64
+      const panelHeightEstimate = 320;
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+
+      const spaceBelow = viewportH - rect.bottom;
+      const shouldFlipUp = spaceBelow < panelHeightEstimate && rect.top > panelHeightEstimate;
+      const top = shouldFlipUp
+        ? Math.max(8, rect.top - panelHeightEstimate - 4)
+        : rect.bottom + 4;
+
+      let left = rect.left;
+      if (left + panelWidth > viewportW - 8) left = viewportW - panelWidth - 8;
+      if (left < 8) left = 8;
+
+      setPos({ top, left });
     }
     setIsOpen(true);
   };

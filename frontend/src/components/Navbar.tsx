@@ -8,28 +8,34 @@ interface NavbarProps {
   setDarkMode: (dark: boolean) => void;
   onOpenEditProfile: () => void;
   onOpenChangePassword: () => void;
+  onNavigateHome: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ 
-  user, 
-  onLogout, 
-  darkMode, 
+export const Navbar: React.FC<NavbarProps> = ({
+  user,
+  onLogout,
+  darkMode,
   setDarkMode,
   onOpenEditProfile,
-  onOpenChangePassword
+  onOpenChangePassword,
+  onNavigateHome
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
     <nav className="sticky top-0 z-40 w-full h-20 border-b border-vpa-olive-light/50 bg-vpa-sand-light/95 dark:bg-vpa-dark/95 backdrop-blur-md transition-colors px-6 flex items-center justify-between">
-      {/* Brand Logo */}
-      <div className="flex items-center space-x-4">
+      {/* Brand Logo — bấm để về trang chủ */}
+      <button
+        type="button"
+        onClick={onNavigateHome}
+        className="flex items-center space-x-4 hover:opacity-80 transition-opacity cursor-pointer focus:outline-none"
+      >
         <img src="/BQP.png" alt="Bộ Quốc Phòng" className="w-11 h-11 object-contain" />
-        <div className="hidden sm:block">
+        <div className="hidden sm:block text-left">
           <span className="font-brand text-lg font-bold tracking-widest text-vpa-olive dark:text-vpa-sand block leading-tight">BỘ QUỐC PHÒNG</span>
           <span className="text-[13px] uppercase tracking-wider text-vpa-gold dark:text-vpa-gold-bright block font-mono">Cổng thi trực tuyến</span>
         </div>
-      </div>
+      </button>
 
       {/* Right Side Options */}
       <div className="flex items-center space-x-5">
