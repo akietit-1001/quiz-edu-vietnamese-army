@@ -103,10 +103,11 @@ export const HUYEN_THANH_PHO_POSITIONS = [
   'Nhân viên Văn thư - Bảo mật'
 ];
 
-// Chức vụ dùng chung cho Ban CHQS cấp Xã/Phường/Thị trấn — CHƯA có node
-// riêng cho từng xã trong cây đơn vị (143 xã/phường/thị trấn, không có tên
-// cụ thể), để sẵn đây cho việc gán chức vụ nếu sau này tạo thêm đơn vị cấp
-// xã (khớp qua tiền tố tên, xem hàm getPositionsForUnit bên dưới).
+// Chức vụ dùng chung cho cấp Xã/Phường/Thị trấn. Thay vì tạo riêng 143 node
+// (không có tên cụ thể từng xã), toàn bộ cấp này được GỘP thành 1 đơn vị đại
+// diện duy nhất "Ban CHQS cấp xã/phường" (con trực tiếp của Bộ CHQS tỉnh).
+// Vẫn giữ khớp theo tiền tố tên bên dưới để dùng được ngay nếu sau này tách
+// lại thành từng xã cụ thể.
 export const CAP_XA_POSITIONS = [
   'Chỉ huy trưởng Ban CHQS cấp xã',
   'Chính trị viên Ban CHQS cấp xã',
@@ -158,7 +159,12 @@ export function getPositionsForUnit(unitName?: string | null, parentUnitName?: s
     return HUYEN_THANH_PHO_POSITIONS;
   }
 
-  if (unitName.startsWith('Ban Chỉ huy Quân sự Xã') || unitName.startsWith('Ban Chỉ huy Quân sự Phường') || unitName.startsWith('Ban Chỉ huy Quân sự Thị trấn')) {
+  if (
+    unitName === 'Ban CHQS cấp xã/phường' ||
+    unitName.startsWith('Ban Chỉ huy Quân sự Xã') ||
+    unitName.startsWith('Ban Chỉ huy Quân sự Phường') ||
+    unitName.startsWith('Ban Chỉ huy Quân sự Thị trấn')
+  ) {
     return CAP_XA_POSITIONS;
   }
 

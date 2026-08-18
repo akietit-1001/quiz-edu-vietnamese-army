@@ -21,6 +21,12 @@ describe('positionsByUnit: getPositionsForUnit', () => {
     expect(result).toEqual(FALLBACK_POSITIONS);
   });
 
+  it('đơn vị gộp "Ban CHQS cấp xã/phường" trả đúng chức vụ cấp xã', () => {
+    const result = getPositionsForUnit('Ban CHQS cấp xã/phường');
+    expect(result).toContain('Chỉ huy trưởng Ban CHQS cấp xã');
+    expect(result).toContain('Chiến sĩ Dân quân thường trực');
+  });
+
   it('đơn vị cấp Huyện/Thành phố nhận diện qua tiền tố tên', () => {
     expect(getPositionsForUnit('Ban Chỉ huy Quân sự Huyện Châu Thành')).toContain('Trợ lý Tác chiến');
     expect(getPositionsForUnit('Ban Chỉ huy Quân sự Thành phố Cao Lãnh')).toContain('Chỉ huy trưởng');
