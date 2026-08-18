@@ -6,6 +6,7 @@ import { compareUnitSiblings } from '../constants/unitSort';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
+import { Checkbox } from '../components/Checkbox';
 
 interface UserManagementProps {
   user: any;
@@ -353,13 +354,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
         >
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             {nodeUnit.parentId && (
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isSelected}
                 onChange={() => toggleUnitSelected(nodeUnit._id)}
-                onClick={e => e.stopPropagation()}
-                draggable={false}
-                className="w-3.5 h-3.5 accent-vpa-gold shrink-0"
                 title="Chọn để di chuyển hàng loạt"
               />
             )}
