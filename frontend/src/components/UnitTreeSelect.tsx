@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Select } from './Select';
+import { compareUnitSiblings } from '../constants/unitSort';
 
 export interface UnitNode {
   _id: string;
@@ -16,8 +17,6 @@ interface UnitTreeSelectProps {
   selectClassName?: string;
 }
 
-const sortByName = (a: UnitNode, b: UnitNode) => a.name.localeCompare(b.name);
-
 // Cascading Phòng/Ban -> Đại đội dropdowns, driven purely by a flat unit list.
 // Caller is responsible for scoping `units` to whichever subtree should be
 // selectable (full tree for master-admin, own branch only otherwise).
@@ -25,11 +24,11 @@ export const UnitTreeSelect: React.FC<UnitTreeSelectProps> = ({ units, value, on
   const byId = useMemo(() => new Map(units.map(u => [u._id, u])), [units]);
 
   const childrenOf = (parentId: string) =>
-    units.filter(u => u.parentId === parentId).sort(sortByName);
+    units.filter(u => u.parentId === parentId).sort(compareUnitSiblings);
 
   const rootId = useMemo(() => {
     const roots = units.filter(u => !u.parentId || !byId.has(u.parentId));
-    return roots.sort(sortByName)[0]?._id || null;
+    return roots.sort(compareUnitSiblings)[0]?._id || null;
   }, [units, byId]);
 
   // Walk down from the root, following the branch that leads to the current

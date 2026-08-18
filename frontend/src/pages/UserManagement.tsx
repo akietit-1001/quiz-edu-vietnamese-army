@@ -3,6 +3,7 @@ import axios from 'axios';
 import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X } from '@phosphor-icons/react';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 import { getPositionsForUnit, ALL_POSITIONS } from '../constants/positionsByUnit';
+import { compareUnitSiblings } from '../constants/unitSort';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
@@ -179,14 +180,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       result.push(node);
       units
         .filter(u => u.parentId === id)
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort(compareUnitSiblings)
         .forEach(child => collect(child._id));
     };
 
     if (user?.role === 'master-admin') {
       units
         .filter(u => !u.parentId)
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort(compareUnitSiblings)
         .forEach(root => collect(root._id));
       return result;
     }
