@@ -786,7 +786,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
 
       {/* Users Table */}
       <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
@@ -880,6 +880,65 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
               }
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile card list */}
+          <div className="md:hidden divide-y divide-vpa-olive-light/10">
+            {loading ?
+              Array.from({ length: userSkeletonRowCount }).map((_, idx) => (
+                <div key={idx} className="p-4 animate-pulse space-y-2">
+                  <div className="w-32 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                  <div className="flex gap-1.5">
+                    <div className="w-14 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                    <div className="w-20 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                  </div>
+                  <div className="w-40 h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                </div>
+              ))
+            :
+              displayedUsers.map(u => (
+                <div key={u._id} className="p-4">
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand">{u.fullName}</h4>
+                    {u.role === 'master-admin' && <span className="shrink-0 bg-red-600/10 text-red-600 border border-red-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Master-Admin</span>}
+                    {u.role === 'admin' && <span className="shrink-0 bg-vpa-gold/10 text-vpa-gold border border-vpa-gold/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Admin</span>}
+                    {u.role === 'sub-admin' && <span className="shrink-0 bg-blue-600/10 text-blue-600 border border-blue-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Sub-Admin</span>}
+                    {u.role === 'user' && <span className="shrink-0 bg-green-600/10 text-green-600 border border-green-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">User</span>}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase">{u.rank || 'Chưa cập nhật'}</span>
+                    <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase">{u.position || 'Chưa cập nhật'}</span>
+                    {u.unit?.name && (
+                      <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase font-bold">{u.unit.name}</span>
+                    )}
+                  </div>
+
+                  <p className="text-[10px] font-mono text-gray-500 mb-3">{u.email || u.username}</p>
+
+                  <div className="flex justify-end gap-2 border-t border-vpa-olive-light/10 pt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(u)}
+                      className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                    >
+                      <PencilSimple size={14} />
+                    </button>
+                    {((user?.role === 'master-admin' && u.role !== 'master-admin') ||
+                      (user?.role === 'admin' && u.role !== 'admin' && u.role !== 'master-admin') ||
+                      (user?.role === 'sub-admin' && u.role === 'user')) && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUser(u._id, u.fullName)}
+                        className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
+                      >
+                        <Trash size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            }
           </div>
 
           {/* Pagination controls */}
@@ -1298,7 +1357,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 </button>
               </div>
 
-              <div className="border border-vpa-olive-light/50 overflow-x-auto">
+              <div className="border border-vpa-olive-light/50 hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
@@ -1356,6 +1415,55 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile card list */}
+              <div className="md:hidden border border-vpa-olive-light/50 divide-y divide-vpa-olive-light/10">
+                {unitPersonnel.map(u => (
+                  <div key={u._id} className="p-3">
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand">{u.fullName}</h4>
+                      {u.role === 'master-admin' && <span className="shrink-0 bg-red-600/10 text-red-600 border border-red-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Master-Admin</span>}
+                      {u.role === 'admin' && <span className="shrink-0 bg-vpa-gold/10 text-vpa-gold border border-vpa-gold/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Admin</span>}
+                      {u.role === 'sub-admin' && <span className="shrink-0 bg-blue-600/10 text-blue-600 border border-blue-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">Sub-Admin</span>}
+                      {u.role === 'user' && <span className="shrink-0 bg-green-600/10 text-green-600 border border-green-600/35 px-2 py-0.5 font-bold font-mono text-[9px] uppercase">User</span>}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mb-2.5">
+                      <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase">{u.rank || 'Chưa cập nhật'}</span>
+                      <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase">{u.position || 'Chưa cập nhật'}</span>
+                      {unitDetailIncludeSubUnits && u.unit?.name && (
+                        <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase font-bold">{u.unit.name}</span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-2 border-t border-vpa-olive-light/10 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setViewingUnit(null); handleOpenEditModal(u); }}
+                        className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                      >
+                        <PencilSimple size={12} />
+                      </button>
+                      {((user?.role === 'master-admin' && u.role !== 'master-admin') ||
+                        (user?.role === 'admin' && u.role !== 'admin' && u.role !== 'master-admin') ||
+                        (user?.role === 'sub-admin' && u.role === 'user')) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUser(u._id, u.fullName)}
+                          className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
+                        >
+                          <Trash size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {unitPersonnel.length === 0 && (
+                  <div className="text-center py-8 text-gray-400 text-xs uppercase tracking-wider">
+                    Chưa có quân nhân nào trực thuộc.
+                  </div>
+                )}
               </div>
             </div>
           </div>
