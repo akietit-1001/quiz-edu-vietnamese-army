@@ -1254,7 +1254,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               Quản lý kho đề & ngân hàng câu hỏi
             </h1>
             <p className="text-[10px] text-gray-500 uppercase tracking-widest font-mono">
-              Quản trị chuyên nghiệp hệ thống thi trắc nghiệm quân sự
+              Quản trị hệ thống thi trắc nghiệm
             </p>
           </div>
         </div>
@@ -1343,7 +1343,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     placeholder="Tìm kiếm đề thi..."
                     className="w-full text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand"
                   />
-                  <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-3 text-gray-500" />
+                  <MagnifyingGlassIcon size={14} className="absolute left-2.5 top-2.5 text-gray-500" />
                 </div>
 
                 <button

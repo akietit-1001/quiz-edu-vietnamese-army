@@ -1337,7 +1337,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       {activeTab === 'units' && (
         <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-lg p-6">
           <div className="flex items-center justify-between gap-3 mb-6 pb-6 border-b border-vpa-olive-light/20">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bấm vào một đơn vị để xem các đơn vị trực thuộc</p>
+            {/* <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bấm vào một đơn vị để xem các đơn vị trực thuộc</p> */}
             <button
               type="button"
               onClick={handleOpenAddUnitModal}
