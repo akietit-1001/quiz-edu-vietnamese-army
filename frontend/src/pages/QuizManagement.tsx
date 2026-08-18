@@ -9,6 +9,7 @@ import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
 import { Select } from '../components/Select';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { Tooltip } from '../components/Tooltip';
 
 interface QuizManagementProps {
   user?: any;
@@ -1616,13 +1617,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       displayedQuizzes.map(quiz => (
                         <tr key={quiz._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                           <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">
-                            <div 
-                              style={{ maxWidth: quizResized ? quizColWidths.title - 32 : 250 }}
-                              className="truncate" 
-                              title={quiz.title}
-                            >
-                              {quiz.title}
-                            </div>
+                            <Tooltip content={quiz.title} className="block">
+                              <div
+                                style={{ maxWidth: quizResized ? quizColWidths.title - 32 : 250 }}
+                                className="truncate"
+                              >
+                                {quiz.title}
+                              </div>
+                            </Tooltip>
                           </td>
                           <td className="py-3 px-4">{quiz.category}</td>
                           <td className="py-3 px-4">{quiz.questions.length} câu / {quiz.duration} phút ({quiz.passingScorePercent}% Đạt)</td>
@@ -2499,9 +2501,11 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                 <div className="flex items-center space-x-2.5 overflow-hidden">
                                   {getFileIcon(ext)}
                                   <div className="overflow-hidden">
-                                    <p className="text-[11px] font-bold text-vpa-olive dark:text-vpa-sand truncate max-w-[150px] sm:max-w-[200px]" title={file.name}>
-                                      {file.name}
-                                    </p>
+                                    <Tooltip content={file.name} className="block">
+                                      <p className="text-[11px] font-bold text-vpa-olive dark:text-vpa-sand truncate max-w-[150px] sm:max-w-[200px]">
+                                        {file.name}
+                                      </p>
+                                    </Tooltip>
                                     <p className="text-[9px] text-gray-500">{formatBytes(file.size)}</p>
                                   </div>
                                 </div>
@@ -2762,13 +2766,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       displayedBankQuestions.map(q => (
                         <tr key={q._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                           <td className="py-3 px-4 font-semibold text-vpa-olive dark:text-vpa-sand leading-relaxed">
-                            <div 
-                              style={{ maxWidth: bankResized ? bankColWidths.questionText - 32 : 350 }}
-                              className="line-clamp-2" 
-                              title={q.questionText}
-                            >
-                              {q.questionText}
-                            </div>
+                            <Tooltip content={q.questionText} className="block">
+                              <div
+                                style={{ maxWidth: bankResized ? bankColWidths.questionText - 32 : 350 }}
+                                className="line-clamp-2"
+                              >
+                                {q.questionText}
+                              </div>
+                            </Tooltip>
                           </td>
                           <td className="py-3 px-4">{q.category}</td>
                           <td className="py-3 px-4">

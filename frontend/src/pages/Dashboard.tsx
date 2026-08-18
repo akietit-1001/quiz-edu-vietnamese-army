@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users, SignIn } from '@phosphor-icons/react';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { Select } from '../components/Select';
+import { Tooltip } from '../components/Tooltip';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -47,12 +48,16 @@ const PracticeQuizCard: React.FC<{
           </span>
           <span className="text-[9px] font-mono text-gray-400">Code: {quiz.shareCode}</span>
         </div>
-        <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-1 line-clamp-2" title={baseTitle}>
-          {baseTitle}
-        </h4>
-        <p className="text-[10px] text-gray-500 line-clamp-2 mb-2">
-          {quiz.description || 'Không có mô tả chi tiết.'}
-        </p>
+        <Tooltip content={baseTitle} className="block">
+          <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-1 line-clamp-2">
+            {baseTitle}
+          </h4>
+        </Tooltip>
+        <Tooltip content={quiz.description} className="block">
+          <p className="text-[10px] text-gray-500 line-clamp-2 mb-2">
+            {quiz.description || 'Không có mô tả chi tiết.'}
+          </p>
+        </Tooltip>
 
         {allVersions.length > 1 && (
           <div className="flex flex-wrap gap-1 mb-2">
@@ -770,9 +775,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           {room.status === 'waiting' ? 'ĐANG CHỜ THI' : room.status === 'active' ? 'ĐANG THI' : 'ĐÃ KẾT THÚC'}
                         </span>
                       </div>
-                      <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-0.5 truncate" title={room.quizId?.title || 'Đề thi trắc nghiệm'}>
-                        Đề: {room.quizId?.title || 'Đề thi trắc nghiệm'}
-                      </h4>
+                      <Tooltip content={room.quizId?.title || 'Đề thi trắc nghiệm'} className="block">
+                        <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-0.5 truncate">
+                          Đề: {room.quizId?.title || 'Đề thi trắc nghiệm'}
+                        </h4>
+                      </Tooltip>
                       <p className="text-[10px] text-gray-500 font-mono">
                         Thời gian: {room.quizId?.duration || 45} phút | Quân số tham gia: {room.participants?.filter((p: any) => p.status !== 'left').length || 0}
                       </p>
@@ -992,11 +999,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         >
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5 min-w-0">
-                              <h4 className={`text-xs font-bold transition-colors truncate ${
-                                isActive ? 'text-vpa-olive dark:text-vpa-gold' : 'text-vpa-olive dark:text-vpa-sand group-hover:text-vpa-olive dark:group-hover:text-vpa-gold-bright'
-                              }`}>
-                                {q.title}
-                              </h4>
+                              <Tooltip content={q.title} className="block">
+                                <h4 className={`text-xs font-bold transition-colors truncate ${
+                                  isActive ? 'text-vpa-olive dark:text-vpa-gold' : 'text-vpa-olive dark:text-vpa-sand group-hover:text-vpa-olive dark:group-hover:text-vpa-gold-bright'
+                                }`}>
+                                  {q.title}
+                                </h4>
+                              </Tooltip>
                               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[9px] text-gray-400">
                                 <span className="font-mono bg-vpa-olive-light/10 dark:bg-vpa-gold/10 px-1.5 py-0.2 rounded text-[8px] text-vpa-olive dark:text-vpa-gold-bright uppercase">{q.category}</span>
                                 <span>{q.questions?.length || 0} câu / {q.duration || 45} phút</span>

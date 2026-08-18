@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CaretDown, Check } from '@phosphor-icons/react';
+import { Tooltip } from './Tooltip';
 
 interface SelectProps {
   value: string;
@@ -105,7 +106,9 @@ export const Select: React.FC<SelectProps> = ({
           'w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
         }
       >
-        <span className="truncate text-left">{selected ? selected.label : ''}</span>
+        <Tooltip content={selected?.label} className="min-w-0 flex-1 block truncate text-left">
+          <span className="truncate text-left block">{selected ? selected.label : ''}</span>
+        </Tooltip>
         <CaretDown
           size={11}
           weight="bold"
@@ -134,7 +137,9 @@ export const Select: React.FC<SelectProps> = ({
                     : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
                 }`}
               >
-                <span className="truncate">{opt.label}</span>
+                <Tooltip content={opt.label} className="min-w-0 flex-1 block truncate">
+                  <span className="truncate block">{opt.label}</span>
+                </Tooltip>
                 {opt.value === value && <Check size={12} weight="bold" className="shrink-0" />}
               </button>
             ))}
