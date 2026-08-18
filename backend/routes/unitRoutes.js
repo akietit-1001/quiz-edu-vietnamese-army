@@ -5,7 +5,9 @@ import {
   getMyParentUnit,
   createUnit,
   renameUnit,
-  deleteUnit
+  deleteUnit,
+  moveUnit,
+  updateUnitPositions
 } from '../controllers/unitController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
@@ -21,6 +23,8 @@ router.get('/', getUnitTree);
 router.get('/my-parent', getMyParentUnit);
 router.post('/', roleMiddleware(['master-admin', 'admin', 'sub-admin']), createUnit);
 router.put('/:id', roleMiddleware(['master-admin', 'admin', 'sub-admin']), renameUnit);
+router.patch('/:id/move', roleMiddleware(['master-admin', 'admin', 'sub-admin']), moveUnit);
+router.put('/:id/positions', roleMiddleware(['master-admin', 'admin', 'sub-admin']), updateUnitPositions);
 router.delete('/:id', roleMiddleware(['master-admin', 'admin', 'sub-admin']), deleteUnit);
 
 export default router;

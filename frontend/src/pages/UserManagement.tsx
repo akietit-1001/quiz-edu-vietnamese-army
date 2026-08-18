@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X, ArrowsLeftRight, IdentificationBadge } from '@phosphor-icons/react';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
-import { getPositionsForUnit, ALL_POSITIONS } from '../constants/positionsByUnit';
 import { compareUnitSiblings } from '../constants/unitSort';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
@@ -169,6 +168,23 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [viewingUnit, setViewingUnit] = useState<UnitNode | null>(null);
   const [unitDetailIncludeSubUnits, setUnitDetailIncludeSubUnits] = useState(false);
 
+  // Di chuyển đơn vị sang cha khác
+  const [movingUnit, setMovingUnit] = useState<UnitNode | null>(null);
+  const [moveTargetParentId, setMoveTargetParentId] = useState('');
+  const [moveError, setMoveError] = useState('');
+
+  // Xoá đơn vị — hỗ trợ xoá cả cây con, yêu cầu gõ đúng tên để xác nhận
+  const [deletingUnit, setDeletingUnit] = useState<UnitNode | null>(null);
+  const [deleteCascade, setDeleteCascade] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
+  // Quản lý danh sách chức vụ riêng của 1 đơn vị
+  const [managingPositionsUnit, setManagingPositionsUnit] = useState<UnitNode | null>(null);
+  const [positionsDraft, setPositionsDraft] = useState<string[]>([]);
+  const [newPositionInput, setNewPositionInput] = useState('');
+  const [positionsSaveError, setPositionsSaveError] = useState('');
+
   // Units this commander is allowed to assign people/sub-units into:
   // master-admin sees the whole tree, everyone else only their own branch.
   const assignableUnits = React.useMemo(() => {
@@ -198,15 +214,24 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     return result;
   }, [units, user]);
 
-  // Chức vụ hợp lệ cho đơn vị đang chọn trong form thêm/sửa quân nhân — chỉ
-  // hiện chức vụ đúng với Ban/Phòng đó thay vì xổ ra toàn bộ chức vụ toàn hệ
-  // thống (VD: chọn "Ban Quân y" thì không hiện "Chủ nhiệm Chính trị").
+  // Chức vụ hợp lệ cho đơn vị đang chọn trong form thêm/sửa quân nhân — mỗi
+  // đơn vị tự quản lý danh sách chức vụ riêng (field `positions` trên chính
+  // Unit đó, sửa qua modal "Quản lý chức vụ"), chỉ hiện đúng chức vụ của
+  // đơn vị đó thay vì xổ ra toàn bộ chức vụ toàn hệ thống. Đơn vị chưa có
+  // chức vụ nào tự khai báo thì tạm dùng danh sách dự phòng chung.
   const positionsForSelectedUnit = React.useMemo(() => {
     const unit = units.find(u => u._id === unitId);
     if (!unit) return [];
-    const parent = unit.parentId ? units.find(u => u._id === unit.parentId) : null;
-    return getPositionsForUnit(unit.name, parent?.name);
+    return unit.positions && unit.positions.length > 0 ? unit.positions : POSITIONS;
   }, [units, unitId]);
+
+  // Hợp nhất chức vụ của MỌI đơn vị (dùng cho ô "Bộ lọc nâng cao" — không
+  // gắn với 1 đơn vị cụ thể) — luôn khớp đúng dữ liệu DB hiện tại thay vì
+  // 1 danh sách tĩnh cố định.
+  const allKnownPositions = React.useMemo(() => {
+    const fromUnits = units.flatMap(u => u.positions || []);
+    return Array.from(new Set([...POSITIONS, ...fromUnits])).sort();
+  }, [units]);
 
   // Chỉ tự chuyển chức vụ khi đơn vị THỰC SỰ đổi do người dùng bấm chọn lại
   // — bỏ qua lần đầu form mở ra (kể cả khi sửa quân nhân có sẵn, có thể
@@ -335,13 +360,33 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 type="button"
                 onClick={() => handleStartRenameUnit(nodeUnit)}
                 className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                title="Đổi tên"
               >
                 <PencilSimple size={12} />
+              </button>
+              {nodeUnit.parentId && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenMoveUnit(nodeUnit)}
+                  className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                  title="Di chuyển sang đơn vị cha khác"
+                >
+                  <ArrowsLeftRight size={12} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleOpenManagePositions(nodeUnit)}
+                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                title="Quản lý chức vụ"
+              >
+                <IdentificationBadge size={12} />
               </button>
               <button
                 type="button"
                 onClick={() => handleDeleteUnit(nodeUnit)}
                 className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
+                title="Xoá"
               >
                 <Trash size={12} />
               </button>
@@ -557,17 +602,87 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     }
   };
 
-  const handleDeleteUnit = async (unitToDelete: UnitNode) => {
-    const confirmDelete = await window.showConfirm(`Đồng chí có chắc chắn muốn xóa đơn vị "${unitToDelete.name}"?`, 'Xác nhận xóa đơn vị');
-    if (!confirmDelete) return;
+  const handleDeleteUnit = (unitToDelete: UnitNode) => {
+    setDeletingUnit(unitToDelete);
+    setDeleteCascade(false);
+    setDeleteConfirmName('');
+    setDeleteError('');
+  };
+
+  const handleConfirmDeleteUnit = async () => {
+    if (!deletingUnit) return;
+    if (deleteCascade && deleteConfirmName.trim() !== deletingUnit.name) {
+      setDeleteError('Tên gõ vào chưa khớp — hãy gõ đúng tên đơn vị để xác nhận.');
+      return;
+    }
     try {
-      await axios.delete(`/api/units/${unitToDelete._id}`);
+      await axios.delete(`/api/units/${deletingUnit._id}${deleteCascade ? '?cascade=true' : ''}`);
       setUnitSuccessMsg('Đã xóa đơn vị thành công.');
+      setDeletingUnit(null);
       fetchUnits();
       setTimeout(() => setUnitSuccessMsg(''), 3000);
     } catch (err: any) {
-      setUnitError(err.response?.data?.message || 'Không thể xóa đơn vị (có thể còn đơn vị con hoặc quân nhân trực thuộc).');
-      setTimeout(() => setUnitError(''), 3000);
+      setDeleteError(err.response?.data?.message || 'Không thể xóa đơn vị (có thể còn đơn vị con hoặc quân nhân trực thuộc).');
+    }
+  };
+
+  // Danh sách đơn vị hợp lệ để chọn làm cha mới khi di chuyển — loại trừ
+  // chính đơn vị đang di chuyển và toàn bộ hậu duệ của nó (tránh vòng lặp).
+  const getMoveTargetOptions = (unitToMove: UnitNode): UnitNode[] => {
+    const excludedIds = new Set(getUnitAndDescendantIds(unitToMove._id));
+    return assignableUnits.filter(u => !excludedIds.has(u._id));
+  };
+
+  const handleOpenMoveUnit = (unitToMove: UnitNode) => {
+    setMovingUnit(unitToMove);
+    setMoveTargetParentId('');
+    setMoveError('');
+  };
+
+  const handleConfirmMoveUnit = async () => {
+    if (!movingUnit || !moveTargetParentId) return;
+    try {
+      await axios.patch(`/api/units/${movingUnit._id}/move`, { newParentId: moveTargetParentId });
+      setUnitSuccessMsg('Đã di chuyển đơn vị thành công.');
+      setMovingUnit(null);
+      fetchUnits();
+      setTimeout(() => setUnitSuccessMsg(''), 3000);
+    } catch (err: any) {
+      setMoveError(err.response?.data?.message || 'Không thể di chuyển đơn vị.');
+    }
+  };
+
+  const handleOpenManagePositions = (unitToManage: UnitNode) => {
+    setManagingPositionsUnit(unitToManage);
+    setPositionsDraft(unitToManage.positions || []);
+    setNewPositionInput('');
+    setPositionsSaveError('');
+  };
+
+  const handleAddPositionDraft = () => {
+    const trimmed = newPositionInput.trim();
+    if (!trimmed || positionsDraft.includes(trimmed)) {
+      setNewPositionInput('');
+      return;
+    }
+    setPositionsDraft(prev => [...prev, trimmed]);
+    setNewPositionInput('');
+  };
+
+  const handleRemovePositionDraft = (pos: string) => {
+    setPositionsDraft(prev => prev.filter(p => p !== pos));
+  };
+
+  const handleSavePositions = async () => {
+    if (!managingPositionsUnit) return;
+    try {
+      const res = await axios.put(`/api/units/${managingPositionsUnit._id}/positions`, { positions: positionsDraft });
+      setUnitSuccessMsg('Đã lưu danh sách chức vụ.');
+      setManagingPositionsUnit(null);
+      setUnits(prev => prev.map(u => (u._id === res.data._id ? { ...u, positions: res.data.positions } : u)));
+      setTimeout(() => setUnitSuccessMsg(''), 3000);
+    } catch (err: any) {
+      setPositionsSaveError(err.response?.data?.message || 'Không thể lưu danh sách chức vụ.');
     }
   };
 
@@ -660,6 +775,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   useSubviewBack(showFormModal, () => setShowFormModal(false));
   useSubviewBack(showAddUnitModal, () => setShowAddUnitModal(false));
   useSubviewBack(!!viewingUnit, () => setViewingUnit(null));
+  useSubviewBack(!!movingUnit, () => setMovingUnit(null));
+  useSubviewBack(!!deletingUnit, () => setDeletingUnit(null));
+  useSubviewBack(!!managingPositionsUnit, () => setManagingPositionsUnit(null));
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -670,6 +788,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
             onClick={() => {
               if (showFormModal) { setShowFormModal(false); return; }
               if (showAddUnitModal) { setShowAddUnitModal(false); return; }
+              if (movingUnit) { setMovingUnit(null); return; }
+              if (deletingUnit) { setDeletingUnit(null); return; }
+              if (managingPositionsUnit) { setManagingPositionsUnit(null); return; }
               if (viewingUnit) { setViewingUnit(null); return; }
               onNavigateBack();
             }}
@@ -817,7 +938,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                   className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
                   <option value="">Tất cả</option>
-                  {ALL_POSITIONS.map(ps => (
+                  {allKnownPositions.map(ps => (
                     <option key={ps} value={ps}>{ps}</option>
                   ))}
                 </Select>
@@ -1444,6 +1565,215 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Move Unit Modal */}
+      {movingUnit && (() => {
+        const targetOptions = getMoveTargetOptions(movingUnit);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+            <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn">
+              <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
+                <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-lg" />
+                <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
+                  Di chuyển "{movingUnit.name}"
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị cha mới</label>
+                  {targetOptions.length === 0 ? (
+                    <p className="text-xs text-gray-400">Không còn đơn vị nào hợp lệ để chọn làm cha mới.</p>
+                  ) : (
+                    <Select
+                      value={moveTargetParentId}
+                      onChange={setMoveTargetParentId}
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
+                    >
+                      <option value="">— Chọn đơn vị cha mới —</option>
+                      {targetOptions.map(u => (
+                        <option key={u._id} value={u._id}>
+                          {'—'.repeat(u.level - 1)} {u.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </div>
+
+                {moveError && (
+                  <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">{moveError}</p>
+                )}
+
+                <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setMovingUnit(null)}
+                    className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmMoveUnit}
+                    disabled={!moveTargetParentId}
+                    className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded-lg font-bold"
+                  >
+                    Di chuyển
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Delete Unit Modal */}
+      {deletingUnit && (() => {
+        const childCount = (unitChildrenMap.get(deletingUnit._id) || []).length;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+            <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn">
+              <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
+                <div className="w-3 h-3 bg-vpa-red rounded-lg" />
+                <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
+                  Xoá "{deletingUnit.name}"
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs text-vpa-olive dark:text-vpa-sand">
+                  Đồng chí có chắc chắn muốn xóa đơn vị này? Đơn vị còn quân nhân trực thuộc (kể cả trong cây con) sẽ không xoá được.
+                </p>
+
+                {childCount > 0 && (
+                  <label className="flex items-center space-x-2 text-[10px] uppercase tracking-wider text-vpa-red cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={deleteCascade}
+                      onChange={e => { setDeleteCascade(e.target.checked); setDeleteConfirmName(''); setDeleteError(''); }}
+                      className="w-3.5 h-3.5 accent-vpa-red"
+                    />
+                    <span>Xoá luôn {childCount} đơn vị con bên trong</span>
+                  </label>
+                )}
+
+                {deleteCascade && (
+                  <div>
+                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">
+                      Gõ đúng tên "{deletingUnit.name}" để xác nhận
+                    </label>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={deleteConfirmName}
+                      onChange={e => setDeleteConfirmName(e.target.value)}
+                      className="w-full text-xs p-2 bg-transparent border border-vpa-red text-vpa-olive dark:text-vpa-sand focus:outline-none font-mono rounded-lg"
+                    />
+                  </div>
+                )}
+
+                {deleteError && (
+                  <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">{deleteError}</p>
+                )}
+
+                <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeletingUnit(null)}
+                    className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteUnit}
+                    disabled={deleteCascade && deleteConfirmName.trim() !== deletingUnit.name}
+                    className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-red hover:bg-vpa-red/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded-lg font-bold"
+                  >
+                    Xoá đơn vị
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Manage Positions Modal */}
+      {managingPositionsUnit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn">
+            <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
+              <div className="w-3 h-3 bg-vpa-gold dark:bg-vpa-gold-bright rounded-lg" />
+              <h3 className="text-sm font-bold tracking-wide uppercase text-vpa-olive dark:text-vpa-sand font-mono">
+                Chức vụ của "{managingPositionsUnit.name}"
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {positionsDraft.length === 0 && (
+                  <p className="text-xs text-gray-400">Chưa có chức vụ nào — form thêm/sửa quân nhân sẽ tạm dùng danh sách dự phòng chung.</p>
+                )}
+                {positionsDraft.map(pos => (
+                  <span
+                    key={pos}
+                    className="inline-flex items-center gap-1.5 text-[10px] uppercase font-mono px-2.5 py-1 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand"
+                  >
+                    {pos}
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePositionDraft(pos)}
+                      className="text-vpa-red hover:text-vpa-red/70"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={newPositionInput}
+                  onChange={e => setNewPositionInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddPositionDraft(); } }}
+                  placeholder="VD: Trưởng ban"
+                  className="flex-1 text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddPositionDraft}
+                  className="px-3 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                >
+                  Thêm
+                </button>
+              </div>
+
+              {positionsSaveError && (
+                <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">{positionsSaveError}</p>
+              )}
+
+              <div className="flex justify-end space-x-3 border-t border-vpa-olive-light/20 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setManagingPositionsUnit(null)}
+                  className="px-4 py-2 border border-vpa-olive-light text-xs uppercase tracking-wider text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePositions}
+                  className="px-5 py-2 text-xs uppercase tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors rounded-lg font-bold"
+                >
+                  Lưu
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

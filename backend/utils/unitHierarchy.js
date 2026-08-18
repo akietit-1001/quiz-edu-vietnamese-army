@@ -3,8 +3,8 @@ import Unit from '../models/Unit.js';
 
 /**
  * Trả về true nếu candidateUnitId chính là ancestorUnitId, hoặc là hậu duệ
- * (con/cháu) của ancestorUnitId trong cây đơn vị. Đi ngược parentId, tối đa
- * 2 bước vì cây chỉ có 3 cấp.
+ * (con/cháu) của ancestorUnitId trong cây đơn vị. Đi ngược parentId cho tới
+ * gốc (level 1) — cây không giới hạn số cấp.
  */
 export const isUnitDescendantOf = async (candidateUnitId, ancestorUnitId) => {
   if (!candidateUnitId || !ancestorUnitId) return false;

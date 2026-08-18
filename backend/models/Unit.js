@@ -21,6 +21,13 @@ const unitSchema = new mongoose.Schema({
     default: null
     // null chỉ hợp lệ ở level 1
   },
+  positions: {
+    type: [String],
+    default: []
+    // Danh sách chức vụ hợp lệ CỦA RIÊNG đơn vị này — quyết định chức vụ nào
+    // hiện ra khi chọn đơn vị này trong form thêm/sửa quân nhân. Quản lý qua
+    // UI (không còn suy theo tên/tiền tố đơn vị như trước).
+  },
   createdAt: {
     type: Date,
     default: Date.now

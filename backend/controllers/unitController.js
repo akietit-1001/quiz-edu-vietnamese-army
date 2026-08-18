@@ -1,6 +1,6 @@
 import Unit from '../models/Unit.js';
 import User from '../models/User.js';
-import { isUnitDescendantOf } from '../utils/unitHierarchy.js';
+import { isUnitDescendantOf, getUnitAndDescendantIds } from '../utils/unitHierarchy.js';
 
 // Danh sách toàn bộ cây đơn vị — không cần đăng nhập, dùng cho dropdown ở
 // trang Đăng ký. Chỉ trả các field không nhạy cảm.
@@ -15,9 +15,10 @@ export const getPublicUnitTree = async (req, res) => {
 };
 
 // Danh sách toàn bộ cây đơn vị — cần đăng nhập, mọi role đều xem được.
+// Có kèm `positions` để form thêm/sửa quân nhân lọc đúng chức vụ theo đơn vị.
 export const getUnitTree = async (req, res) => {
   try {
-    const units = await Unit.find().select('name level parentId').sort({ level: 1, name: 1 });
+    const units = await Unit.find().select('name level parentId positions').sort({ level: 1, name: 1 });
     res.status(200).json(units);
   } catch (error) {
     console.error('Lỗi lấy cây đơn vị:', error.message);
@@ -122,10 +123,14 @@ export const renameUnit = async (req, res) => {
   }
 };
 
-// Xoá đơn vị — từ chối nếu còn đơn vị con hoặc còn user thuộc đơn vị này.
+// Xoá đơn vị. Mặc định: từ chối nếu còn đơn vị con hoặc còn user thuộc đơn vị
+// này. Với ?cascade=true: xoá luôn toàn bộ cây con — nhưng vẫn từ chối nếu
+// BẤT KỲ đơn vị nào trong cây con (kể cả chính nó) còn quân nhân, vì xoá
+// không tự động gỡ/chuyển quân nhân.
 export const deleteUnit = async (req, res) => {
   try {
     const currentUser = req.user;
+    const cascade = req.query.cascade === 'true';
     const unit = await Unit.findById(req.params.id);
     if (!unit) {
       return res.status(404).json({ message: 'Không tìm thấy đơn vị' });
@@ -138,20 +143,138 @@ export const deleteUnit = async (req, res) => {
       }
     }
 
-    const hasChildren = await Unit.exists({ parentId: unit._id });
-    if (hasChildren) {
-      return res.status(400).json({ message: 'Đơn vị còn đơn vị con, không thể xoá' });
+    if (!cascade) {
+      const hasChildren = await Unit.exists({ parentId: unit._id });
+      if (hasChildren) {
+        return res.status(400).json({ message: 'Đơn vị còn đơn vị con, không thể xoá' });
+      }
+
+      const hasUsers = await User.exists({ unitId: unit._id });
+      if (hasUsers) {
+        return res.status(400).json({ message: 'Đơn vị còn quân nhân trực thuộc, không thể xoá' });
+      }
+
+      await unit.deleteOne();
+      return res.status(200).json({ message: 'Đã xoá đơn vị' });
     }
 
-    const hasUsers = await User.exists({ unitId: unit._id });
-    if (hasUsers) {
-      return res.status(400).json({ message: 'Đơn vị còn quân nhân trực thuộc, không thể xoá' });
+    const subtreeIds = await getUnitAndDescendantIds(unit._id);
+    const usersInSubtree = await User.countDocuments({ unitId: { $in: subtreeIds } });
+    if (usersInSubtree > 0) {
+      return res.status(400).json({
+        message: `Cây đơn vị này còn ${usersInSubtree} quân nhân trực thuộc (kể cả đơn vị con), không thể xoá`
+      });
     }
 
-    await unit.deleteOne();
-    res.status(200).json({ message: 'Đã xoá đơn vị' });
+    await Unit.deleteMany({ _id: { $in: subtreeIds } });
+    res.status(200).json({ message: `Đã xoá đơn vị và ${subtreeIds.length - 1} đơn vị con` });
   } catch (error) {
     console.error('Lỗi xoá đơn vị:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi xoá đơn vị' });
+  }
+};
+
+// Di chuyển đơn vị sang 1 đơn vị cha khác — tính lại `level` cho chính nó
+// và toàn bộ cây con (vì level luôn = parent.level + 1, không phụ thuộc
+// client). Chặn di chuyển vào chính nó hoặc vào hậu duệ của nó (tránh vòng lặp).
+export const moveUnit = async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const { newParentId } = req.body;
+
+    if (!newParentId) {
+      return res.status(400).json({ message: 'Thiếu đơn vị cha mới' });
+    }
+
+    const unit = await Unit.findById(req.params.id);
+    if (!unit) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn vị' });
+    }
+    if (!unit.parentId) {
+      return res.status(400).json({ message: 'Không thể di chuyển đơn vị gốc' });
+    }
+
+    const newParent = await Unit.findById(newParentId);
+    if (!newParent) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn vị cha mới' });
+    }
+    if (String(newParent._id) === String(unit._id)) {
+      return res.status(400).json({ message: 'Không thể chọn chính đơn vị này làm cha' });
+    }
+
+    const wouldCreateCycle = await isUnitDescendantOf(newParent._id, unit._id);
+    if (wouldCreateCycle) {
+      return res.status(400).json({ message: 'Không thể di chuyển 1 đơn vị vào chính hậu duệ của nó' });
+    }
+
+    if (currentUser.role !== 'master-admin') {
+      const currentUnitId = currentUser.unitId?._id || currentUser.unitId;
+      const allowedSource = await isUnitDescendantOf(unit._id, currentUnitId);
+      const allowedTarget = await isUnitDescendantOf(newParent._id, currentUnitId);
+      if (!allowedSource || !allowedTarget) {
+        return res.status(403).json({ message: 'Bạn không có quyền di chuyển đơn vị này' });
+      }
+    }
+
+    const nameClash = await Unit.findOne({ parentId: newParent._id, name: unit.name });
+    if (nameClash) {
+      return res.status(400).json({ message: 'Đơn vị cha mới đã có đơn vị con cùng tên' });
+    }
+
+    const levelDelta = (newParent.level + 1) - unit.level;
+    unit.parentId = newParent._id;
+    unit.level = newParent.level + 1;
+    await unit.save();
+
+    if (levelDelta !== 0) {
+      const subtreeIds = await getUnitAndDescendantIds(unit._id);
+      const descendantIds = subtreeIds.filter(id => String(id) !== String(unit._id));
+      if (descendantIds.length > 0) {
+        await Unit.updateMany(
+          { _id: { $in: descendantIds } },
+          { $inc: { level: levelDelta } }
+        );
+      }
+    }
+
+    res.status(200).json(unit);
+  } catch (error) {
+    console.error('Lỗi di chuyển đơn vị:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi di chuyển đơn vị' });
+  }
+};
+
+// Cập nhật danh sách chức vụ hợp lệ của 1 đơn vị.
+export const updateUnitPositions = async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const { positions } = req.body;
+
+    if (!Array.isArray(positions)) {
+      return res.status(400).json({ message: 'positions phải là mảng chuỗi' });
+    }
+
+    const unit = await Unit.findById(req.params.id);
+    if (!unit) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn vị' });
+    }
+
+    if (currentUser.role !== 'master-admin') {
+      const allowed = await isUnitDescendantOf(unit._id, currentUser.unitId?._id || currentUser.unitId);
+      if (!allowed) {
+        return res.status(403).json({ message: 'Bạn không có quyền sửa đơn vị này' });
+      }
+    }
+
+    const cleaned = Array.from(new Set(
+      positions.map(p => String(p).trim()).filter(Boolean)
+    ));
+
+    unit.positions = cleaned;
+    await unit.save();
+    res.status(200).json(unit);
+  } catch (error) {
+    console.error('Lỗi cập nhật chức vụ đơn vị:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật chức vụ đơn vị' });
   }
 };
