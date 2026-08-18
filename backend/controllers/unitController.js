@@ -70,10 +70,6 @@ export const createUnit = async (req, res) => {
     if (!parent) {
       return res.status(404).json({ message: 'Không tìm thấy đơn vị cấp cha' });
     }
-    if (parent.level >= 3) {
-      return res.status(400).json({ message: 'Đại đội (cấp 3) không thể có đơn vị con' });
-    }
-
     if (currentUser.role !== 'master-admin') {
       const allowed = await isUnitDescendantOf(parent._id, currentUser.unitId?._id || currentUser.unitId);
       if (!allowed) {

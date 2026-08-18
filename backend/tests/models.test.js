@@ -19,15 +19,20 @@ describe('Model: Unit', () => {
     expect(unit.level).toBe(1);
   });
 
-  it('từ chối level ngoài khoảng 1-3', async () => {
+  it('từ chối level nhỏ hơn 1 (không còn giới hạn cấp tối đa — cây đơn vị có thể sâu hơn 3 cấp)', async () => {
     let error = null;
     try {
-      await Unit.create({ name: 'Đơn vị sai cấp', level: 5, parentId: null });
+      await Unit.create({ name: 'Đơn vị sai cấp', level: 0, parentId: null });
     } catch (e) {
       error = e;
     }
     expect(error).not.toBeNull();
     expect(error.name).toBe('ValidationError');
+  });
+
+  it('chấp nhận level sâu hơn 3 (VD: cấp 5, Trung đoàn → Tiểu đoàn → Đại đội → Trung đội → Tiểu đội)', async () => {
+    const unit = await Unit.create({ name: 'Đơn vị cấp sâu', level: 5, parentId: null });
+    expect(unit.level).toBe(5);
   });
 
   it('không cho phép 2 đơn vị con cùng tên dưới cùng 1 cha (unique index)', async () => {

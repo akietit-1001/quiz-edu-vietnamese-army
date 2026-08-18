@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X } from '@phosphor-icons/react';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
+import { getPositionsForUnit, ALL_POSITIONS } from '../constants/positionsByUnit';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
@@ -12,7 +13,7 @@ interface UserManagementProps {
 }
 
 const RANKS = ['Binh nhì', 'Binh nhất', 'Hạ sĩ', 'Trung sĩ', 'Thượng sĩ', 'Thiếu úy', 'Trung úy', 'Thượng úy', 'Đại úy', 'Thiếu tá', 'Trung tá', 'Thượng tá', 'Đại tá', 'Thiếu tướng', 'Trung tướng', 'Thượng tướng', 'Đại tướng'];
-const POSITIONS = ['Chiến sĩ', 'Tiểu đội trưởng', 'Trung đội phó', 'Trung đội trưởng', 'Đại đội phó', 'Đại đội trưởng', 'Tiểu đoàn phó', 'Tiểu đoàn trưởng', 'Chính trị viên', 'Học viên', 'Giảng viên', 'Khác'];
+const POSITIONS = ['Chiến sĩ', 'Tiểu đội trưởng', 'Phó Trung đội trưởng', 'Trung đội trưởng', 'Phó Đại đội trưởng', 'Đại đội trưởng', 'Phó Tiểu đoàn trưởng', 'Tiểu đoàn trưởng', 'Chính trị viên', 'Chính trị viên phó', 'Y tá', 'Học viên', 'Giảng viên', 'Khác'];
 
 export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigateBack }) => {
   const [users, setUsers] = useState<any[]>([]);
@@ -195,6 +196,29 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     collect(ownUnitId);
     return result;
   }, [units, user]);
+
+  // Chức vụ hợp lệ cho đơn vị đang chọn trong form thêm/sửa quân nhân — chỉ
+  // hiện chức vụ đúng với Ban/Phòng đó thay vì xổ ra toàn bộ chức vụ toàn hệ
+  // thống (VD: chọn "Ban Quân y" thì không hiện "Chủ nhiệm Chính trị").
+  const positionsForSelectedUnit = React.useMemo(() => {
+    const unit = units.find(u => u._id === unitId);
+    if (!unit) return [];
+    const parent = unit.parentId ? units.find(u => u._id === unit.parentId) : null;
+    return getPositionsForUnit(unit.name, parent?.name);
+  }, [units, unitId]);
+
+  // Chỉ tự chuyển chức vụ khi đơn vị THỰC SỰ đổi do người dùng bấm chọn lại
+  // — bỏ qua lần đầu form mở ra (kể cả khi sửa quân nhân có sẵn, có thể
+  // đang mang chức vụ thuộc danh sách cũ/chung chung), tránh vừa mở form
+  // sửa đã âm thầm đổi mất chức vụ thật đang lưu của quân nhân đó.
+  const prevUnitIdRef = React.useRef(unitId);
+  useEffect(() => {
+    if (prevUnitIdRef.current === unitId) return;
+    prevUnitIdRef.current = unitId;
+    if (positionsForSelectedUnit.length > 0 && !positionsForSelectedUnit.includes(position)) {
+      setPosition(positionsForSelectedUnit[0]);
+    }
+  }, [unitId, positionsForSelectedUnit]);
 
   // Group assignableUnits by parent so the tree can be rendered collapsed —
   // only direct children of an expanded node are ever shown.
@@ -792,7 +816,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                   className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                 >
                   <option value="">Tất cả</option>
-                  {POSITIONS.map(ps => (
+                  {ALL_POSITIONS.map(ps => (
                     <option key={ps} value={ps}>{ps}</option>
                   ))}
                 </Select>
@@ -1256,7 +1280,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     onChange={setPosition}
                     className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
-                    {POSITIONS.map(ps => (
+                    {(positionsForSelectedUnit.length > 0 ? positionsForSelectedUnit : POSITIONS).map(ps => (
                       <option key={ps} value={ps}>{ps}</option>
                     ))}
                   </Select>
