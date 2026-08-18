@@ -4,11 +4,15 @@
 // nhiệm Chính trị" cho một quân nhân ở Ban Quân y.
 export const POSITIONS_BY_UNIT_NAME: Record<string, string[]> = {
   // ----- Ban Chỉ huy Bộ CHQS tỉnh (Bộ Tư lệnh cấp tỉnh) -----
+  // Giữ lại để quân nhân gán trực tiếp vào đơn vị gốc (trước khi có Ban Chỉ
+  // huy riêng) vẫn chọn được chức vụ hợp lý — chức vụ thật hiện dùng qua
+  // POSITIONS_BY_BAN_CHI_HUY_PARENT['Bộ CHQS tỉnh Đồng Tháp'] bên dưới.
   'Bộ CHQS tỉnh Đồng Tháp': [
     'Chỉ huy trưởng',
     'Chính ủy',
     'Phó Chỉ huy trưởng kiêm Tham mưu trưởng',
-    'Phó Chỉ huy trưởng',
+    'Phó Chỉ huy trưởng (Phụ trách Hậu cần - Kỹ thuật)',
+    'Phó Chỉ huy trưởng (Phụ trách Động viên, Tuyển quân, Sẵn sàng chiến đấu)',
     'Phó Chính ủy'
   ],
 
@@ -45,6 +49,13 @@ export const POSITIONS_BY_UNIT_NAME: Record<string, string[]> = {
     'Tiểu đoàn trưởng', 'Chính trị viên tiểu đoàn', 'Phó Tiểu đoàn trưởng', 'Chính trị viên phó tiểu đoàn',
     'Đại đội trưởng', 'Chính trị viên đại đội', 'Trung đội trưởng', 'Tiểu đội trưởng', 'Chiến sĩ'
   ],
+  // Tiếp nhận nguyên vẹn lực lượng chủ lực từ Tiền Giang cũ sang — cùng vai
+  // trò chủ lực cơ động như Trung đoàn 320 nên dùng chung mẫu chức vụ.
+  'Trung đoàn Bộ binh 92': [
+    'Trung đoàn trưởng', 'Chính ủy Trung đoàn', 'Phó Trung đoàn trưởng', 'Phó Chính ủy Trung đoàn',
+    'Tiểu đoàn trưởng', 'Chính trị viên tiểu đoàn', 'Phó Tiểu đoàn trưởng', 'Chính trị viên phó tiểu đoàn',
+    'Đại đội trưởng', 'Chính trị viên đại đội', 'Trung đội trưởng', 'Tiểu đội trưởng', 'Chiến sĩ'
+  ],
   'Trung đoàn 924': [
     'Trung đoàn trưởng', 'Chính ủy Trung đoàn', 'Phó Trung đoàn trưởng', 'Phó Chính ủy Trung đoàn',
     'Tiểu đoàn trưởng khung huấn luyện', 'Chính trị viên tiểu đoàn huấn luyện',
@@ -64,14 +75,41 @@ export const POSITIONS_BY_UNIT_NAME: Record<string, string[]> = {
   'Ban Chính trị': ['Trưởng ban', 'Trợ lý', 'Nhân viên'],
   'Ban Hậu cần - Kỹ thuật': ['Trưởng ban', 'Trợ lý', 'Nhân viên'],
 
-  // ----- 2 Đại đội binh chủng trực thuộc thẳng Bộ Chỉ huy -----
-  'Đại đội Thiết giáp': [
+  // ----- 8 Đại đội binh chủng trực thuộc thẳng Bộ Chỉ huy — 2 khối: Đồng
+  // Tháp cũ (Thiết giáp 1, Công binh, Thông tin 1, Vận tải) và Tiền Giang cũ
+  // (Pháo binh, Thiết giáp 2, Phòng không, Thông tin 2). Trùng tên binh chủng
+  // giữa 2 khối nên đánh số 1/2 để phân biệt (cùng cha là Bộ Chỉ huy). -----
+  'Đại đội Thiết giáp 1': [
+    'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
+    'Trung đội trưởng thiết giáp', 'Tiểu đội trưởng', 'Lái xe thiết giáp', 'Nhân viên kỹ thuật'
+  ],
+  'Đại đội Thiết giáp 2': [
     'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
     'Trung đội trưởng thiết giáp', 'Tiểu đội trưởng', 'Lái xe thiết giáp', 'Nhân viên kỹ thuật'
   ],
   'Đại đội Vận tải': [
     'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
     'Trung đội trưởng vận tải', 'Tiểu đội trưởng', 'Lái xe vận tải', 'Nhân viên kỹ thuật'
+  ],
+  'Đại đội Công binh': [
+    'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
+    'Trung đội trưởng công binh', 'Tiểu đội trưởng', 'Nhân viên công binh', 'Nhân viên kỹ thuật'
+  ],
+  'Đại đội Thông tin 1': [
+    'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
+    'Trung đội trưởng thông tin', 'Tiểu đội trưởng', 'Nhân viên thông tin', 'Nhân viên kỹ thuật'
+  ],
+  'Đại đội Thông tin 2': [
+    'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
+    'Trung đội trưởng thông tin', 'Tiểu đội trưởng', 'Nhân viên thông tin', 'Nhân viên kỹ thuật'
+  ],
+  'Đại đội Pháo binh': [
+    'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
+    'Trung đội trưởng pháo binh', 'Tiểu đội trưởng', 'Pháo thủ', 'Nhân viên kỹ thuật'
+  ],
+  'Đại đội Phòng không': [
+    'Đại đội trưởng', 'Chính trị viên Đại đội', 'Phó Đại đội trưởng', 'Chính trị viên phó',
+    'Trung đội trưởng phòng không', 'Tiểu đội trưởng', 'Pháo thủ phòng không', 'Nhân viên kỹ thuật'
   ]
 };
 
@@ -79,9 +117,33 @@ export const POSITIONS_BY_UNIT_NAME: Record<string, string[]> = {
 // Kỹ thuật) nhưng chức vụ đứng đầu mỗi phòng lại khác nhau hoàn toàn — tra
 // theo tên đơn vị CHA thay vì chỉ theo tên "Ban Chỉ huy".
 export const POSITIONS_BY_BAN_CHI_HUY_PARENT: Record<string, string[]> = {
+  'Bộ CHQS tỉnh Đồng Tháp': [
+    'Chỉ huy trưởng',
+    'Chính ủy',
+    'Phó Chỉ huy trưởng kiêm Tham mưu trưởng',
+    'Phó Chỉ huy trưởng (Phụ trách Hậu cần - Kỹ thuật)',
+    'Phó Chỉ huy trưởng (Phụ trách Động viên, Tuyển quân, Sẵn sàng chiến đấu)',
+    'Phó Chính ủy'
+  ],
   'Phòng Tham mưu': ['Trưởng phòng', 'Phó Trưởng phòng'],
   'Phòng Chính trị': ['Chủ nhiệm Chính trị', 'Phó Chủ nhiệm Chính trị'],
-  'Phòng Hậu cần - Kỹ thuật': ['Chủ nhiệm Hậu cần - Kỹ thuật', 'Phó Chủ nhiệm Hậu cần - Kỹ thuật']
+  'Phòng Hậu cần - Kỹ thuật': ['Chủ nhiệm Hậu cần - Kỹ thuật', 'Phó Chủ nhiệm Hậu cần - Kỹ thuật'],
+  'Trung đoàn Bộ binh 320': [
+    'Trung đoàn trưởng', 'Chính ủy', 'Phó Trung đoàn trưởng kiêm Tham mưu trưởng',
+    'Phó Trung đoàn trưởng', 'Phó Chính ủy'
+  ],
+  'Trung đoàn Bộ binh 92': [
+    'Trung đoàn trưởng', 'Chính ủy', 'Phó Trung đoàn trưởng kiêm Tham mưu trưởng',
+    'Phó Trung đoàn trưởng', 'Phó Chính ủy'
+  ],
+  'Trung đoàn 924': [
+    'Trung đoàn trưởng', 'Chính ủy', 'Phó Trung đoàn trưởng kiêm Tham mưu trưởng',
+    'Phó Trung đoàn trưởng', 'Phó Chính ủy'
+  ],
+  'Trung đoàn 43': [
+    'Trung đoàn trưởng', 'Chính ủy', 'Phó Trung đoàn trưởng kiêm Tham mưu trưởng',
+    'Phó Trung đoàn trưởng', 'Phó Chính ủy'
+  ]
 };
 
 // Chức vụ dùng chung cho MỌI Ban CHQS cấp Huyện/Thành phố (12 đơn vị) — nhận
@@ -118,9 +180,9 @@ export const CAP_XA_POSITIONS = [
   'Dân quân cơ động'
 ];
 
-// Áp dụng cho các đơn vị cấp Đại đội (tên bắt đầu bằng "Đại đội") không có
-// trong danh sách riêng ở trên (VD: Đại đội Thông tin 1/2, Trinh sát cơ
-// giới 1/2, Công binh 1/2 thuộc Phòng Tham mưu) — mẫu chức vụ chung.
+// Dự phòng cho các đơn vị cấp Đại đội (tên bắt đầu bằng "Đại đội") chưa có
+// trong danh sách riêng ở trên (VD: Đại đội mới lập sau này chưa kịp thêm
+// mẫu chức vụ cụ thể) — mẫu chức vụ chung.
 export const GENERIC_DAI_DOI_POSITIONS = [
   'Đại đội trưởng',
   'Chính trị viên đại đội',

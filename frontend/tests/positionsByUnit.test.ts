@@ -27,13 +27,46 @@ describe('positionsByUnit: getPositionsForUnit', () => {
     expect(result).toContain('Chiến sĩ Dân quân thường trực');
   });
 
+  it('"Ban Chỉ huy" cấp tỉnh (cha là Bộ CHQS tỉnh) trả chức vụ Bộ Tư lệnh tỉnh, khác Ban Chỉ huy của Phòng', () => {
+    const capTinh = getPositionsForUnit('Ban Chỉ huy', 'Bộ CHQS tỉnh Đồng Tháp');
+    const phongThamMuu = getPositionsForUnit('Ban Chỉ huy', 'Phòng Tham mưu');
+    expect(capTinh).toContain('Chỉ huy trưởng');
+    expect(capTinh).toContain('Chính ủy');
+    expect(capTinh).not.toEqual(phongThamMuu);
+  });
+
+  it('"Ban Chỉ huy" của từng Trung đoàn trả đúng chức vụ chỉ huy trung đoàn, khác Ban Chỉ huy cấp tỉnh', () => {
+    const trd320 = getPositionsForUnit('Ban Chỉ huy', 'Trung đoàn Bộ binh 320');
+    const trd92 = getPositionsForUnit('Ban Chỉ huy', 'Trung đoàn Bộ binh 92');
+    const capTinh = getPositionsForUnit('Ban Chỉ huy', 'Bộ CHQS tỉnh Đồng Tháp');
+    expect(trd320).toContain('Trung đoàn trưởng');
+    expect(trd92).toEqual(trd320);
+    expect(trd320).not.toEqual(capTinh);
+  });
+
+  it('Trung đoàn Bộ binh 92 (mới, tiếp nhận từ Tiền Giang) có đầy đủ chức vụ từ chỉ huy tới chiến sĩ', () => {
+    const result = getPositionsForUnit('Trung đoàn Bộ binh 92');
+    expect(result).toContain('Trung đoàn trưởng');
+    expect(result).toContain('Chiến sĩ');
+  });
+
+  it('8 Đại đội binh chủng cấp Bộ Chỉ huy có chức vụ riêng, không rơi về mẫu chung', () => {
+    const congBinh = getPositionsForUnit('Đại đội Công binh');
+    const phaoBinh = getPositionsForUnit('Đại đội Pháo binh');
+    const phongKhong = getPositionsForUnit('Đại đội Phòng không');
+    expect(congBinh).toContain('Trung đội trưởng công binh');
+    expect(phaoBinh).toContain('Pháo thủ');
+    expect(phongKhong).toContain('Pháo thủ phòng không');
+    expect(congBinh).not.toEqual(FALLBACK_POSITIONS);
+  });
+
   it('đơn vị cấp Huyện/Thành phố nhận diện qua tiền tố tên', () => {
     expect(getPositionsForUnit('Ban Chỉ huy Quân sự Huyện Châu Thành')).toContain('Trợ lý Tác chiến');
     expect(getPositionsForUnit('Ban Chỉ huy Quân sự Thành phố Cao Lãnh')).toContain('Chỉ huy trưởng');
   });
 
   it('đơn vị cấp Đại đội chưa có trong bảng riêng -> dùng mẫu chức vụ đại đội chung', () => {
-    const result = getPositionsForUnit('Đại đội Thông tin 1');
+    const result = getPositionsForUnit('Đại đội Hoá học');
     expect(result).toContain('Đại đội trưởng');
     expect(result).toContain('Chiến sĩ');
   });
