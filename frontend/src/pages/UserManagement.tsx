@@ -67,6 +67,73 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     );
   };
 
+  // Table Column Resizing — kéo mép cột để đổi độ rộng, giống bảng đề thi/
+  // ngân hàng câu hỏi ở QuizManagement.
+  const [userColWidths, setUserColWidths] = useState<{ [key: string]: number }>({
+    fullName: 180,
+    rank: 110,
+    position: 130,
+    unit: 160,
+    email: 200,
+    role: 120,
+    actions: 90
+  });
+  const [userResized, setUserResized] = useState(false);
+  const activeUserCol = React.useRef<string | null>(null);
+  const userStartX = React.useRef<number>(0);
+  const userStartWidth = React.useRef<number>(0);
+
+  const handleUserResizeMouseDown = (colKey: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const thElement = e.currentTarget.parentElement;
+    const trElement = thElement?.parentElement;
+    if (trElement) {
+      const ths = Array.from(trElement.children) as HTMLTableHeaderCellElement[];
+      const widths: { [key: string]: number } = {
+        fullName: ths[0]?.getBoundingClientRect().width || userColWidths.fullName,
+        rank: ths[1]?.getBoundingClientRect().width || userColWidths.rank,
+        position: ths[2]?.getBoundingClientRect().width || userColWidths.position,
+        unit: ths[3]?.getBoundingClientRect().width || userColWidths.unit,
+        email: ths[4]?.getBoundingClientRect().width || userColWidths.email,
+        role: ths[5]?.getBoundingClientRect().width || userColWidths.role,
+        actions: ths[6]?.getBoundingClientRect().width || userColWidths.actions,
+      };
+      setUserColWidths(widths);
+      setUserResized(true);
+      userStartWidth.current = widths[colKey];
+    } else {
+      userStartWidth.current = userColWidths[colKey];
+    }
+
+    activeUserCol.current = colKey;
+    userStartX.current = e.clientX;
+
+    document.addEventListener('mousemove', handleUserResizeMouseMove);
+    document.addEventListener('mouseup', handleUserResizeMouseUp);
+  };
+
+  const handleUserResizeMouseMove = (e: MouseEvent) => {
+    if (!activeUserCol.current) return;
+    const diff = e.clientX - userStartX.current;
+    const newWidth = Math.max(60, userStartWidth.current + diff);
+    setUserColWidths(prev => ({ ...prev, [activeUserCol.current as string]: newWidth }));
+  };
+
+  const handleUserResizeMouseUp = () => {
+    activeUserCol.current = null;
+    document.removeEventListener('mousemove', handleUserResizeMouseMove);
+    document.removeEventListener('mouseup', handleUserResizeMouseUp);
+  };
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleUserResizeMouseMove);
+      document.removeEventListener('mouseup', handleUserResizeMouseUp);
+    };
+  }, []);
+
   // Modal / Form state
   const [showFormModal, setShowFormModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -787,28 +854,99 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
       {/* Users Table */}
       <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card shadow-md rounded-lg overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className={`w-full text-left border-collapse text-xs ${userResized ? 'table-fixed' : ''}`}>
             <thead>
               <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('fullName')}>
+                <th
+                  className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
+                  style={userResized ? { width: userColWidths.fullName, minWidth: userColWidths.fullName } : undefined}
+                  onClick={() => handleUserSort('fullName')}
+                >
                   Họ và tên {renderSortIndicator('fullName')}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                    onMouseDown={(e) => handleUserResizeMouseDown('fullName', e)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                  </div>
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('rank')}>
+                <th
+                  className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
+                  style={userResized ? { width: userColWidths.rank, minWidth: userColWidths.rank } : undefined}
+                  onClick={() => handleUserSort('rank')}
+                >
                   Cấp bậc {renderSortIndicator('rank')}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                    onMouseDown={(e) => handleUserResizeMouseDown('rank', e)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                  </div>
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('position')}>
+                <th
+                  className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
+                  style={userResized ? { width: userColWidths.position, minWidth: userColWidths.position } : undefined}
+                  onClick={() => handleUserSort('position')}
+                >
                   Chức vụ {renderSortIndicator('position')}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                    onMouseDown={(e) => handleUserResizeMouseDown('position', e)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                  </div>
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('unit')}>
+                <th
+                  className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
+                  style={userResized ? { width: userColWidths.unit, minWidth: userColWidths.unit } : undefined}
+                  onClick={() => handleUserSort('unit')}
+                >
                   Đơn vị {renderSortIndicator('unit')}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                    onMouseDown={(e) => handleUserResizeMouseDown('unit', e)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                  </div>
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('email')}>
+                <th
+                  className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
+                  style={userResized ? { width: userColWidths.email, minWidth: userColWidths.email } : undefined}
+                  onClick={() => handleUserSort('email')}
+                >
                   Email / Tên đăng nhập {renderSortIndicator('email')}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                    onMouseDown={(e) => handleUserResizeMouseDown('email', e)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                  </div>
                 </th>
-                <th className="py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none whitespace-nowrap" onClick={() => handleUserSort('role')}>
+                <th
+                  className="relative py-3 px-4 cursor-pointer hover:text-vpa-gold transition-colors select-none pr-6 whitespace-nowrap"
+                  style={userResized ? { width: userColWidths.role, minWidth: userColWidths.role } : undefined}
+                  onClick={() => handleUserSort('role')}
+                >
                   Quyền hạn {renderSortIndicator('role')}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize z-10 group"
+                    onMouseDown={(e) => handleUserResizeMouseDown('role', e)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-[2px] group-hover:w-[6px] bg-vpa-olive-light/30 dark:bg-vpa-gold/20 group-hover:bg-vpa-gold transition-all duration-200" />
+                  </div>
                 </th>
-                <th className="py-3 px-4 text-right">Thao tác</th>
+                <th
+                  className="py-3 px-4 text-right select-none"
+                  style={userResized ? { width: userColWidths.actions, minWidth: userColWidths.actions } : undefined}
+                >
+                  Thao tác
+                </th>
               </tr>
             </thead>
             <tbody>
