@@ -17,6 +17,14 @@ const MILITARY_RANKS = [
   'Thiếu tướng', 'Trung tướng', 'Thượng tướng', 'Đại tướng'
 ];
 
+// Dự phòng cho đơn vị chưa tự khai báo chức vụ riêng (field `positions`
+// rỗng) — xem thêm UserManagement.tsx, nơi admin quản lý danh sách này.
+const FALLBACK_POSITIONS = [
+  'Chiến sĩ', 'Tiểu đội trưởng', 'Phó Trung đội trưởng', 'Trung đội trưởng',
+  'Phó Đại đội trưởng', 'Đại đội trưởng', 'Phó Tiểu đoàn trưởng', 'Tiểu đoàn trưởng',
+  'Chính trị viên', 'Chính trị viên phó', 'Y tá', 'Học viên', 'Giảng viên', 'Khác'
+];
+
 export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigateToLogin }) => {
   const [personnelType, setPersonnelType] = useState<'soldier' | 'officer' | null>(null);
   const [email, setEmail] = useState('');
@@ -37,6 +45,24 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
       .then(res => setUnits(res.data))
       .catch(() => setError('Không thể tải danh sách đơn vị. Vui lòng tải lại trang.'));
   }, []);
+
+  // Chức vụ hợp lệ cho đơn vị đang chọn — mỗi đơn vị tự khai báo danh sách
+  // chức vụ riêng (xem UserManagement.tsx), đơn vị chưa khai báo thì tạm
+  // dùng danh sách dự phòng chung.
+  const positionsForSelectedUnit = React.useMemo(() => {
+    const unit = units.find(u => u._id === unitId);
+    if (!unit) return FALLBACK_POSITIONS;
+    return unit.positions && unit.positions.length > 0 ? unit.positions : FALLBACK_POSITIONS;
+  }, [units, unitId]);
+
+  // Đây là form tạo mới (không có giá trị đã lưu cần bảo vệ như form sửa ở
+  // UserManagement), nên cứ đổi đơn vị là tự chỉnh lại chức vụ luôn, không
+  // cần cơ chế bỏ qua lần đầu mount.
+  useEffect(() => {
+    if (positionsForSelectedUnit.length > 0 && !positionsForSelectedUnit.includes(position)) {
+      setPosition(positionsForSelectedUnit[0]);
+    }
+  }, [positionsForSelectedUnit]);
 
   // OTP Verification state
   const [requiresVerification, setRequiresVerification] = useState(false);
@@ -304,18 +330,17 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                       Chức vụ
                     </label>
                     <div className="relative">
-                      <IdentificationCardIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light" />
-                      <input
-                        type="text"
+                      <IdentificationCardIcon size={18} className="absolute left-3 top-2.5 text-vpa-olive-light pointer-events-none z-10" />
+                      <Select
                         id="register-position"
-                        name="position"
-                        autoComplete="organization-title"
-                        required
-                        placeholder="Học viên / Trung đội trưởng"
                         value={position}
-                        onChange={e => setPosition(e.target.value)}
-                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg"
-                      />
+                        onChange={setPosition}
+                        className="w-full text-sm pl-10 pr-4 py-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
+                      >
+                        {positionsForSelectedUnit.map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </Select>
                     </div>
                   </div>
 

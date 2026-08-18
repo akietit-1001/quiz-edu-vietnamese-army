@@ -3,10 +3,11 @@ import User from '../models/User.js';
 import { isUnitDescendantOf, getUnitAndDescendantIds } from '../utils/unitHierarchy.js';
 
 // Danh sách toàn bộ cây đơn vị — không cần đăng nhập, dùng cho dropdown ở
-// trang Đăng ký. Chỉ trả các field không nhạy cảm.
+// trang Đăng ký. Chỉ trả các field không nhạy cảm. Có kèm `positions` để
+// trang Đăng ký lọc đúng chức vụ theo đơn vị đang chọn (giống UserManagement).
 export const getPublicUnitTree = async (req, res) => {
   try {
-    const units = await Unit.find().select('name level parentId').sort({ level: 1, name: 1 });
+    const units = await Unit.find().select('name level parentId positions').sort({ level: 1, name: 1 });
     res.status(200).json(units);
   } catch (error) {
     console.error('Lỗi lấy cây đơn vị (public):', error.message);
