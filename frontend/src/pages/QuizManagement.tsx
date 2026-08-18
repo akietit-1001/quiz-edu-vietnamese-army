@@ -1469,7 +1469,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* List Quizzes Table */}
           {!isCreating && !isImporting && !isGenerating && !isGeneratingAI && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className={`w-full text-left border-collapse text-xs ${quizResized ? 'table-fixed' : ''}`}>
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
@@ -1728,6 +1728,126 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-vpa-olive-light/10">
+                {quizzesLoading ?
+                  Array.from({ length: quizSkeletonRowCount }).map((_, idx) => (
+                    <div key={idx} className="py-4 animate-pulse space-y-2">
+                      <div className="w-40 h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                      <div className="flex gap-1.5">
+                        <div className="w-20 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                        <div className="w-16 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                      </div>
+                      <div className="w-48 h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                    </div>
+                  ))
+                :
+                  displayedQuizzes.map(quiz => (
+                    <div key={quiz._id} className="py-4">
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <Tooltip content={quiz.title} className="min-w-0 flex-1 block">
+                          <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand line-clamp-2">{quiz.title}</h4>
+                        </Tooltip>
+                        {quiz.isPublic ? (
+                          <span className="shrink-0 text-[9px] font-bold text-green-600 uppercase">Công khai</span>
+                        ) : (
+                          <span className="shrink-0 text-[9px] text-gray-400 uppercase">Nội bộ</span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase">{quiz.category}</span>
+                        <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase font-bold">{quiz.shareCode}</span>
+                      </div>
+
+                      <p className="text-[10px] text-gray-500 mb-1">
+                        {quiz.questions.length} câu / {quiz.duration} phút ({quiz.passingScorePercent}% Đạt)
+                      </p>
+                      <p className="text-[10px] text-gray-500 mb-3">
+                        {quiz.creatorId?.fullName || 'Hệ thống'} · {quiz.createdAt ? new Date(quiz.createdAt).toLocaleString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </p>
+
+                      <div className="flex justify-end border-t border-vpa-olive-light/10 pt-2.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (activeDropdownQuizId === quiz._id) {
+                              setActiveDropdownQuizId(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDropdownPos({ top: rect.bottom + 6, left: rect.right - 144 });
+                              setActiveDropdownQuizId(quiz._id);
+                            }
+                          }}
+                          className="px-3 py-1.5 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark text-[10px] uppercase font-mono font-bold tracking-wider transition-colors inline-flex items-center space-x-1 rounded-lg"
+                        >
+                          <span>Thao tác</span>
+                          <span className="text-[8px]">▼</span>
+                        </button>
+
+                        {activeDropdownQuizId === quiz._id && dropdownPos && createPortal(
+                          <>
+                            <div
+                              className="fixed inset-0 z-40 cursor-default"
+                              onClick={() => setActiveDropdownQuizId(null)}
+                            />
+                            <div
+                              className="fixed w-36 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg z-50 rounded-lg overflow-hidden flex flex-col animate-fadeIn"
+                              style={{ top: dropdownPos.top, left: dropdownPos.left }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => { setActiveDropdownQuizId(null); handleViewQuiz(quiz); }}
+                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                              >
+                                Xem đề
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
+                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                              >
+                                Sửa đề
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setActiveDropdownQuizId(null); handleOpenExportPopup(quiz); }}
+                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                              >
+                                Xuất bản
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
+                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                              >
+                                Xóa đề
+                              </button>
+                            </div>
+                          </>,
+                          document.body
+                        )}
+                      </div>
+                    </div>
+                  ))
+                }
+                {!quizzesLoading && displayedQuizzes.length === 0 && (
+                  <div className={`text-center py-8 ${quizFetchError ? 'text-vpa-red font-bold' : 'text-gray-400'}`}>
+                    {quizFetchError
+                      ? quizFetchError
+                      : quizzes.length === 0
+                      ? "Chưa có đề thi quân sự nào được xuất bản."
+                      : "Không tìm thấy đề thi phù hợp với bộ lọc tìm kiếm."}
+                  </div>
+                )}
               </div>
 
               {/* Pagination controls */}
@@ -2687,7 +2807,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           {/* List bank questions */}
           {!isAddingToBank && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
-              <div className="overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto">
                 <table className={`w-full text-left border-collapse text-xs ${bankResized ? 'table-fixed' : ''}`}>
                   <thead>
                     <tr className="border-b border-vpa-olive-light/30 text-gray-500 font-mono uppercase text-[10px]">
@@ -2834,6 +2954,66 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile card list */}
+              <div className="md:hidden divide-y divide-vpa-olive-light/10">
+                {bankLoading ?
+                  Array.from({ length: bankSkeletonRowCount }).map((_, idx) => (
+                    <div key={idx} className="py-4 animate-pulse space-y-2">
+                      <div className="w-full h-4 bg-vpa-olive-light/20 dark:bg-vpa-gold/15 rounded"></div>
+                      <div className="w-2/3 h-3 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                      <div className="flex gap-1.5">
+                        <div className="w-16 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                        <div className="w-20 h-4 bg-vpa-olive-light/10 dark:bg-vpa-gold/10 rounded"></div>
+                      </div>
+                    </div>
+                  ))
+                :
+                  displayedBankQuestions.map(q => (
+                    <div key={q._id} className="py-4">
+                      <Tooltip content={q.questionText} className="block mb-2">
+                        <p className="text-xs font-semibold text-vpa-olive dark:text-vpa-sand leading-relaxed line-clamp-2">{q.questionText}</p>
+                      </Tooltip>
+
+                      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                        <span className="px-2 py-0.5 bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand text-[9px] font-mono uppercase">{q.category}</span>
+                        <span className={`px-2 py-0.5 border text-[9px] font-mono font-bold ${
+                          q.difficulty === 'Dễ'
+                            ? 'border-green-500/30 bg-green-500/10 text-green-600'
+                            : q.difficulty === 'Trung bình'
+                            ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-600'
+                            : 'border-red-500/30 bg-red-500/10 text-red-600'
+                        }`}>
+                          {q.difficulty}
+                        </span>
+                        {q.creatorId?.fullName && (
+                          <span className="text-[10px] text-gray-500">{q.creatorId.fullName}</span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end gap-2 border-t border-vpa-olive-light/10 pt-2.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEditBankQ(q)}
+                          className="p-1.5 border border-vpa-gold/30 text-vpa-gold hover:bg-vpa-gold hover:text-vpa-dark rounded-lg"
+                        >
+                          <PencilSimple size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBankQ(q._id)}
+                          className="p-1.5 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white rounded-lg"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                }
+                {!bankLoading && bankQuestions.length === 0 && (
+                  <div className="text-center py-8 text-gray-400">Ngân hàng câu hỏi trống hoặc không khớp bộ lọc.</div>
+                )}
               </div>
 
               {/* Pagination controls */}
