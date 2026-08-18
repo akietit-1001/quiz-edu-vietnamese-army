@@ -168,10 +168,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [viewingUnit, setViewingUnit] = useState<UnitNode | null>(null);
   const [unitDetailIncludeSubUnits, setUnitDetailIncludeSubUnits] = useState(false);
 
-  // Di chuyển đơn vị sang cha khác
+  // Di chuyển đơn vị sang cha khác (qua modal, hoặc kéo-thả trực tiếp trên cây)
   const [movingUnit, setMovingUnit] = useState<UnitNode | null>(null);
   const [moveTargetParentId, setMoveTargetParentId] = useState('');
   const [moveError, setMoveError] = useState('');
+  const [draggedUnitId, setDraggedUnitId] = useState<string | null>(null);
+  const [dragOverUnitId, setDragOverUnitId] = useState<string | null>(null);
 
   // Xoá đơn vị — hỗ trợ xoá cả cây con, yêu cầu gõ đúng tên để xác nhận
   const [deletingUnit, setDeletingUnit] = useState<UnitNode | null>(null);
@@ -312,11 +314,28 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     const hasChildren = children.length > 0;
     const isExpanded = expandedUnitIds.has(nodeUnit._id);
 
+    const isDragging = draggedUnitId === nodeUnit._id;
+    const isDropTarget = dragOverUnitId === nodeUnit._id;
+
     return (
       <React.Fragment key={nodeUnit._id}>
         <li
           style={{ marginLeft: `${depth * 24}px` }}
-          className="flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs"
+          draggable={!!nodeUnit.parentId && renamingUnitId !== nodeUnit._id}
+          onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDraggedUnitId(nodeUnit._id); }}
+          onDragEnd={() => { setDraggedUnitId(null); setDragOverUnitId(null); }}
+          onDragOver={e => {
+            if (!draggedUnitId || draggedUnitId === nodeUnit._id) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setDragOverUnitId(nodeUnit._id);
+          }}
+          onDragLeave={() => setDragOverUnitId(prev => (prev === nodeUnit._id ? null : prev))}
+          onDrop={e => {
+            e.preventDefault();
+            if (draggedUnitId) handleDropUnit(draggedUnitId, nodeUnit._id);
+          }}
+          className={`flex items-center justify-between py-2 px-3 border-b border-vpa-olive-light/10 text-xs transition-colors ${nodeUnit.parentId ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isDropTarget ? 'bg-vpa-gold/10 ring-1 ring-vpa-gold' : ''}`}
         >
           {renamingUnitId === nodeUnit._id ? (
             <div className="flex items-center space-x-2 flex-1">
@@ -363,6 +382,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                 title="Đổi tên"
               >
                 <PencilSimple size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOpenAddUnitModalForParent(nodeUnit._id)}
+                className="p-1.5 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                title="Thêm đơn vị con"
+              >
+                <Plus size={12} />
               </button>
               {nodeUnit.parentId && (
                 <button
@@ -556,6 +583,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     setShowAddUnitModal(true);
   };
 
+  // Thêm nhanh 1 đơn vị con ngay từ dòng của đơn vị cha trong cây, thay vì
+  // phải mở "+ Thêm đơn vị" ở đầu trang rồi tự chọn cha trong dropdown.
+  const handleOpenAddUnitModalForParent = (parentId: string) => {
+    setUnitError('');
+    setNewUnitName('');
+    setNewUnitParentId(parentId);
+    setShowAddUnitModal(true);
+  };
+
   const handleCreateUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUnitError('');
@@ -639,16 +675,53 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     setMoveError('');
   };
 
+  // Gọi API di chuyển thật sự — dùng chung cho cả modal "Di chuyển" (chọn
+  // cha từ dropdown) lẫn kéo-thả trực tiếp trên cây.
+  const performMoveUnit = async (unitId: string, newParentId: string): Promise<{ ok: true } | { ok: false; message: string }> => {
+    try {
+      await axios.patch(`/api/units/${unitId}/move`, { newParentId });
+      fetchUnits();
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, message: err.response?.data?.message || 'Không thể di chuyển đơn vị.' };
+    }
+  };
+
   const handleConfirmMoveUnit = async () => {
     if (!movingUnit || !moveTargetParentId) return;
-    try {
-      await axios.patch(`/api/units/${movingUnit._id}/move`, { newParentId: moveTargetParentId });
+    const result = await performMoveUnit(movingUnit._id, moveTargetParentId);
+    if (result.ok) {
       setUnitSuccessMsg('Đã di chuyển đơn vị thành công.');
       setMovingUnit(null);
-      fetchUnits();
       setTimeout(() => setUnitSuccessMsg(''), 3000);
-    } catch (err: any) {
-      setMoveError(err.response?.data?.message || 'Không thể di chuyển đơn vị.');
+    } else {
+      setMoveError(result.message);
+    }
+  };
+
+  // Kéo-thả 1 đơn vị vào dòng của đơn vị khác để di chuyển nhanh, không cần
+  // mở modal. Vẫn chặn thả vào chính nó hoặc vào hậu duệ của nó ở phía
+  // client trước khi gọi API (API cũng tự chặn lại, đây chỉ để phản hồi
+  // nhanh không cần round-trip).
+  const handleDropUnit = async (draggedId: string, targetParentId: string) => {
+    setDragOverUnitId(null);
+    setDraggedUnitId(null);
+    if (draggedId === targetParentId) return;
+    const draggedUnit = units.find(u => u._id === draggedId);
+    if (!draggedUnit || !draggedUnit.parentId) return; // không cho kéo đơn vị gốc
+    const excludedIds = new Set(getUnitAndDescendantIds(draggedId));
+    if (excludedIds.has(targetParentId)) {
+      setUnitError('Không thể di chuyển 1 đơn vị vào chính hậu duệ của nó.');
+      setTimeout(() => setUnitError(''), 3000);
+      return;
+    }
+    const result = await performMoveUnit(draggedId, targetParentId);
+    if (result.ok) {
+      setUnitSuccessMsg('Đã di chuyển đơn vị thành công.');
+      setTimeout(() => setUnitSuccessMsg(''), 3000);
+    } else {
+      setUnitError(result.message);
+      setTimeout(() => setUnitError(''), 3000);
     }
   };
 
