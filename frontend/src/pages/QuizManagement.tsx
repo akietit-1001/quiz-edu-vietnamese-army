@@ -11,16 +11,21 @@ import { Select } from '../components/Select';
 import { Pagination } from '../components/Pagination';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { Tooltip } from '../components/Tooltip';
+import { CreateRoomModal } from '../components/CreateRoomModal';
 
 interface QuizManagementProps {
   user?: any;
   onNavigateBack: () => void;
+  onJoinRoom: (roomCode: string) => void;
 }
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 const DIFFICULTIES = ['Dễ', 'Trung bình', 'Khó'];
 
-export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigateBack }) => {
+export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigateBack, onJoinRoom }) => {
+  // Đề thi được chọn để tạo phòng thi ngay từ kho đề thi (null = modal đang đóng).
+  const [createRoomQuizId, setCreateRoomQuizId] = useState<string | null>(null);
+  const canCreateRoom = user?.role === 'admin' || user?.role === 'master-admin';
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [currentTab, setCurrentTab] = useState<'quizzes' | 'bank'>('quizzes');
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
@@ -1560,6 +1565,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     >
                                       Xem đề
                                     </button>
+                                    {canCreateRoom && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setActiveDropdownQuizId(null); setCreateRoomQuizId(quiz._id); }}
+                                        className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                      >
+                                        Tạo phòng thi
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
@@ -1685,6 +1699,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                               >
                                 Xem đề
                               </button>
+                              {canCreateRoom && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setActiveDropdownQuizId(null); setCreateRoomQuizId(quiz._id); }}
+                                  className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                >
+                                  Tạo phòng thi
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
@@ -3208,6 +3231,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         onCancel={() => { setShowExportPopup(false); setSelectedQuizForExport(null); }}
         onConfirm={handleExportConfirm}
       />
+
+      {/* Tạo phòng thi ngay từ kho đề thi, đề đã được chọn sẵn */}
+      {createRoomQuizId && (
+        <CreateRoomModal
+          initialQuizId={createRoomQuizId}
+          onClose={() => setCreateRoomQuizId(null)}
+          onCreated={(roomCode) => { setCreateRoomQuizId(null); onJoinRoom(roomCode); }}
+        />
+      )}
 
       {/* Printable VPA Quiz Document Container */}
       {printData && createPortal(

@@ -6,15 +6,26 @@ import xlsx from 'xlsx';
 import { Packer } from 'docx';
 import { generateResultsDOCX } from '../utils/documentTemplates.js';
 import { examSubmitQueue } from '../utils/queue.js';
+import { isExamineeCapacityReached } from '../utils/roomCapacity.js';
 
 // 1. CREATE EXAM ROOM
 export const createRoom = async (req, res) => {
   try {
-    const { quizId, showResultImmediately, antiCheatEnabled } = req.body;
+    const { quizId, showResultImmediately, antiCheatEnabled, maxParticipants } = req.body;
 
     const quiz = await Quiz.findById(quizId);
     if (!quiz) {
       return res.status(404).json({ message: 'Không tìm thấy đề thi được chọn' });
+    }
+
+    // Sĩ số tối đa thí sinh: bỏ trống, null hoặc 0 nghĩa là không giới hạn.
+    let normalizedMaxParticipants = null;
+    if (maxParticipants !== undefined && maxParticipants !== null && maxParticipants !== 0 && maxParticipants !== '0') {
+      const n = Number(maxParticipants);
+      if (!Number.isInteger(n) || n < 1) {
+        return res.status(400).json({ message: 'Sĩ số tối đa thí sinh phải là số nguyên dương (hoặc để trống/0 nếu không giới hạn)' });
+      }
+      normalizedMaxParticipants = n;
     }
 
     // Generate unique 6-character room code
@@ -33,7 +44,8 @@ export const createRoom = async (req, res) => {
       status: 'waiting',
       settings: {
         showResultImmediately: showResultImmediately !== undefined ? showResultImmediately : true,
-        antiCheatEnabled: antiCheatEnabled !== undefined ? antiCheatEnabled : true
+        antiCheatEnabled: antiCheatEnabled !== undefined ? antiCheatEnabled : true,
+        maxParticipants: normalizedMaxParticipants
       },
       participants: []
     });
@@ -72,10 +84,10 @@ export const getRoomByCode = async (req, res) => {
       pendingInv.status = 'accepted';
       await pendingInv.save();
       
-      // If examinee, add to participants if not already there
+      // If examinee, add to participants if not already there và phòng chưa đầy
       if (pendingInv.role === 'examinee') {
         const isAlreadyParticipant = room.participants.some(p => p.userId.toString() === req.user.id);
-        if (!isAlreadyParticipant) {
+        if (!isAlreadyParticipant && !isExamineeCapacityReached(room)) {
           room.participants.push({ userId: req.user.id, status: 'waiting' });
           await room.save();
         }

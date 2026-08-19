@@ -11,6 +11,7 @@ import app from './app.js';
 // Models for Socket.io database operations
 import ExamRoom from './models/ExamRoom.js';
 import User from './models/User.js';
+import { isExamineeCapacityReached, ROOM_FULL_MESSAGE } from './utils/roomCapacity.js';
 import { setServers } from "node:dns/promises";
 setServers(["1.1.1.1", "8.8.8.8"]);
 
@@ -101,6 +102,10 @@ io.on('connection', (socket) => {
 
         const isAlreadyParticipant = room.participants.some(p => p.userId.toString() === userId);
         if (!isAlreadyParticipant) {
+          if (role === 'examinee' && isExamineeCapacityReached(room)) {
+            socket.emit('error', ROOM_FULL_MESSAGE);
+            return;
+          }
           room.participants.push({ userId, role, status: 'waiting' });
           await room.save();
         } else {

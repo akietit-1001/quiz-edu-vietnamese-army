@@ -2,6 +2,7 @@ import Invitation from '../models/Invitation.js';
 import ExamRoom from '../models/ExamRoom.js';
 import User from '../models/User.js';
 import { sendInvitationEmail } from '../utils/mailer.js';
+import { isExamineeCapacityReached, ROOM_FULL_MESSAGE } from '../utils/roomCapacity.js';
 
 // 1. SEND INVITATION
 export const sendInvitation = async (req, res) => {
@@ -160,6 +161,10 @@ export const respondToInvitation = async (req, res) => {
 
       if (room.status === 'finished') {
         return res.status(400).json({ message: 'Phòng thi này đã kết thúc, đồng chí không thể tham gia nữa' });
+      }
+
+      if (invitation.role === 'examinee' && isExamineeCapacityReached(room)) {
+        return res.status(400).json({ message: ROOM_FULL_MESSAGE });
       }
 
       // Add to participants if examinee

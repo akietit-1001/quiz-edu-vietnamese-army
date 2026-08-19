@@ -59,6 +59,11 @@ const examRoomSchema = new mongoose.Schema({
     antiCheatEnabled: {
       type: Boolean,
       default: true
+    },
+    maxParticipants: {
+      type: Number, // Giới hạn số thí sinh (không tính giám khảo/chủ phòng); null = không giới hạn
+      default: null,
+      min: 1
     }
   },
   participants: [participantSchema],

@@ -426,6 +426,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 )}
                 <li><span className="font-semibold text-gray-500">Chống gian lận:</span> {roomSettings.antiCheatEnabled ? 'ĐANG KÍCH HOẠT' : 'TẮT'}</li>
                 <li><span className="font-semibold text-gray-500">Xem kết quả ngay:</span> {roomSettings.showResultImmediately ? 'ĐANG KÍCH HOẠT' : 'TẮT'}</li>
+                <li><span className="font-semibold text-gray-500">Tham gia tối đa:</span> {roomSettings.maxParticipants ? `${roomSettings.maxParticipants} đồng chí` : 'Không giới hạn'}</li>
               </ul>
             </div>
 
@@ -433,10 +434,10 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             <div className="border border-vpa-olive-light/50 bg-vpa-olive/5 dark:bg-vpa-gold/5 p-6 rounded-lg">
               <p className="text-xs text-vpa-olive dark:text-vpa-gold-bright font-bold uppercase tracking-wider leading-relaxed text-center animate-pulse-slow">
                 {roomStatus === 'waiting' 
-                  ? 'Đang chờ chỉ huy mở đề thi...' 
+                  ? 'Đang chờ mở đề thi...' 
                   : roomStatus === 'active'
-                  ? 'Cuộc thi đang diễn ra. Chỉ huy phòng đang giám sát trực tuyến...'
-                  : 'Cuộc thi đã kết thúc. Chỉ huy phòng đang kết xuất báo cáo kết quả.'}
+                  ? 'Cuộc thi đang diễn ra. Đang giám sát trực tuyến...'
+                  : 'Cuộc thi đã kết thúc. Đang kết xuất báo cáo kết quả.'}
               </p>
               {!isHost && roomStatus === 'waiting' && (
                 <button
@@ -459,7 +460,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
               <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand mb-6 pb-2 border-b border-vpa-olive-light/20 flex items-center space-x-2">
                   <Users size={18} className="text-vpa-olive dark:text-vpa-gold-bright" />
-                  <span>Danh sách thí sinh ({examinees.length})</span>
+                  <span>Danh sách thí sinh ({examinees.length}{roomSettings.maxParticipants ? `/${roomSettings.maxParticipants}` : ''})</span>
                 </h3>
 
                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2">

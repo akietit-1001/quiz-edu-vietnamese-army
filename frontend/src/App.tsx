@@ -587,9 +587,10 @@ export const App: React.FC = () => {
                 />
               )}
               {currentView === 'quiz-mgmt' && (
-                <QuizManagement 
+                <QuizManagement
                   user={user}
                   onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
+                  onJoinRoom={handleJoinRoom}
                 />
               )}
               {currentView === 'user-mgmt' && (

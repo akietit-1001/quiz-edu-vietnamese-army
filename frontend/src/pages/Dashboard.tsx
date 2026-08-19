@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users, SignIn } from '@phosphor-icons/react';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { Select } from '../components/Select';
+import { NumberStepper } from '../components/NumberStepper';
 import { Tooltip } from '../components/Tooltip';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
@@ -156,6 +157,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
   const [antiCheat, setAntiCheat] = useState(true);
   const [showResult, setShowResult] = useState(true);
+  const [maxParticipants, setMaxParticipants] = useState(0); // 0 = không giới hạn
 
   // Đề gốc dùng cho lưới "Ôn luyện" — quizzes giờ chứa cả mã đề biến thể
   // (phục vụ bộ chọn mã đề khi tạo phòng bên dưới), nhưng lưới ôn luyện chỉ
@@ -438,12 +440,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const response = await axios.post('/api/rooms', {
         quizId: selectedQuiz,
         antiCheatEnabled: antiCheat,
-        showResultImmediately: showResult
+        showResultImmediately: showResult,
+        maxParticipants
       });
       setShowCreateRoomModal(false);
       setSelectedQuiz('');
       setSearchQuizQuery('');
       setSelectedCategoryFilter('');
+      setMaxParticipants(0);
       await fetchMyRooms();
       onJoinRoom(response.data.room.roomCode);
     } catch (err: any) {
@@ -749,7 +753,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {(user?.role === 'admin' || user?.role === 'master-admin') && (
                   <>
                     <button
-                      onClick={() => { setShowCreateRoomModal(true); setSelectedQuiz(''); setSearchQuizQuery(''); setSelectedCategoryFilter(''); fetchQuizzesForModal(); }}
+                      onClick={() => { setShowCreateRoomModal(true); setSelectedQuiz(''); setSearchQuizQuery(''); setSelectedCategoryFilter(''); setMaxParticipants(0); fetchQuizzesForModal(); }}
                       className="w-full py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase tracking-wider font-bold hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors text-center"
                     >
                       Tạo phòng thi mới
@@ -1132,6 +1136,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
+              <div className="space-y-1.5 pt-1">
+                <label htmlFor="maxParticipants" className="block text-[9px] uppercase tracking-wider font-bold text-gray-500">
+                  Tham gia tối đa (chỉ tính thí sinh)
+                </label>
+                <NumberStepper
+                  id="maxParticipants"
+                  value={maxParticipants}
+                  onChange={setMaxParticipants}
+                  min={0}
+                  className="flex items-stretch w-40 border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <label htmlFor="antiCheat" className="flex items-center space-x-2 p-2 border border-vpa-olive-light/20 cursor-pointer select-none hover:border-vpa-olive-light/50 transition-colors">
                   <input
@@ -1163,7 +1180,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="flex space-x-3 pt-3 border-t border-vpa-olive-light/20">
                 <button
                   type="button"
-                  onClick={() => { setShowCreateRoomModal(false); setSelectedQuiz(''); setSearchQuizQuery(''); setSelectedCategoryFilter(''); }}
+                  onClick={() => { setShowCreateRoomModal(false); setSelectedQuiz(''); setSearchQuizQuery(''); setSelectedCategoryFilter(''); setMaxParticipants(0); }}
                   className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white rounded-lg"
                 >
                   Hủy bỏ
