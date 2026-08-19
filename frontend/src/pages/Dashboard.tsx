@@ -1251,7 +1251,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="w-full flex justify-between items-center">
                           <span className="font-bold text-xs">{u.rank ? `${u.rank} ` : ''}{u.fullName}</span>
                           <span className="text-[9px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light bg-vpa-olive/5 text-gray-500">
-                            {u.unit || 'Đơn vị N/A'}
+                            {u.unit?.name || 'Đơn vị N/A'}
                           </span>
                         </div>
                         <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
