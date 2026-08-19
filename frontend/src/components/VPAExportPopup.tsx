@@ -6,7 +6,7 @@ import {
   type PageNumberPosition, type PaperSize, type QuizPrintData,
   PAGE_NUMBER_POSITIONS, PAGE_NUMBER_POSITION_LABELS,
   PAPER_SIZES, PAPER_SIZE_LABELS,
-  renderQuizPrintContent
+  PaginatedQuizPreview
 } from '../utils/quizPrintTemplate';
 
 // Thu nhỏ đều toàn bộ trang xem trước (đúng tỉ lệ cm thật, tránh vỡ bố cục
@@ -261,7 +261,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
     };
     return (
       <div className="py-2">
-        {renderQuizPrintContent(quizPrintData, 'preview')}
+        <PaginatedQuizPreview data={quizPrintData} />
       </div>
     );
   };

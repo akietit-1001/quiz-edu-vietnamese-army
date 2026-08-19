@@ -357,11 +357,37 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     setBankPage(1);
   }, [debouncedSearchBank, categoryFilter, difficultyFilter, typeFilter, debouncedBankAuthorFilter]);
 
+  // Backend chỉ báo % thật ở vài mốc rời rạc (VD 15/30/90/100 — AI sinh câu hỏi
+  // không có tiến trình chi tiết hơn để báo về), nếu hiển thị thẳng số đó thanh
+  // sẽ "nhảy cóc" và đứng hình rất lâu giữa các mốc (nhất là lúc chờ AI sinh
+  // câu hỏi, có thể mất hàng chục giây không có cập nhật nào). aiProgressTargetRef
+  // giữ mốc THẬT mới nhất; aiProgressCeilingRef tự nhích dần lên (luôn thấp hơn
+  // mốc thật kế tiếp) trong lúc chờ, để thanh luôn trông như đang chạy liên tục.
+  const aiProgressTargetRef = React.useRef(0);
+  const aiProgressCeilingRef = React.useRef(0);
+  const setAiProgressTarget = (value: number) => {
+    aiProgressTargetRef.current = value;
+    aiProgressCeilingRef.current = Math.max(aiProgressCeilingRef.current, value);
+  };
+
   useEffect(() => {
     if (!aiLoading) {
       setAiProgressStep(1);
       setAiProgressPercent(0);
+      aiProgressTargetRef.current = 0;
+      aiProgressCeilingRef.current = 0;
+      return;
     }
+    const smoothInterval = setInterval(() => {
+      setAiProgressPercent(prev => {
+        aiProgressCeilingRef.current = Math.min(94, aiProgressCeilingRef.current + 0.15);
+        const cap = Math.max(aiProgressTargetRef.current, aiProgressCeilingRef.current);
+        if (prev >= cap) return prev;
+        const step = Math.max(0.25, (cap - prev) * 0.06);
+        return Math.min(cap, prev + step);
+      });
+    }, 150);
+    return () => clearInterval(smoothInterval);
   }, [aiLoading]);
 
   const fetchQuizzes = async () => {
@@ -839,7 +865,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
     setAiLoading(true);
     setAiProgressStep(1); // Tiếp nhận tệp
-    setAiProgressPercent(5);
+    setAiProgressTarget(5);
     const originalName = aiFiles[0].name + (aiFiles.length > 1 ? ` (+ ${aiFiles.length - 1} tệp khác)` : '');
     const formData = new FormData();
     aiFiles.forEach(file => {
@@ -854,13 +880,13 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       });
       // Tại đây server đã trích xuất xong văn bản (dù kết quả trả về ngay hay qua hàng đợi)
       setAiProgressStep(2); // Tải lên & trích xuất
-      setAiProgressPercent(20);
+      setAiProgressTarget(20);
 
       // Direct synchronous response — lấy từ cache, không qua hàng đợi
       if (res.status === 200) {
         const { message, quiz } = res.data;
         setAiProgressStep(4);
-        setAiProgressPercent(100);
+        setAiProgressTarget(100);
         await window.showAlert(message || 'Đã sinh đề thi thành công bằng AI!', 'Sinh đề AI');
         populateQuizPreview(quiz, originalName);
         setAiLoading(false);
@@ -879,7 +905,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           if (status === 'completed') {
             clearInterval(pollInterval);
             setAiProgressStep(4);
-            setAiProgressPercent(100);
+            setAiProgressTarget(100);
             await window.showAlert('Đã sinh câu hỏi thành công bằng AI!', 'Sinh đề AI');
             populateQuizPreview(quiz, originalName);
             setAiLoading(false);
@@ -889,7 +915,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             setAiLoading(false);
           } else if (typeof progress === 'number' && progress > 0) {
             // 'active' / 'waiting': cập nhật % thật lấy từ job.progress trên BullMQ
-            setAiProgressPercent(prev => Math.max(prev, Math.min(progress, 99)));
+            setAiProgressTarget(Math.max(aiProgressTargetRef.current, Math.min(progress, 99)));
           }
         } catch (pollErr: any) {
           clearInterval(pollInterval);
@@ -2328,7 +2354,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                       Hệ thống AI đang xử lý tài liệu & soạn đề
                     </h4>
                     <p className="text-2xl font-black text-vpa-gold font-mono tracking-wider">
-                      {aiProgressPercent}%
+                      {Math.round(aiProgressPercent)}%
                     </p>
                     <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
                       Vui lòng giữ kết nối, quá trình này có thể mất từ 10 - 20 giây
