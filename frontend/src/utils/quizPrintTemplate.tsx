@@ -359,7 +359,7 @@ const usePageNumberStyle = (data: QuizPrintData): React.CSSProperties => {
 // duyệt tự tràn trang (xem giải thích chi tiết ở khối comment phía trên).
 // ---------------------------------------------------------------------------
 export const QuizPrintPortalContent: React.FC<{ data: QuizPrintData; onReady?: () => void }> = ({ data, onReady }) => {
-  const { marginTop, marginBottom, marginLeft, marginRight, paperSize, sheetWidthCm: _sw, contentWidthCm, budgetPx } = computeLayout(data);
+  const { marginTop, marginBottom, marginLeft, marginRight, paperSize, sheetWidthCm: _sw, sheetHeightCm, contentWidthCm, budgetPx } = computeLayout(data);
   void _sw;
   const pageNumberShowLabel = data.pageNumberShowLabel !== false;
   const pageNumberShowTotal = data.pageNumberShowTotal !== false;
@@ -435,6 +435,14 @@ export const QuizPrintPortalContent: React.FC<{ data: QuizPrintData; onReady?: (
             page-break-after: always;
             box-sizing: border-box;
             width: 100%;
+            /* Trang cuối (hay bất kỳ trang nào) có ít nội dung sẽ khiến box này
+               kết thúc sớm giữa trang giấy — số trang (position:absolute;
+               bottom:0.3cm bên trong box này) khi đó bám vào đáy CỦA BOX chứ
+               không phải đáy TRANG GIẤY THẬT, trông như trôi lơ lửng giữa
+               khoảng trắng. min-height (border-box, đã gồm cả padding) ép
+               box luôn cao đúng bằng 1 trang giấy để số trang luôn nằm đúng
+               đáy trang thật. */
+            min-height: ${sheetHeightCm}cm;
             position: relative;
             padding-top: ${marginTop}cm;
             padding-bottom: ${marginBottom}cm;
