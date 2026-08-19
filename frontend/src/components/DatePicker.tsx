@@ -228,12 +228,19 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
   // Lưới ngày: canh theo Thứ 2 đầu tuần, chèn ô trống cho những ngày thuộc
   // tháng trước/sau để giữ đúng cột thứ.
+  // Luôn pad đủ 42 ô (6 hàng × 7 cột) để panel có chiều cao cố định — tránh
+  // nhảy kích thước giữa tháng có 4 hàng và tháng có 6 hàng.
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay(); // 0=CN
   const leadingBlanks = (firstDayOfMonth + 6) % 7; // Quy về Mon=0
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const cells: (number | null)[] = [
+  const rawCells: (number | null)[] = [
     ...Array(leadingBlanks).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  // Pad thêm null ở cuối để luôn đủ 42 ô (6 hàng)
+  const cells: (number | null)[] = [
+    ...rawCells,
+    ...Array(Math.max(0, 42 - rawCells.length)).fill(null),
   ];
 
   const isToday = (day: number) =>
