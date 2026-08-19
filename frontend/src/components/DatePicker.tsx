@@ -70,6 +70,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const [viewYear, setViewYear] = useState(selected?.y ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState((selected?.m ?? today.getMonth() + 1) - 1); // 0-based
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Đồng bộ lại ô nhập mỗi khi value đổi từ bên ngoài (chọn ngày trên lịch,
   // "Hôm nay", "Xóa", reset form...) — trừ khi người dùng đang gõ dở.
@@ -94,6 +95,21 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen]);
+
+  // onWheel React dùng passive listener mặc định — preventDefault() không có
+  // tác dụng ngăn trang cuộn. Cần gắn thủ công với { passive: false }.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel || !isOpen) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) goToPrevMonth();
+      else goToNextMonth();
+    };
+    panel.addEventListener('wheel', onWheel, { passive: false });
+    return () => panel.removeEventListener('wheel', onWheel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, viewMonth, viewYear]);
 
   const openPicker = () => {
     if (selected) {
@@ -214,6 +230,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         <>
           <div className="fixed inset-0 z-[90] cursor-default" onClick={() => setIsOpen(false)} />
           <div
+            ref={panelRef}
             className="fixed z-[100] w-64 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg p-3 animate-scale-up"
             style={{ top: pos.top, left: pos.left }}
           >
