@@ -8,6 +8,7 @@ import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
 import { Select } from '../components/Select';
+import { Pagination } from '../components/Pagination';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { Tooltip } from '../components/Tooltip';
 
@@ -1144,7 +1145,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
               }`}
             >
-              Kho đề thi ({quizzes.length})
+              Kho đề thi
             </button>
             <button
               onClick={() => setCurrentTab('bank')}
@@ -1725,58 +1726,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               </div>
 
               {/* Pagination controls */}
-              {totalQuizPages > 1 && (
-                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3">
-                  <span className="text-gray-500 text-center sm:text-left">
-                    Hiển thị {startQuizIndex + 1} - {Math.min(startQuizIndex + quizPageSize, totalQuizCount)} trong tổng số {totalQuizCount} đề thi
-                  </span>
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      type="button"
-                      disabled={quizPage === 1}
-                      onClick={() => setQuizPage(prev => Math.max(prev - 1, 1))}
-                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
-                    >
-                      Trước
-                    </button>
-                    {Array.from({ length: totalQuizPages }).map((_, i) => {
-                      const p = i + 1;
-                      if (
-                        totalQuizPages > 6 &&
-                        p !== 1 &&
-                        p !== totalQuizPages &&
-                        Math.abs(p - quizPage) > 1
-                      ) {
-                        if (p === 2 && quizPage > 3) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
-                        if (p === totalQuizPages - 1 && quizPage < totalQuizPages - 2) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
-                        return null;
-                      }
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => setQuizPage(p)}
-                          className={`w-7 h-7 flex items-center justify-center border transition-all ${
-                            quizPage === p
-                              ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark font-black shadow-sm'
-                              : 'border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      disabled={quizPage === totalQuizPages}
-                      onClick={() => setQuizPage(prev => Math.min(prev + 1, totalQuizPages))}
-                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
-                    >
-                      Sau
-                    </button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                page={quizPage}
+                totalPages={totalQuizPages}
+                totalCount={totalQuizCount}
+                pageSize={quizPageSize}
+                onPageChange={setQuizPage}
+                itemLabel="đề thi"
+                className="mt-4"
+              />
             </div>
           )}
 
@@ -2891,58 +2849,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
               </div>
 
               {/* Pagination controls */}
-              {totalBankPages > 1 && (
-                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3">
-                  <span className="text-gray-500 text-center sm:text-left">
-                    Hiển thị {startBankIndex + 1} - {Math.min(startBankIndex + bankPageSize, totalBankCount)} trong tổng số {totalBankCount} câu hỏi
-                  </span>
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      type="button"
-                      disabled={bankPage === 1}
-                      onClick={() => setBankPage(prev => Math.max(prev - 1, 1))}
-                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
-                    >
-                      Trước
-                    </button>
-                    {Array.from({ length: totalBankPages }).map((_, i) => {
-                      const p = i + 1;
-                      if (
-                        totalBankPages > 6 &&
-                        p !== 1 &&
-                        p !== totalBankPages &&
-                        Math.abs(p - bankPage) > 1
-                      ) {
-                        if (p === 2 && bankPage > 3) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
-                        if (p === totalBankPages - 1 && bankPage < totalBankPages - 2) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
-                        return null;
-                      }
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => setBankPage(p)}
-                          className={`w-7 h-7 flex items-center justify-center border transition-all ${
-                            bankPage === p
-                              ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark font-black shadow-sm'
-                              : 'border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      disabled={bankPage === totalBankPages}
-                      onClick={() => setBankPage(prev => Math.min(prev + 1, totalBankPages))}
-                      className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
-                    >
-                      Sau
-                    </button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                page={bankPage}
+                totalPages={totalBankPages}
+                totalCount={totalBankCount}
+                pageSize={bankPageSize}
+                onPageChange={setBankPage}
+                itemLabel="câu hỏi"
+                className="mt-4"
+              />
             </div>
           )}
 

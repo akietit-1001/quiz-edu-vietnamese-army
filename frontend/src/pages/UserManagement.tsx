@@ -7,6 +7,7 @@ import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
 import { Checkbox } from '../components/Checkbox';
+import { Pagination } from '../components/Pagination';
 
 interface UserManagementProps {
   user: any;
@@ -172,6 +173,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
   const [viewingUnit, setViewingUnit] = useState<UnitNode | null>(null);
   const [unitDetailIncludeSubUnits, setUnitDetailIncludeSubUnits] = useState(false);
+  const [unitDetailPage, setUnitDetailPage] = useState(1);
+  const unitDetailPageSize = 10;
+  // Mở đơn vị khác, hoặc bật/tắt "gồm cả đơn vị con", đổi hẳn tập bản ghi —
+  // về trang 1 để khỏi kẹt ở 1 trang trống nếu trang cũ vượt quá tổng mới.
+  useEffect(() => {
+    setUnitDetailPage(1);
+  }, [viewingUnit?._id, unitDetailIncludeSubUnits]);
 
   // Di chuyển đơn vị sang cha khác (qua modal, hoặc kéo-thả trực tiếp trên cây)
   const [movingUnit, setMovingUnit] = useState<UnitNode | null>(null);
@@ -1426,58 +1434,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           </div>
 
           {/* Pagination controls */}
-          {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row justify-between items-center mt-4 pt-4 border-t border-vpa-olive-light/20 text-xs font-mono gap-3 p-4 bg-vpa-sand-light dark:bg-vpa-dark-card border-t border-vpa-olive-light/10">
-              <span className="text-gray-500 text-center sm:text-left">
-                Hiển thị {startIndex + 1} - {Math.min(startIndex + pageSize, filteredUsers.length)} trong tổng số {filteredUsers.length} quân nhân
-              </span>
-              <div className="flex items-center space-x-1.5">
-                <button
-                  type="button"
-                  disabled={page === 1}
-                  onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                  className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
-                >
-                  Trước
-                </button>
-                {Array.from({ length: totalPages }).map((_, i) => {
-                  const p = i + 1;
-                  if (
-                    totalPages > 6 &&
-                    p !== 1 &&
-                    p !== totalPages &&
-                    Math.abs(p - page) > 1
-                  ) {
-                    if (p === 2 && page > 3) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
-                    if (p === totalPages - 1 && page < totalPages - 2) return <span key={p} className="px-1 text-gray-400 select-none">...</span>;
-                    return null;
-                  }
-                  return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPage(p)}
-                      className={`w-7 h-7 flex items-center justify-center border transition-all ${
-                        page === p
-                          ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark font-black shadow-sm'
-                          : 'border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  disabled={page === totalPages}
-                  onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-                  className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
-                >
-                  Sau
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={filteredUsers.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="quân nhân"
+            className="mt-4 p-4 bg-vpa-sand-light dark:bg-vpa-dark-card"
+          />
         </div>
 
       {/* Create / Edit Form Modal */}
@@ -1999,6 +1964,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
           unitDetailIncludeSubUnits ? getUnitAndDescendantIds(viewingUnit._id) : [viewingUnit._id]
         );
         const unitPersonnel = users.filter(u => u.unit?.id && scopeIds.has(u.unit.id));
+        const unitDetailTotalPages = Math.max(1, Math.ceil(unitPersonnel.length / unitDetailPageSize));
+        const displayedUnitPersonnel = unitPersonnel.slice(
+          (unitDetailPage - 1) * unitDetailPageSize,
+          unitDetailPage * unitDetailPageSize
+        );
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
@@ -2076,7 +2046,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     </tr>
                   </thead>
                   <tbody>
-                    {unitPersonnel.map(u => (
+                    {displayedUnitPersonnel.map(u => (
                       <tr key={u._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                         <td className="py-2.5 px-3 font-bold text-vpa-olive dark:text-vpa-sand uppercase">{u.fullName}</td>
                         <td className="py-2.5 px-3">{u.rank}</td>
@@ -2125,7 +2095,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
 
               {/* Mobile card list */}
               <div className="md:hidden border border-vpa-olive-light/50 divide-y divide-vpa-olive-light/10">
-                {unitPersonnel.map(u => (
+                {displayedUnitPersonnel.map(u => (
                   <div key={u._id} className="p-3">
                     <div className="flex justify-between items-start gap-2 mb-2">
                       <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand">{u.fullName}</h4>
@@ -2171,6 +2141,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                   </div>
                 )}
               </div>
+
+              <Pagination
+                page={unitDetailPage}
+                totalPages={unitDetailTotalPages}
+                totalCount={unitPersonnel.length}
+                pageSize={unitDetailPageSize}
+                onPageChange={setUnitDetailPage}
+                itemLabel="quân nhân"
+                className="mt-4"
+              />
             </div>
           </div>
         );
