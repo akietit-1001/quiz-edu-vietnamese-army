@@ -102,12 +102,17 @@ body {
   #root {
     display: none !important;
   }
-  /* Show only the portal-rendered print area */
+  /* Show only the portal-rendered print area.
+     Do NOT set padding here — each .print-page-break manages its own
+     top/bottom padding (= page margins), and quizPrintTemplate.tsx
+     already overrides padding-left/right via @page margins.
+     A hardcoded padding here doubles the margin and shrinks budgetPx,
+     causing premature page breaks and wasted blank space on every page. */
   .print-area-only {
     display: block !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 20mm 15mm !important; /* Page margins */
+    padding: 0 !important;
     background: white !important;
     color: black !important;
     box-sizing: border-box;
