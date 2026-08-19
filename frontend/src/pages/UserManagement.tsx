@@ -13,7 +13,11 @@ interface UserManagementProps {
   onNavigateBack: () => void;
 }
 
-const RANKS = ['Binh nhì', 'Binh nhất', 'Hạ sĩ', 'Trung sĩ', 'Thượng sĩ', 'Thiếu úy', 'Trung úy', 'Thượng úy', 'Đại úy', 'Thiếu tá', 'Trung tá', 'Thượng tá', 'Đại tá', 'Thiếu tướng', 'Trung tướng', 'Thượng tướng', 'Đại tướng'];
+// Chiến sĩ: từ Binh nhì đến Thượng sĩ. Cán bộ: từ Thiếu úy trở lên (không có
+// cấp bậc nào dùng chung cho cả 2 đối tượng).
+const SOLDIER_RANKS = ['Binh nhì', 'Binh nhất', 'Hạ sĩ', 'Trung sĩ', 'Thượng sĩ'];
+const OFFICER_RANKS = ['Thiếu úy', 'Trung úy', 'Thượng úy', 'Đại úy', 'Thiếu tá', 'Trung tá', 'Thượng tá', 'Đại tá', 'Thiếu tướng', 'Trung tướng', 'Thượng tướng', 'Đại tướng'];
+const RANKS = [...SOLDIER_RANKS, ...OFFICER_RANKS];
 const POSITIONS = ['Chiến sĩ', 'Tiểu đội trưởng', 'Phó Trung đội trưởng', 'Trung đội trưởng', 'Phó Đại đội trưởng', 'Đại đội trưởng', 'Phó Tiểu đoàn trưởng', 'Tiểu đoàn trưởng', 'Chính trị viên', 'Chính trị viên phó', 'Y tá', 'Học viên', 'Giảng viên', 'Khác'];
 
 export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigateBack }) => {
@@ -534,7 +538,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     setPassword('');
     setFullName('');
     setDateOfBirth('');
-    setRank('Binh nhì');
+    setRank(OFFICER_RANKS[0]);
     setPosition('Chiến sĩ');
     setUnitId(user?.role === 'master-admin' ? '' : user?.unit?.id || '');
     setAddress('');
@@ -1495,7 +1499,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setPersonnelType('soldier')}
+                      onClick={() => { setPersonnelType('soldier'); if (!SOLDIER_RANKS.includes(rank)) setRank(SOLDIER_RANKS[0]); }}
                       className={`text-xs p-2 border uppercase tracking-wider font-bold transition-colors ${
                         personnelType === 'soldier'
                           ? 'bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark border-transparent'
@@ -1506,7 +1510,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPersonnelType('officer')}
+                      onClick={() => { setPersonnelType('officer'); if (!OFFICER_RANKS.includes(rank)) setRank(OFFICER_RANKS[0]); }}
                       className={`text-xs p-2 border uppercase tracking-wider font-bold transition-colors ${
                         personnelType === 'officer'
                           ? 'bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark border-transparent'
@@ -1585,7 +1589,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     onChange={setRank}
                     className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
-                    {RANKS.map(rk => (
+                    {(personnelType === 'soldier' ? SOLDIER_RANKS : OFFICER_RANKS).map(rk => (
                       <option key={rk} value={rk}>{rk}</option>
                     ))}
                   </Select>

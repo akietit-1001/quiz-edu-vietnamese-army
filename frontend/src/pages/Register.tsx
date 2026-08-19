@@ -10,8 +10,9 @@ interface RegisterProps {
   onNavigateToLogin: () => void;
 }
 
-const MILITARY_RANKS = [
-  'Binh nhì', 'Binh nhất', 'Hạ sĩ', 'Trung sĩ', 'Thượng sĩ',
+// Chiến sĩ: từ Binh nhì đến Thượng sĩ. Cán bộ: từ Thiếu úy trở lên.
+const SOLDIER_RANKS = ['Binh nhì', 'Binh nhất', 'Hạ sĩ', 'Trung sĩ', 'Thượng sĩ'];
+const OFFICER_RANKS = [
   'Thiếu úy', 'Trung úy', 'Thượng úy', 'Đại úy',
   'Thiếu tá', 'Trung tá', 'Thượng tá', 'Đại tá',
   'Thiếu tướng', 'Trung tướng', 'Thượng tướng', 'Đại tướng'
@@ -157,7 +158,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
                 type="button"
-                onClick={() => setPersonnelType('soldier')}
+                onClick={() => { setPersonnelType('soldier'); setRank(SOLDIER_RANKS[0]); }}
                 className="p-6 border border-vpa-olive-light/50 hover:border-vpa-gold hover:bg-vpa-olive-light/5 transition-colors text-left group"
               >
                 <UserIcon size={28} className="text-vpa-olive dark:text-vpa-sand group-hover:text-vpa-gold mb-3" />
@@ -166,7 +167,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
               </button>
               <button
                 type="button"
-                onClick={() => setPersonnelType('officer')}
+                onClick={() => { setPersonnelType('officer'); setRank(OFFICER_RANKS[0]); }}
                 className="p-6 border border-vpa-olive-light/50 hover:border-vpa-gold hover:bg-vpa-olive-light/5 transition-colors text-left group"
               >
                 <IdentificationCardIcon size={28} className="text-vpa-olive dark:text-vpa-sand group-hover:text-vpa-gold mb-3" />
@@ -318,7 +319,7 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                         onChange={setRank}
                         className="w-full text-sm p-2 bg-transparent border border-vpa-olive-light/50 focus:border-vpa-gold focus:outline-none text-vpa-olive dark:text-vpa-sand rounded-lg flex items-center justify-between gap-2"
                       >
-                        {MILITARY_RANKS.map(r => (
+                        {(personnelType === 'soldier' ? SOLDIER_RANKS : OFFICER_RANKS).map(r => (
                           <option key={r} value={r}>{r}</option>
                         ))}
                       </Select>
