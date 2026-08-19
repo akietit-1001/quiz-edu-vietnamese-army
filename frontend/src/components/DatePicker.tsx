@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarBlank, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
@@ -59,7 +59,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   name,
   required,
   placeholder = 'dd/mm/yyyy',
-  className
+  className,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -69,47 +69,99 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const today = new Date();
   const [viewYear, setViewYear] = useState(selected?.y ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState((selected?.m ?? today.getMonth() + 1) - 1); // 0-based
+  const [slideDir, setSlideDir] = useState<'left' | 'right'>('left');
+  const [animKey, setAnimKey] = useState(0);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Lưu rect của input tại lúc mở để dùng khi reposition sau đổi tháng.
+  const inputRectRef = useRef<DOMRect | null>(null);
+  // Refs để wheel handler không bị stale closure — effect chỉ gắn 1 lần khi isOpen.
+  const viewMonthRef = useRef(viewMonth);
+  const viewYearRef = useRef(viewYear);
+  viewMonthRef.current = viewMonth;
+  viewYearRef.current = viewYear;
 
   // Đồng bộ lại ô nhập mỗi khi value đổi từ bên ngoài (chọn ngày trên lịch,
   // "Hôm nay", "Xóa", reset form...) — trừ khi người dùng đang gõ dở.
   useEffect(() => {
-    if (!isFocused) {
-      setText(formatDisplay(value));
-    }
+    if (!isFocused) setText(formatDisplay(value));
   }, [value, isFocused]);
 
+  // Đóng panel khi cuộn ngoài panel / thay đổi kích thước / nhấn Escape.
   useEffect(() => {
     if (!isOpen) return;
-    const close = () => setIsOpen(false);
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+    const close = (e: Event) => {
+      // Bỏ qua scroll event xuất phát từ bên trong panel (wheel đã preventDefault
+      // nhưng một số trình duyệt vẫn bắn scroll trên container cha) để tránh
+      // đóng nhầm khi người dùng lăn chuột trên lịch.
+      if (e.type === 'scroll' && panelRef.current?.contains(e.target as Node)) return;
+      setIsOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsOpen(false); };
     window.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('scroll', close, true);
       window.removeEventListener('resize', close);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', onKey);
     };
   }, [isOpen]);
 
-  // onWheel React dùng passive listener mặc định — preventDefault() không có
-  // tác dụng ngăn trang cuộn. Cần gắn thủ công với { passive: false }.
+  // Căn chỉnh vị trí panel sau mỗi lần render (kể cả khi đổi tháng).
+  //
+  // Số hàng tuần trong lịch thay đổi theo tháng (4–6 hàng) → chiều cao panel
+  // không cố định. Nếu chỉ tính vị trí 1 lần lúc mở, tháng có 6 hàng sẽ tràn
+  // đáy viewport. useLayoutEffect chạy đồng bộ trước khi browser vẽ, đảm bảo
+  // không có flash vị trí — người dùng không thấy panel nhảy.
+  useLayoutEffect(() => {
+    if (!isOpen || !panelRef.current || !inputRectRef.current) return;
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const inp = inputRectRef.current;
+    const vH = window.innerHeight;
+    const vW = window.innerWidth;
+
+    // Ưu tiên mở xuống dưới input; lật lên trên nếu tràn đáy.
+    let top = inp.bottom + 4;
+    if (top + panelRect.height > vH - 8) {
+      const flipped = inp.top - panelRect.height - 4;
+      top = flipped >= 8 ? flipped : Math.max(8, vH - panelRect.height - 8);
+    }
+    // Điều chỉnh chiều ngang tránh tràn cạnh màn hình.
+    let left = inp.left;
+    if (left + panelRect.width > vW - 8) left = vW - panelRect.width - 8;
+    if (left < 8) left = 8;
+
+    setPos({ top, left });
+  }, [isOpen, viewMonth, viewYear]);
+
+  // Gắn wheel listener non-passive trực tiếp qua ref — React synthetic onWheel
+  // là passive mặc định nên preventDefault() không ngăn được trang cuộn. Dùng
+  // refs cho viewMonth/viewYear để effect chỉ cần gắn/gỡ 1 lần khi isOpen đổi
+  // (không phải mỗi lần đổi tháng) mà vẫn đọc đúng giá trị hiện tại.
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel || !isOpen) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (e.deltaY < 0) goToPrevMonth();
-      else goToNextMonth();
+      const m = viewMonthRef.current;
+      const y = viewYearRef.current;
+      if (e.deltaY < 0) {
+        setSlideDir('right');
+        setAnimKey(k => k + 1);
+        if (m === 0) { setViewMonth(11); setViewYear(y - 1); }
+        else setViewMonth(m - 1);
+      } else {
+        setSlideDir('left');
+        setAnimKey(k => k + 1);
+        if (m === 11) { setViewMonth(0); setViewYear(y + 1); }
+        else setViewMonth(m + 1);
+      }
     };
     panel.addEventListener('wheel', onWheel, { passive: false });
     return () => panel.removeEventListener('wheel', onWheel);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, viewMonth, viewYear]);
+  }, [isOpen]); // chỉ phụ thuộc isOpen nhờ dùng refs
 
   const openPicker = () => {
     if (selected) {
@@ -118,39 +170,25 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     }
     const rect = inputRef.current?.getBoundingClientRect();
     if (rect) {
-      // Ước lượng kích thước panel lịch để tính chỗ trống — màn hình mobile
-      // thường không đủ chỗ bên dưới input, lúc đó phải lật panel lên trên
-      // thay vì để nó tràn ra ngoài/đè lên phần tử khác phía dưới.
-      const panelWidth = 256; // w-64
-      const panelHeightEstimate = 320;
-      const viewportW = window.innerWidth;
-      const viewportH = window.innerHeight;
-
-      const spaceBelow = viewportH - rect.bottom;
-      const shouldFlipUp = spaceBelow < panelHeightEstimate && rect.top > panelHeightEstimate;
-      const top = shouldFlipUp
-        ? Math.max(8, rect.top - panelHeightEstimate - 4)
+      inputRectRef.current = rect;
+      // Ước lượng ban đầu — useLayoutEffect sẽ hiệu chỉnh lại sau render.
+      const panelW = 256;
+      const panelHEst = 320;
+      const vW = window.innerWidth;
+      const vH = window.innerHeight;
+      const top = vH - rect.bottom < panelHEst && rect.top > panelHEst
+        ? Math.max(8, rect.top - panelHEst - 4)
         : rect.bottom + 4;
-
       let left = rect.left;
-      if (left + panelWidth > viewportW - 8) left = viewportW - panelWidth - 8;
+      if (left + panelW > vW - 8) left = vW - panelW - 8;
       if (left < 8) left = 8;
-
       setPos({ top, left });
     }
     setIsOpen(true);
   };
 
-  const handleFocus = () => {
-    setIsFocused(true);
-    openPicker();
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    // Gõ dở/không hợp lệ lúc rời ô thì khôi phục lại đúng giá trị đang lưu.
-    setText(formatDisplay(value));
-  };
+  const handleFocus = () => { setIsFocused(true); openPicker(); };
+  const handleBlur  = () => { setIsFocused(false); setText(formatDisplay(value)); };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -164,10 +202,14 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   };
 
   const goToPrevMonth = () => {
+    setSlideDir('right');
+    setAnimKey(k => k + 1);
     if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
     else setViewMonth(viewMonth - 1);
   };
   const goToNextMonth = () => {
+    setSlideDir('left');
+    setAnimKey(k => k + 1);
     if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
     else setViewMonth(viewMonth + 1);
   };
@@ -176,18 +218,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     onChange(toISO(viewYear, viewMonth + 1, day));
     setIsOpen(false);
   };
-
   const handlePickToday = () => {
     onChange(toISO(today.getFullYear(), today.getMonth() + 1, today.getDate()));
     setViewYear(today.getFullYear());
     setViewMonth(today.getMonth());
     setIsOpen(false);
   };
-
-  const handleClear = () => {
-    onChange('');
-    setIsOpen(false);
-  };
+  const handleClear = () => { onChange(''); setIsOpen(false); };
 
   // Lưới ngày: canh theo Thứ 2 đầu tuần, chèn ô trống cho những ngày thuộc
   // tháng trước/sau để giữ đúng cột thứ.
@@ -196,7 +233,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const cells: (number | null)[] = [
     ...Array(leadingBlanks).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
   const isToday = (day: number) =>
@@ -234,72 +271,81 @@ export const DatePicker: React.FC<DatePickerProps> = ({
             className="fixed z-[100] w-64 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg p-3 animate-scale-up"
             style={{ top: pos.top, left: pos.left }}
           >
-          <div className="flex items-center justify-between mb-2">
-            <button
-              type="button"
-              onClick={goToPrevMonth}
-              className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg"
-            >
-              <CaretLeft size={12} weight="bold" />
-            </button>
-            <span className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono">
-              Tháng {viewMonth + 1}, {viewYear}
-            </span>
-            <button
-              type="button"
-              onClick={goToNextMonth}
-              className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg"
-            >
-              <CaretRight size={12} weight="bold" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-0.5 mb-1">
-            {WEEKDAYS.map(wd => (
-              <span key={wd} className="text-[9px] text-center text-gray-400 uppercase font-mono py-1">
-                {wd}
-              </span>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-0.5">
-            {cells.map((day, idx) => (
+            {/* Header tháng/năm */}
+            <div className="flex items-center justify-between mb-2">
               <button
-                key={idx}
                 type="button"
-                disabled={day === null}
-                onClick={() => day !== null && handlePickDay(day)}
-                className={`text-[11px] aspect-square flex items-center justify-center transition-colors rounded-lg ${
-                  day === null
-                    ? 'invisible'
-                    : isSelected(day)
-                    ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
-                    : isToday(day)
-                    ? 'bg-vpa-gold dark:bg-vpa-gold-bright text-vpa-dark font-bold'
-                    : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
-                }`}
+                onClick={goToPrevMonth}
+                className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
               >
-                {day}
+                <CaretLeft size={12} weight="bold" />
               </button>
-            ))}
-          </div>
+              <span className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono select-none">
+                Tháng {viewMonth + 1}, {viewYear}
+              </span>
+              <button
+                type="button"
+                onClick={goToNextMonth}
+                className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+              >
+                <CaretRight size={12} weight="bold" />
+              </button>
+            </div>
 
-          <div className="flex justify-between mt-3 pt-2 border-t border-vpa-olive-light/20">
-            <button
-              type="button"
-              onClick={handleClear}
-              className="text-[10px] uppercase font-bold text-vpa-red hover:underline"
+            {/* Tiêu đề thứ — tĩnh, không animate */}
+            <div className="grid grid-cols-7 gap-0.5 mb-1">
+              {WEEKDAYS.map(wd => (
+                <span key={wd} className="text-[9px] text-center text-gray-400 uppercase font-mono py-1 select-none">
+                  {wd}
+                </span>
+              ))}
+            </div>
+
+            {/* Lưới ngày — trượt theo hướng khi đổi tháng.
+                key={animKey} ép React unmount/mount lại khối này mỗi lần đổi
+                tháng, kích hoạt lại CSS animation từ đầu. */}
+            <div
+              key={animKey}
+              className={`grid grid-cols-7 gap-0.5 overflow-hidden ${slideDir === 'left' ? 'dp-slide-left' : 'dp-slide-right'}`}
             >
-              Xóa
-            </button>
-            <button
-              type="button"
-              onClick={handlePickToday}
-              className="text-[10px] uppercase font-bold text-vpa-gold hover:underline"
-            >
-              Hôm nay
-            </button>
-          </div>
+              {cells.map((day, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={day === null}
+                  onClick={() => day !== null && handlePickDay(day)}
+                  className={`text-[11px] aspect-square flex items-center justify-center transition-colors rounded-lg ${
+                    day === null
+                      ? 'invisible'
+                      : isSelected(day)
+                      ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
+                      : isToday(day)
+                      ? 'bg-vpa-gold dark:bg-vpa-gold-bright text-vpa-dark font-bold'
+                      : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-between mt-3 pt-2 border-t border-vpa-olive-light/20">
+              <button
+                type="button"
+                onClick={handleClear}
+                className="text-[10px] uppercase font-bold text-vpa-red hover:underline"
+              >
+                Xóa
+              </button>
+              <button
+                type="button"
+                onClick={handlePickToday}
+                className="text-[10px] uppercase font-bold text-vpa-gold hover:underline"
+              >
+                Hôm nay
+              </button>
+            </div>
           </div>
         </>,
         document.body

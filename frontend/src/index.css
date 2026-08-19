@@ -26,6 +26,19 @@ html {
   font-family: "Times New Roman", Times, serif !important;
 }
 
+/* Datepicker slide animations when switching months */
+@keyframes dp-slide-from-left {
+  from { transform: translateX(-20px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes dp-slide-from-right {
+  from { transform: translateX(20px);  opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.dp-slide-left  { animation: dp-slide-from-left  0.18s cubic-bezier(0.4, 0, 0.2, 1); }
+.dp-slide-right { animation: dp-slide-from-right 0.18s cubic-bezier(0.4, 0, 0.2, 1); }
+
+
 /* Fix for disjointed/spaced-out Vietnamese characters in print and previews */
 .print-area-only,
 .print-area-only *,
