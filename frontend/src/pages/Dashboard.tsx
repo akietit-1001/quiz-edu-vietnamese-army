@@ -629,7 +629,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           >
             {syncing ? (
               <>
-                <div className="w-3 h-3 border-2 border-white border-t-transparent animate-spin mr-2" />
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                 <span>Đang gửi...</span>
               </>
             ) : (

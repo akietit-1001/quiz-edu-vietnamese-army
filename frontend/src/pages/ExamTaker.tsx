@@ -407,7 +407,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-6 py-12 flex flex-col items-center justify-center font-mono">
-        <div className="w-10 h-10 border-2 border-vpa-gold border-t-transparent animate-spin mb-4" />
+        <div className="w-10 h-10 border-2 border-vpa-gold border-t-transparent rounded-full animate-spin mb-4" />
         <span className="text-[10px] text-gray-500 uppercase tracking-widest animate-pulse">
           {loadingMessage}
         </span>
@@ -430,7 +430,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
     <div className="min-h-[100dvh] bg-vpa-sand dark:bg-vpa-dark text-vpa-olive dark:text-vpa-sand py-8 px-6 transition-colors duration-300 relative">
       
       {/* Top Banner Control Panel */}
-      <div className="max-w-4xl mx-auto flex items-center justify-between border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 mb-6 shadow-md">
+      <div className="max-w-4xl mx-auto flex items-center justify-between border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 mb-6 shadow-md rounded-lg">
         <div>
           <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light text-vpa-gold mr-2">
             {mode === 'practice' ? 'ÔN LUYỆN' : mode.toUpperCase()}
@@ -449,7 +449,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
             <span>{formatTime(timeLeft)}</span>
           </div>
         ) : (
-          <div className="text-[10px] uppercase font-mono px-2 py-0.5 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+          <div className="text-[10px] uppercase font-mono px-2 py-0.5 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded">
             Không giới hạn thời gian
           </div>
         )}
@@ -466,7 +466,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
       <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         {/* Left Side: Question Sheet Panel */}
-        <div className="lg:col-span-3 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md flex flex-col justify-between min-h-[300px]">
+        <div className="lg:col-span-3 border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg flex flex-col justify-between min-h-[300px]">
           <div>
             <span className="text-[10px] font-mono text-vpa-gold uppercase font-bold tracking-wider">
               Câu hỏi {currentIdx + 1} / {quiz.questions.length}

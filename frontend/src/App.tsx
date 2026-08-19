@@ -518,7 +518,7 @@ export const App: React.FC = () => {
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-[#070a09] flex flex-col items-center justify-center font-mono">
-        <div className="w-12 h-12 border-2 border-[#e5a93b] border-t-transparent animate-spin mb-4" />
+        <div className="w-12 h-12 border-2 border-[#e5a93b] border-t-transparent rounded-full animate-spin mb-4" />
         <h2 className="text-[#e5a93b] text-xs font-bold uppercase tracking-widest animate-pulse">
           Hệ thống trắc nghiệm quân sự
         </h2>
@@ -536,7 +536,7 @@ export const App: React.FC = () => {
       {(!token || !user) ? (
         <Suspense fallback={
           <div className="min-h-screen bg-[#070a09] flex flex-col items-center justify-center font-mono">
-            <div className="w-12 h-12 border-2 border-[#e5a93b] border-t-transparent animate-spin mb-4" />
+            <div className="w-12 h-12 border-2 border-[#e5a93b] border-t-transparent rounded-full animate-spin mb-4" />
             <h2 className="text-[#e5a93b] text-xs font-bold uppercase tracking-widest animate-pulse">
               Hệ thống trắc nghiệm quân sự
             </h2>
@@ -572,7 +572,7 @@ export const App: React.FC = () => {
           <main className="transition-colors duration-300">
             <Suspense fallback={
               <div className="flex flex-col items-center justify-center p-16 font-mono text-center">
-                <div className="w-8 h-8 border-2 border-vpa-olive dark:border-vpa-gold border-t-transparent animate-spin mb-3" />
+                <div className="w-8 h-8 border-2 border-vpa-olive dark:border-vpa-gold border-t-transparent rounded-full animate-spin mb-3" />
                 <span className="text-[10px] text-gray-500 uppercase tracking-widest animate-pulse">Đang tải cấu phần quân sự...</span>
               </div>
             }>
