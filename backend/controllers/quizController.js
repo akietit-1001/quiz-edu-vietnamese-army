@@ -440,7 +440,7 @@ export const deleteQuiz = async (req, res) => {
 export const exportQuizDocx = async (req, res) => {
   try {
     const { id } = req.params;
-    const { upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation, includeAnswers } = req.query;
+    const { upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation, includeAnswers, showPageNumber, pageNumberPosition } = req.query;
 
     const quiz = await Quiz.findById(id);
     if (!quiz) {
@@ -468,7 +468,9 @@ export const exportQuizDocx = async (req, res) => {
       marginLeft,
       marginRight,
       orientation,
-      includeAnswers === 'true'
+      includeAnswers === 'true',
+      showPageNumber !== 'false',
+      pageNumberPosition
     );
 
     const buffer = await Packer.toBuffer(doc);
@@ -485,7 +487,7 @@ export const exportQuizDocx = async (req, res) => {
 // 6.5. EXPORT MULTIPLE QUIZZES (MÃ ĐỀ) AS A SINGLE ZIP OF DOCX FILES
 export const exportQuizDocxBulk = async (req, res) => {
   try {
-    const { quizIds, upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation, includeAnswers } = req.body;
+    const { quizIds, upperUnit, currentUnit, province, position, showSignature, signerRank, signerName, marginTop, marginBottom, marginLeft, marginRight, orientation, includeAnswers, showPageNumber, pageNumberPosition } = req.body;
 
     if (!Array.isArray(quizIds) || quizIds.length === 0) {
       return res.status(400).json({ message: 'Vui lòng chọn ít nhất một mã đề để xuất' });
@@ -529,7 +531,9 @@ export const exportQuizDocxBulk = async (req, res) => {
         marginLeft,
         marginRight,
         orientation,
-        includeAnswers === true || includeAnswers === 'true'
+        includeAnswers === true || includeAnswers === 'true',
+        showPageNumber !== false && showPageNumber !== 'false',
+        pageNumberPosition
       );
       const buffer = await Packer.toBuffer(doc);
 

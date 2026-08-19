@@ -1,4 +1,32 @@
-import { Document, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, PageOrientation } from 'docx';
+import { Document, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, PageOrientation, Header, Footer, PageNumber } from 'docx';
+
+const PAGE_NUMBER_ALIGNMENT = {
+  left: AlignmentType.LEFT,
+  center: AlignmentType.CENTER,
+  right: AlignmentType.RIGHT
+};
+
+// "Trang X/Y" dùng field PAGE/NUMPAGES thật của Word (tự cập nhật khi mở/in,
+// không phải text tĩnh) — đặt ở header hay footer, căn trái/giữa/phải tuỳ
+// `position` dạng "top-left" | "top-center" | "top-right" | "bottom-left" |
+// "bottom-center" | "bottom-right". Trả về object để spread thẳng vào
+// `sections[0]` của Document (chỉ có đúng 1 trong 2 khoá headers/footers).
+export const createPageNumberSection = (position = 'bottom-center') => {
+  const [vSide, hSide] = String(position).split('-');
+  const alignment = PAGE_NUMBER_ALIGNMENT[hSide] || AlignmentType.CENTER;
+  const paragraph = new Paragraph({
+    alignment,
+    children: [
+      new TextRun({ text: 'Trang ', size: 18, font: 'Times New Roman' }),
+      new TextRun({ children: [PageNumber.CURRENT], size: 18, font: 'Times New Roman' }),
+      new TextRun({ text: '/', size: 18, font: 'Times New Roman' }),
+      new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, font: 'Times New Roman' }),
+    ],
+  });
+  return vSide === 'top'
+    ? { headers: { default: new Header({ children: [paragraph] }) } }
+    : { footers: { default: new Footer({ children: [paragraph] }) } };
+};
 
 const MARGIN_PRESETS = {
   normal: { top: 1134, bottom: 1134, left: 1701, right: 1134 }, // Top 2.0cm, Bottom 2.0cm, Left 3.0cm, Right 2.0cm
@@ -156,7 +184,7 @@ const createVPASignature = (position = 'TRƯỞNG PHÒNG ĐÀO TẠO', rank = '�
 /**
  * Generates a DOCX document for a quiz (Question Paper)
  */
-export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName, marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5, orientation = 'portrait', includeAnswers = false) => {
+export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName, marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5, orientation = 'portrait', includeAnswers = false, showPageNumber = true, pageNumberPosition = 'bottom-center') => {
   const finalPosition = position || adminUser.position || 'TRƯỞNG PHÒNG ĐÀO TẠO';
   const finalRank = signerRank || adminUser.rank || 'Đại tá';
   const finalName = signerName || adminUser.fullName || 'Nguyễn Văn A';
@@ -327,6 +355,7 @@ export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, provin
             size: pageSize,
           },
         },
+        ...(showPageNumber ? createPageNumberSection(pageNumberPosition) : {}),
         children: paragraphs,
       },
     ],

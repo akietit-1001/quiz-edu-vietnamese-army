@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '@phosphor-icons/react';
-import { VPAExportPopup } from '../components/VPAExportPopup';
+import { VPAExportPopup, type PageNumberPosition } from '../components/VPAExportPopup';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
@@ -46,6 +46,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     orientation?: 'portrait' | 'landscape';
     includeAnswers?: boolean;
     showPageNumber?: boolean;
+    pageNumberPosition?: PageNumberPosition;
     quizzes: any[];
   };
   const [printData, setPrintData] = useState<QuizPrintData | null>(null);
@@ -616,6 +617,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     selectedQuizIds?: string[];
     includeAnswers?: boolean;
     showPageNumber?: boolean;
+    pageNumberPosition?: PageNumberPosition;
   }) => {
     setShowExportPopup(false);
     if (!selectedQuizForExport) return;
@@ -654,6 +656,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         orientation: vpaData.orientation,
         includeAnswers: vpaData.includeAnswers,
         showPageNumber: vpaData.showPageNumber,
+        pageNumberPosition: vpaData.pageNumberPosition,
         quizzes: quizListToExport
       });
       return;
@@ -672,7 +675,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       marginLeft: vpaData.marginLeft,
       marginRight: vpaData.marginRight,
       orientation: vpaData.orientation,
-      includeAnswers: vpaData.includeAnswers
+      includeAnswers: vpaData.includeAnswers,
+      showPageNumber: vpaData.showPageNumber,
+      pageNumberPosition: vpaData.pageNumberPosition
     };
 
     try {
@@ -1092,8 +1097,19 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     const pagesPerQuiz = data.includeAnswers ? 2 : 1;
     const totalPages = data.quizzes.length * pagesPerQuiz;
 
+    const [pageNumberVSide, pageNumberHSide] = (data.pageNumberPosition || 'bottom-center').split('-') as ['top' | 'bottom', 'left' | 'center' | 'right'];
+    const pageNumberStyle: React.CSSProperties = {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      textAlign: pageNumberHSide,
+      fontSize: '9px',
+      color: '#555',
+      padding: '0 0.3cm',
+      ...(pageNumberVSide === 'top' ? { top: '0.3cm' } : { bottom: '0.3cm' })
+    };
     const pageNumberFooter = (pageNumber: number) => data.showPageNumber && (
-      <div className="print-page-number">
+      <div style={pageNumberStyle}>
         Trang {pageNumber}/{totalPages}
       </div>
     );
@@ -1153,16 +1169,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
           .print-page-break:last-child {
             page-break-after: avoid;
-          }
-
-          .print-page-number {
-            position: absolute;
-            bottom: 0.3cm;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 9px;
-            color: #555;
           }
 
           /* Wrapper .print-area-only (portal thật để in) có padding-top/bottom

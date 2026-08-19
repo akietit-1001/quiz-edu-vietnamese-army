@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { X } from '@phosphor-icons/react';
 import { NumberStepper } from './NumberStepper';
 
+export type PageNumberPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
+const PAGE_NUMBER_POSITIONS: PageNumberPosition[] = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
+const PAGE_NUMBER_POSITION_LABELS: Record<PageNumberPosition, string> = {
+  'top-left': 'Đầu · Trái',
+  'top-center': 'Đầu · Giữa',
+  'top-right': 'Đầu · Phải',
+  'bottom-left': 'Cuối · Trái',
+  'bottom-center': 'Cuối · Giữa',
+  'bottom-right': 'Cuối · Phải'
+};
+
 interface VPAExportPopupProps {
   isOpen: boolean;
   onConfirm: (data: {
@@ -22,6 +34,7 @@ interface VPAExportPopupProps {
     selectedQuizIds?: string[];
     includeAnswers?: boolean;
     showPageNumber?: boolean;
+    pageNumberPosition?: PageNumberPosition;
   }) => void;
   onCancel: () => void;
   defaultUnit?: string;
@@ -64,8 +77,10 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   // tắt được từ code — chỉ người dùng tự tắt trong hộp thoại in (More
   // settings > Headers and footers). Giải pháp: bắt @page margin trên/dưới =
   // 0 để trình duyệt hết chỗ vẽ header/footer riêng, rồi tự vẽ số trang của
-  // mình (nếu bật) ngay trong nội dung in.
+  // mình (nếu bật) ngay trong nội dung in. Word (.docx) cũng tự vẽ số trang
+  // riêng luôn (không có sẵn) bằng field PAGE/NUMPAGES thật.
   const [showPageNumber, setShowPageNumber] = useState<boolean>(true);
+  const [pageNumberPosition, setPageNumberPosition] = useState<PageNumberPosition>('bottom-center');
 
   const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>([]);
   const [activePreviewTab, setActivePreviewTab] = useState<string>('parent');
@@ -93,6 +108,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       setActivePreviewTab('parent');
       setIncludeAnswers(false);
       setShowPageNumber(true);
+      setPageNumberPosition('bottom-center');
 
       // Initialize selectedQuizIds with the parent and all variant IDs
       if (previewData) {
@@ -125,7 +141,8 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       orientation,
       selectedQuizIds,
       includeAnswers,
-      showPageNumber
+      showPageNumber,
+      pageNumberPosition
     });
   };
 
@@ -591,6 +608,44 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                       className="w-4 h-4 accent-vpa-gold rounded-lg cursor-pointer"
                     />
                   </div>
+
+                  <div className="pt-1 border-t border-vpa-olive-light/10">
+                    <div className="flex items-center justify-between pt-1.5">
+                      <div>
+                        <span className="block text-[10px] font-bold text-vpa-olive dark:text-vpa-sand">Hiện số trang</span>
+                        <p className="text-[8px] text-gray-500">Word/PDF không tự có số trang khi đã tắt header/footer mặc định — tự đánh số thay vào</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="popup-showPageNumber"
+                        checked={showPageNumber}
+                        onChange={e => setShowPageNumber(e.target.checked)}
+                        className="w-4 h-4 accent-vpa-gold rounded-lg cursor-pointer"
+                      />
+                    </div>
+
+                    {showPageNumber && (
+                      <div className="mt-2">
+                        <span className="block text-[8px] text-gray-400 mb-1">Vị trí số trang</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {PAGE_NUMBER_POSITIONS.map(pos => (
+                            <button
+                              key={pos}
+                              type="button"
+                              onClick={() => setPageNumberPosition(pos)}
+                              className={`text-[9px] py-1 border transition-colors ${
+                                pageNumberPosition === pos
+                                  ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark border-transparent'
+                                  : 'border-vpa-olive-light/30 text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
+                              }`}
+                            >
+                              {PAGE_NUMBER_POSITION_LABELS[pos]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -609,23 +664,6 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
               />
             </div>
-
-            {/* Page Number Toggle (PDF/print only — thay cho header/footer mặc định của trình duyệt) */}
-            {format === 'pdf' && (
-              <div className="mb-5 p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between">
-                <div>
-                  <label htmlFor="popup-showPageNumber" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Hiện số trang</label>
-                  <p className="text-[9px] text-gray-500">Đề đã tự tắt ngày giờ/URL của trình duyệt khi in — bật cái này để tự đánh số trang thay vào</p>
-                </div>
-                <input
-                  type="checkbox"
-                  id="popup-showPageNumber"
-                  checked={showPageNumber}
-                  onChange={e => setShowPageNumber(e.target.checked)}
-                  className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
-                />
-              </div>
-            )}
 
             {/* Include Answer Key Toggle (quiz export only) */}
             {type === 'quiz' && (
