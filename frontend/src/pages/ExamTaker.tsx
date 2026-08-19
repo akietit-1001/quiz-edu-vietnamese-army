@@ -433,7 +433,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
       <div className="max-w-4xl mx-auto flex items-center justify-between border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 mb-6 shadow-md rounded-lg">
         <div>
           <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light text-vpa-gold mr-2">
-            {mode === 'practice' ? 'ÔN LUYỆN' : mode.toUpperCase()}
+            {mode === 'practice' ? 'ÔN LUYỆN' : mode === 'mock' ? 'THI THỬ' : 'THI'}
           </span>
           <span className="text-xs font-extrabold uppercase">{quiz.title}</span>
         </div>
