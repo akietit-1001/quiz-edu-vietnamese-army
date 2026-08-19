@@ -29,6 +29,25 @@ export const PAPER_SIZE_DIMENSIONS_CM: Record<PaperSize, { width: number; height
   legal: { width: 21.59, height: 35.56 }
 };
 
+// Tên file/tiêu đề tải về nên khớp với tên đề thi thật — bỏ dấu tiếng Việt
+// bằng NFD normalize rồi xoá riêng các dấu kết hợp (KHÔNG được chỉ lọc theo
+// [a-zA-Z0-9]: chữ tiếng Việt có dấu ở dạng precomposed (VD "ề", "Đ") không
+// nằm trong tập đó nên bị xoá NGUYÊN CẢ CHỮ CÁI GỐC, tạo ra tên file kiểu
+// "bộ xương phụ âm" đọc không ra chữ gì, VD "tìm hiểu" -> "tm_hiu" thay vì
+// "tim_hieu").
+export const sanitizeFilenamePart = (text: string) => {
+  const noDiacritics = String(text || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+  const cleaned = noDiacritics
+    .replace(/[^a-zA-Z0-9\s-_]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+  return cleaned || 'De_thi';
+};
+
 export type QuizPrintData = {
   upperUnit: string;
   currentUnit: string;
@@ -106,9 +125,13 @@ export const renderQuizPrintContent = (data: QuizPrintData, mode: 'print' | 'pre
       // Cm thật giữ đúng tỉ lệ chữ/trang như bản in thật, đổi lại panel xem
       // trước cần cuộn ngang/dọc để thấy hết — chấp nhận được.
       return (
+        // overflow-hidden trên chính khung có box-shadow sẽ tự cắt mất bóng
+        // đổ của nó (shadow vẽ ra NGOÀI viền box) — bỏ để 2 "tờ" liền kề vẫn
+        // thấy rõ đường phân cách dù bị scale nhỏ. mb-10 (thay vì mb-6) để
+        // khoảng cách còn đủ rõ sau khi scale-to-fit thu nhỏ toàn bộ lại.
         <div
           key={key}
-          className="bg-white shadow-md mx-auto mb-6 relative overflow-hidden text-black"
+          className="bg-white shadow-md mx-auto mb-10 relative text-black"
           style={{
             width: `${sheetWidthCm}cm`,
             minHeight: `${sheetHeightCm}cm`,

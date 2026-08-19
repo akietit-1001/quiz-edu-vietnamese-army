@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
-import { type QuizPrintData, type PageNumberPosition, type PaperSize, renderQuizPrintContent } from '../utils/quizPrintTemplate';
+import { type QuizPrintData, type PageNumberPosition, type PaperSize, renderQuizPrintContent, sanitizeFilenamePart } from '../utils/quizPrintTemplate';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
@@ -44,11 +44,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     if (printData) {
       const originalTitle = document.title;
       const firstQuiz = printData.quizzes && printData.quizzes.length > 0 ? printData.quizzes[0] : null;
-      const cleanTitle = (firstQuiz?.title || 'De_thi')
-        .replace(/[^a-zA-Z0-9\s-_]/g, '')
-        .trim()
-        .replace(/\s+/g, '_');
-      document.title = `De_thi_mon_${cleanTitle}`;
+      document.title = `De_thi_${sanitizeFilenamePart(firstQuiz?.title)}`;
 
       const timer = setTimeout(() => {
         window.print();
@@ -620,21 +616,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     }).filter(Boolean);
 
     if (quizListToExport.length === 0) return;
-
-    // Trình duyệt lấy tên file tải về từ attribute `download` của thẻ <a>,
-    // KHÔNG phải từ header Content-Disposition của response (vì đã được đọc
-    // vào Blob) — nên phải tự đặt tên khớp với tên đề thi ở đây.
-    const sanitizeFilenamePart = (text: string) => {
-      const cleaned = (text || '')
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .replace(/đ/g, 'd')
-        .replace(/Đ/g, 'D')
-        .replace(/[^a-zA-Z0-9\s-_]/g, '')
-        .trim()
-        .replace(/\s+/g, '_');
-      return cleaned || 'De_thi';
-    };
 
     if (vpaData.format === 'pdf') {
       // In thẳng luôn — bản xem trước riêng của app không cần nữa vì bản
