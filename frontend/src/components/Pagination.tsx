@@ -36,14 +36,26 @@ export const Pagination: React.FC<PaginationProps> = ({
       <span className="text-gray-500 text-center sm:text-left">
         Hiển thị {startIndex} - {endIndex} trong tổng số {totalCount} {itemLabel}
       </span>
-      <div className="flex items-center space-x-1.5">
+      <div className="flex items-center space-x-1">
+        {/* Đầu tiên */}
         <button
           type="button"
+          title="Trang đầu tiên"
+          disabled={page <= 1}
+          onClick={() => onPageChange(1)}
+          className="w-7 h-7 flex items-center justify-center border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 transition-all"
+        >
+          ««
+        </button>
+        {/* Trang trước */}
+        <button
+          type="button"
+          title="Trang trước"
           disabled={page <= 1}
           onClick={() => onPageChange(Math.max(page - 1, 1))}
-          className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+          className="w-7 h-7 flex items-center justify-center border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 transition-all font-bold"
         >
-          Trước
+          ‹
         </button>
         {Array.from({ length: safeTotalPages }).map((_, i) => {
           const p = i + 1;
@@ -72,13 +84,25 @@ export const Pagination: React.FC<PaginationProps> = ({
             </button>
           );
         })}
+        {/* Trang sau */}
         <button
           type="button"
+          title="Trang sau"
           disabled={page >= safeTotalPages}
           onClick={() => onPageChange(Math.min(page + 1, safeTotalPages))}
-          className="px-2.5 py-1 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 font-bold"
+          className="w-7 h-7 flex items-center justify-center border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 transition-all font-bold"
         >
-          Sau
+          ›
+        </button>
+        {/* Cuối cùng */}
+        <button
+          type="button"
+          title="Trang cuối cùng"
+          disabled={page >= safeTotalPages}
+          onClick={() => onPageChange(safeTotalPages)}
+          className="w-7 h-7 flex items-center justify-center border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand disabled:opacity-45 disabled:cursor-not-allowed hover:bg-vpa-olive-light/10 transition-all"
+        >
+          »»
         </button>
       </div>
     </div>
