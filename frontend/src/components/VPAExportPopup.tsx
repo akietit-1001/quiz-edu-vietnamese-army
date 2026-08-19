@@ -45,10 +45,15 @@ const ScaledPagesPreview: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   return (
-    <div ref={outerRef} className="w-full" style={{ height: dims.height || undefined }}>
+    // Trước khi scale, trang luôn RỘNG HƠN khung xem trước (kích thước cm
+    // thật) — `margin: 0 auto` không tự canh giữa được 1 box rộng hơn khung
+    // chứa nó (auto margin theo spec CSS bị coi là 0 khi bị "over-constrained"),
+    // khiến trang dồn về mép trái rồi bị cắt mất phần bên phải khi scale
+    // xuống. Dùng flex + justify-center để luôn canh giữa đúng bất kể to nhỏ.
+    <div ref={outerRef} className="w-full flex justify-center" style={{ height: dims.height || undefined }}>
       <div
         ref={innerRef}
-        style={{ transform: `scale(${dims.scale})`, transformOrigin: 'top center', width: 'fit-content', margin: '0 auto' }}
+        style={{ transform: `scale(${dims.scale})`, transformOrigin: 'top center' }}
       >
         {children}
       </div>
