@@ -109,12 +109,11 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     };
   }, [isOpen]);
 
-  // Căn chỉnh vị trí panel sau mỗi lần render (kể cả khi đổi tháng).
+  // Căn chỉnh vị trí panel sau khi mở để không tràn viewport.
   //
-  // Số hàng tuần trong lịch thay đổi theo tháng (4–6 hàng) → chiều cao panel
-  // không cố định. Nếu chỉ tính vị trí 1 lần lúc mở, tháng có 6 hàng sẽ tràn
-  // đáy viewport. useLayoutEffect chạy đồng bộ trước khi browser vẽ, đảm bảo
-  // không có flash vị trí — người dùng không thấy panel nhảy.
+  // Không phụ thuộc viewMonth/viewYear: panel giờ luôn có chiều cao cố định
+  // (6 hàng × 7 cột = 42 ô) nên chỉ cần reposition 1 lần khi mở — chạy lại
+  // mỗi lần đổi tháng sẽ gọi setPos thừa → re-render thêm → gây giật nhẹ.
   useLayoutEffect(() => {
     if (!isOpen || !panelRef.current || !inputRectRef.current) return;
     const panelRect = panelRef.current.getBoundingClientRect();
@@ -134,7 +133,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     if (left < 8) left = 8;
 
     setPos({ top, left });
-  }, [isOpen, viewMonth, viewYear]);
+  }, [isOpen]); // chỉ chạy khi mở/đóng, không chạy lại khi đổi tháng
 
   // Gắn wheel listener non-passive trực tiếp qua ref — React synthetic onWheel
   // là passive mặc định nên preventDefault() không ngăn được trang cuộn. Dùng
