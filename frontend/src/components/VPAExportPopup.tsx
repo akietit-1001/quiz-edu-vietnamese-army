@@ -1,12 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { X } from '@phosphor-icons/react';
 import { NumberStepper } from './NumberStepper';
+import { Select } from './Select';
 import {
   type PageNumberPosition, type PaperSize, type QuizPrintData,
   PAGE_NUMBER_POSITIONS, PAGE_NUMBER_POSITION_LABELS,
   PAPER_SIZES, PAPER_SIZE_LABELS,
   renderQuizPrintContent
 } from '../utils/quizPrintTemplate';
+
+// Thu nhỏ đều toàn bộ trang xem trước (đúng tỉ lệ cm thật, tránh vỡ bố cục
+// như khi áng chừng bằng 1 hệ số px/cm cố định) để vừa chiều ngang khung xem
+// trước, thay vì tràn ra ngoài phải cuộn ngang. Đo bằng ResizeObserver vì
+// khung xem trước có thể đổi kích thước (thay đổi khổ giấy/hướng giấy, hoặc
+// người dùng đổi cỡ cửa sổ).
+const ScaledPagesPreview: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState<{ scale: number; height: number }>({ scale: 1, height: 0 });
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (!innerRef.current || !outerRef.current) return;
+      const naturalWidth = innerRef.current.scrollWidth;
+      const naturalHeight = innerRef.current.scrollHeight;
+      const availableWidth = outerRef.current.clientWidth;
+      if (naturalWidth > 0 && availableWidth > 0) {
+        const nextScale = Math.min(1, availableWidth / naturalWidth);
+        const nextHeight = naturalHeight * nextScale;
+        // Chỉ setState khi giá trị thực sự đổi (có ngưỡng sai số nhỏ) — nếu
+        // không, mỗi lần đo lại tạo 1 object mới -> setState -> re-render ->
+        // đo lại -> ... lặp vô hạn (component từng crash trắng màn hình vì
+        // "Maximum update depth exceeded" do thiếu bước so sánh này).
+        setDims(prev => (
+          Math.abs(prev.scale - nextScale) < 0.001 && Math.abs(prev.height - nextHeight) < 1
+        ) ? prev : { scale: nextScale, height: nextHeight });
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (outerRef.current) ro.observe(outerRef.current);
+    if (innerRef.current) ro.observe(innerRef.current);
+    return () => ro.disconnect();
+  });
+
+  return (
+    <div ref={outerRef} className="w-full" style={{ height: dims.height || undefined }}>
+      <div
+        ref={innerRef}
+        style={{ transform: `scale(${dims.scale})`, transformOrigin: 'top center', width: 'fit-content', margin: '0 auto' }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
 
 export type { PageNumberPosition };
 
@@ -360,7 +408,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn lg:h-[88vh] lg:max-h-[900px] max-h-[95vh] overflow-y-auto lg:overflow-hidden relative">
+      <div className="w-full max-w-[95vw] xl:max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn lg:h-[94vh] lg:max-h-[1040px] max-h-[95vh] overflow-y-auto lg:overflow-hidden relative">
         
         {/* Absolute Close Button (X) */}
         <button
@@ -538,15 +586,15 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
 
                     <div>
                       <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Khổ giấy</label>
-                      <select
+                      <Select
                         value={paperSize}
-                        onChange={e => setPaperSize(e.target.value as PaperSize)}
-                        className="w-full text-[10px] py-1 px-1.5 border border-vpa-olive-light/30 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded"
+                        onChange={v => setPaperSize(v as PaperSize)}
+                        className="w-full text-[10px] py-1 px-1.5 border border-vpa-olive-light/30 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-1"
                       >
                         {PAPER_SIZES.map(size => (
-                          <option key={size} value={size} className="text-black">{PAPER_SIZE_LABELS[size]}</option>
+                          <option key={size} value={size}>{PAPER_SIZE_LABELS[size]}</option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   </div>
 
@@ -617,7 +665,6 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                     <div className="flex items-center justify-between pt-1.5">
                       <div>
                         <span className="block text-[10px] font-bold text-vpa-olive dark:text-vpa-sand">Hiện số trang</span>
-                        <p className="text-[8px] text-gray-500">Word/PDF không tự có số trang khi đã tắt header/footer mặc định — tự đánh số thay vào</p>
                       </div>
                       <input
                         type="checkbox"
@@ -830,8 +877,10 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
           ) : type === 'quiz' ? (
             // Xem trước dạng "tờ A4": mỗi trang (đề, và đáp án nếu có) là 1
             // khối riêng, đúng bố cục/nội dung với file sẽ tải về.
-            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 flex-1 overflow-auto select-none rounded shadow-inner">
-              {renderQuizPreviewContent(currentQuizToShow)}
+            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 flex-1 overflow-y-auto overflow-x-hidden select-none rounded shadow-inner">
+              <ScaledPagesPreview>
+                {renderQuizPreviewContent(currentQuizToShow)}
+              </ScaledPagesPreview>
             </div>
           ) : (
             <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed flex-1 overflow-y-auto select-none rounded shadow-inner text-black flex justify-center items-start min-h-[350px]">
