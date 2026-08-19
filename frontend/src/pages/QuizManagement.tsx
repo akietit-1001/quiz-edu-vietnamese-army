@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
-import { PrintPreviewModal } from '../components/PrintPreviewModal';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
@@ -46,10 +45,10 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     mirrorMargins?: boolean;
     orientation?: 'portrait' | 'landscape';
     includeAnswers?: boolean;
+    showPageNumber?: boolean;
     quizzes: any[];
   };
   const [printData, setPrintData] = useState<QuizPrintData | null>(null);
-  const [pdfPreviewData, setPdfPreviewData] = useState<QuizPrintData | null>(null);
   const [defaultUpperUnit, setDefaultUpperUnit] = useState('');
 
   useEffect(() => {
@@ -616,6 +615,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     orientation?: 'portrait' | 'landscape';
     selectedQuizIds?: string[];
     includeAnswers?: boolean;
+    showPageNumber?: boolean;
   }) => {
     setShowExportPopup(false);
     if (!selectedQuizForExport) return;
@@ -635,8 +635,10 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     if (quizListToExport.length === 0) return;
 
     if (vpaData.format === 'pdf') {
-      // Mở bản xem trước trước, chỉ thực sự in khi người dùng xác nhận
-      setPdfPreviewData({
+      // In thẳng luôn — bản xem trước riêng của app không cần nữa vì bản
+      // xem trước in thật của trình duyệt giờ đã sạch (không còn header/
+      // footer mặc định) nên tự nó đã là bản xem trước rồi.
+      setPrintData({
         upperUnit: vpaData.upperUnit,
         currentUnit: vpaData.currentUnit,
         province: vpaData.province,
@@ -651,6 +653,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         mirrorMargins: vpaData.mirrorMargins,
         orientation: vpaData.orientation,
         includeAnswers: vpaData.includeAnswers,
+        showPageNumber: vpaData.showPageNumber,
         quizzes: quizListToExport
       });
       return;
@@ -1085,7 +1088,17 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
 
   // Nội dung layout đề thi dùng chung cho cả bản in thật (portal) và bản xem
   // trước (modal) — đảm bảo xem trước khớp 100% với file in ra.
-  const renderQuizPrintContent = (data: QuizPrintData) => (
+  const renderQuizPrintContent = (data: QuizPrintData) => {
+    const pagesPerQuiz = data.includeAnswers ? 2 : 1;
+    const totalPages = data.quizzes.length * pagesPerQuiz;
+
+    const pageNumberFooter = (pageNumber: number) => data.showPageNumber && (
+      <div className="print-page-number">
+        Trang {pageNumber}/{totalPages}
+      </div>
+    );
+
+    return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
@@ -1093,31 +1106,37 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             size: A4 ${data.orientation === 'landscape' ? 'landscape' : 'portrait'};
           }
 
+          /* margin-top/bottom luôn = 0: đây là cách duy nhất khiến Chrome hết
+             chỗ vẽ header/footer mặc định của nó (ngày giờ, tên file, URL,
+             số trang) — lề trên/dưới thật được tự vẽ lại bằng padding của
+             .print-page-break bên dưới, KHÔNG dùng @page margin-top/bottom
+             nữa. Lề trái/phải vẫn để @page xử lý vì không liên quan tới
+             header/footer và cần lặp lại đúng trên mọi trang tự ngắt. */
           ${data.mirrorMargins ? `
             /* Mirrored margins for double-sided printing */
             @page :left {
-              margin-top: ${data.marginTop || 2.5}cm;
-              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-top: 0;
+              margin-bottom: 0;
               margin-left: ${data.marginRight || 1.5}cm;
               margin-right: ${data.marginLeft || 3.0}cm;
             }
             @page :right {
-              margin-top: ${data.marginTop || 2.5}cm;
-              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-top: 0;
+              margin-bottom: 0;
               margin-left: ${data.marginLeft || 3.0}cm;
               margin-right: ${data.marginRight || 1.5}cm;
             }
             @page :first {
-              margin-top: ${data.marginTop || 2.5}cm;
-              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-top: 0;
+              margin-bottom: 0;
               margin-left: ${data.marginLeft || 3.0}cm;
               margin-right: ${data.marginRight || 1.5}cm;
             }
           ` : `
             /* Standard identical margins for all pages */
             @page {
-              margin-top: ${data.marginTop || 2.5}cm;
-              margin-bottom: ${data.marginBottom || 2.0}cm;
+              margin-top: 0;
+              margin-bottom: 0;
               margin-left: ${data.marginLeft || 3.0}cm;
               margin-right: ${data.marginRight || 1.5}cm;
             }
@@ -1127,10 +1146,32 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             page-break-after: always;
             box-sizing: border-box;
             width: 100%;
+            position: relative;
+            padding-top: ${data.marginTop || 2.5}cm;
+            padding-bottom: ${data.marginBottom || 2.0}cm;
           }
 
           .print-page-break:last-child {
             page-break-after: avoid;
+          }
+
+          .print-page-number {
+            position: absolute;
+            bottom: 0.3cm;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9px;
+            color: #555;
+          }
+
+          /* Wrapper .print-area-only (portal thật để in) có padding-top/bottom
+             inline riêng cho bản xem trước không phân trang — khi in thật thì
+             .print-page-break ở trên đã tự lo lề trên/dưới cho TỪNG trang rồi,
+             giữ nguyên padding của wrapper nữa sẽ bị cộng dồn thành lề đôi. */
+          .print-area-only {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
           }
 
           body {
@@ -1140,8 +1181,12 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         }
       `}} />
 
-      {data.quizzes.map((quizItem: any, quizIdx: number) => (
-        <div key={quizItem._id || quizIdx} className="print-page-break">
+      {data.quizzes.map((quizItem: any, quizIdx: number) => {
+        const questionPageNumber = quizIdx * pagesPerQuiz + 1;
+        const answerPageNumber = questionPageNumber + 1;
+        return (
+        <React.Fragment key={quizItem._id || quizIdx}>
+        <div className="print-page-break">
           {/* Header */}
           <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
             <div className="text-center w-[38%] font-serif">
@@ -1209,33 +1254,41 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             </div>
           )}
 
-          {/* Trang riêng "Bảng đáp án" — không chèn xen kẽ vào đề */}
-          {data.includeAnswers && (
-            <div className="font-serif" style={{ breakBefore: 'page', pageBreakBefore: 'always' }}>
-              <div className="text-center my-6 font-serif">
-                <h2 className="text-lg font-bold uppercase tracking-wide font-serif">BẢNG ĐÁP ÁN</h2>
-                {quizItem.examCode && (
-                  <p className="italic mt-1 text-xs font-serif">Mã đề thi: {quizItem.examCode}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-5 gap-2 font-serif text-xs">
-                {(quizItem.questions || []).map((q: any, idx: number) => {
-                  const label = q.questionType === 'fill-in-the-blank'
-                    ? ((q.correctAnswers || []).join(' / ') || '—')
-                    : ((q.correctAnswers || []).map((a: string) => String.fromCharCode(65 + parseInt(a, 10))).join('/') || '—');
-                  return (
-                    <div key={idx} className="border border-black text-center py-1.5 font-serif">
-                      Câu {idx + 1}: <span className="font-bold">{label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {pageNumberFooter(questionPageNumber)}
         </div>
-      ))}
+
+        {/* Trang riêng "Bảng đáp án" — không chèn xen kẽ vào đề, là 1 trang
+            in độc lập (page-break-after của trang câu hỏi ở trên đã tự đẩy
+            nó sang trang mới, không cần breakBefore riêng nữa) */}
+        {data.includeAnswers && (
+          <div className="print-page-break font-serif">
+            <div className="text-center my-6 font-serif">
+              <h2 className="text-lg font-bold uppercase tracking-wide font-serif">BẢNG ĐÁP ÁN</h2>
+              {quizItem.examCode && (
+                <p className="italic mt-1 text-xs font-serif">Mã đề thi: {quizItem.examCode}</p>
+              )}
+            </div>
+            <div className="grid grid-cols-5 gap-2 font-serif text-xs">
+              {(quizItem.questions || []).map((q: any, idx: number) => {
+                const label = q.questionType === 'fill-in-the-blank'
+                  ? ((q.correctAnswers || []).join(' / ') || '—')
+                  : ((q.correctAnswers || []).map((a: string) => String.fromCharCode(65 + parseInt(a, 10))).join('/') || '—');
+                return (
+                  <div key={idx} className="border border-black text-center py-1.5 font-serif">
+                    Câu {idx + 1}: <span className="font-bold">{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {pageNumberFooter(answerPageNumber)}
+          </div>
+        )}
+        </React.Fragment>
+        );
+      })}
     </>
-  );
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -3292,7 +3345,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     {currentQuizToShow.title}
                   </h3>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-end space-x-2">
                   <button
                     type="button"
                     onClick={() => { setViewingQuiz(null); handleEditQuiz(currentQuizToShow); }}
@@ -3433,24 +3486,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         </div>,
         document.body
       )}
-
-      <PrintPreviewModal
-        isOpen={!!pdfPreviewData}
-        onClose={() => setPdfPreviewData(null)}
-        onConfirmPrint={() => { setPrintData(pdfPreviewData); setPdfPreviewData(null); }}
-      >
-        {pdfPreviewData && (
-          <div
-            className="text-black leading-relaxed text-sm font-serif"
-            style={{
-              fontFamily: "'Times New Roman', Times, serif",
-              padding: `${pdfPreviewData.marginTop || 2.5}cm ${pdfPreviewData.marginRight || 1.5}cm ${pdfPreviewData.marginBottom || 2.0}cm ${pdfPreviewData.marginLeft || 3.0}cm`
-            }}
-          >
-            {renderQuizPrintContent(pdfPreviewData)}
-          </div>
-        )}
-      </PrintPreviewModal>
     </div>
   );
 };

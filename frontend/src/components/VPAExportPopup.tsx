@@ -21,6 +21,7 @@ interface VPAExportPopupProps {
     orientation?: 'portrait' | 'landscape';
     selectedQuizIds?: string[];
     includeAnswers?: boolean;
+    showPageNumber?: boolean;
   }) => void;
   onCancel: () => void;
   defaultUnit?: string;
@@ -59,6 +60,12 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   const [mirrorMargins, setMirrorMargins] = useState<boolean>(true);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [includeAnswers, setIncludeAnswers] = useState<boolean>(false);
+  // Header/footer mặc định của trình duyệt (ngày giờ, URL, tên file) không
+  // tắt được từ code — chỉ người dùng tự tắt trong hộp thoại in (More
+  // settings > Headers and footers). Giải pháp: bắt @page margin trên/dưới =
+  // 0 để trình duyệt hết chỗ vẽ header/footer riêng, rồi tự vẽ số trang của
+  // mình (nếu bật) ngay trong nội dung in.
+  const [showPageNumber, setShowPageNumber] = useState<boolean>(true);
 
   const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>([]);
   const [activePreviewTab, setActivePreviewTab] = useState<string>('parent');
@@ -85,6 +92,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       setFormat(type === 'quiz' ? 'docx' : 'xlsx');
       setActivePreviewTab('parent');
       setIncludeAnswers(false);
+      setShowPageNumber(true);
 
       // Initialize selectedQuizIds with the parent and all variant IDs
       if (previewData) {
@@ -116,7 +124,8 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       mirrorMargins,
       orientation,
       selectedQuizIds,
-      includeAnswers
+      includeAnswers,
+      showPageNumber
     });
   };
 
@@ -600,6 +609,23 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
               />
             </div>
+
+            {/* Page Number Toggle (PDF/print only — thay cho header/footer mặc định của trình duyệt) */}
+            {format === 'pdf' && (
+              <div className="mb-5 p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between">
+                <div>
+                  <label htmlFor="popup-showPageNumber" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Hiện số trang</label>
+                  <p className="text-[9px] text-gray-500">Đề đã tự tắt ngày giờ/URL của trình duyệt khi in — bật cái này để tự đánh số trang thay vào</p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="popup-showPageNumber"
+                  checked={showPageNumber}
+                  onChange={e => setShowPageNumber(e.target.checked)}
+                  className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
+                />
+              </div>
+            )}
 
             {/* Include Answer Key Toggle (quiz export only) */}
             {type === 'quiz' && (
