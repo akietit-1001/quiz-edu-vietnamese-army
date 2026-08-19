@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X } from '@phosphor-icons/react';
 import { NumberStepper } from './NumberStepper';
+import {
+  type PageNumberPosition, type PaperSize, type QuizPrintData,
+  PAGE_NUMBER_POSITIONS, PAGE_NUMBER_POSITION_LABELS,
+  PAPER_SIZES, PAPER_SIZE_LABELS,
+  renderQuizPrintContent
+} from '../utils/quizPrintTemplate';
 
-export type PageNumberPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
-
-const PAGE_NUMBER_POSITIONS: PageNumberPosition[] = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
-const PAGE_NUMBER_POSITION_LABELS: Record<PageNumberPosition, string> = {
-  'top-left': 'Đầu · Trái',
-  'top-center': 'Đầu · Giữa',
-  'top-right': 'Đầu · Phải',
-  'bottom-left': 'Cuối · Trái',
-  'bottom-center': 'Cuối · Giữa',
-  'bottom-right': 'Cuối · Phải'
-};
+export type { PageNumberPosition };
 
 interface VPAExportPopupProps {
   isOpen: boolean;
@@ -35,6 +31,9 @@ interface VPAExportPopupProps {
     includeAnswers?: boolean;
     showPageNumber?: boolean;
     pageNumberPosition?: PageNumberPosition;
+    pageNumberShowLabel?: boolean;
+    pageNumberShowTotal?: boolean;
+    paperSize?: PaperSize;
   }) => void;
   onCancel: () => void;
   defaultUnit?: string;
@@ -81,6 +80,9 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   // riêng luôn (không có sẵn) bằng field PAGE/NUMPAGES thật.
   const [showPageNumber, setShowPageNumber] = useState<boolean>(true);
   const [pageNumberPosition, setPageNumberPosition] = useState<PageNumberPosition>('bottom-center');
+  const [pageNumberShowLabel, setPageNumberShowLabel] = useState<boolean>(true);
+  const [pageNumberShowTotal, setPageNumberShowTotal] = useState<boolean>(true);
+  const [paperSize, setPaperSize] = useState<PaperSize>('A4');
 
   const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>([]);
   const [activePreviewTab, setActivePreviewTab] = useState<string>('parent');
@@ -109,6 +111,9 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       setIncludeAnswers(false);
       setShowPageNumber(true);
       setPageNumberPosition('bottom-center');
+      setPageNumberShowLabel(true);
+      setPageNumberShowTotal(true);
+      setPaperSize('A4');
 
       // Initialize selectedQuizIds with the parent and all variant IDs
       if (previewData) {
@@ -142,7 +147,10 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
       selectedQuizIds,
       includeAnswers,
       showPageNumber,
-      pageNumberPosition
+      pageNumberPosition,
+      pageNumberShowLabel,
+      pageNumberShowTotal,
+      paperSize
     });
   };
 
@@ -171,55 +179,36 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
     }
   };
 
-  // Render Quiz questions in preview
+  // Xem trước dạng "tờ A4" cho đề thi — dùng chung renderQuizPrintContent với
+  // bản in/xuất file thật (QuizManagement.tsx) nên khớp 100% nội dung, có
+  // tách trang (đề riêng, đáp án riêng nếu bật).
   const renderQuizPreviewContent = (currentQuiz: any) => {
     if (!currentQuiz || !currentQuiz.questions) return null;
-    const questions = currentQuiz.questions;
+    const quizPrintData: QuizPrintData = {
+      upperUnit: upperUnit || 'BỘ QUỐC PHÒNG',
+      currentUnit: currentUnit || 'ĐƠN VỊ THI',
+      province: province || 'Hà Nội',
+      position: position || 'TRƯỞNG PHÒNG ĐÀO TẠO',
+      showSignature,
+      signerRank,
+      signerName,
+      marginTop,
+      marginBottom,
+      marginLeft,
+      marginRight,
+      mirrorMargins,
+      orientation,
+      includeAnswers,
+      showPageNumber,
+      pageNumberPosition,
+      pageNumberShowLabel,
+      pageNumberShowTotal,
+      paperSize,
+      quizzes: [currentQuiz]
+    };
     return (
-      <div className="mt-4 text-left border-t border-gray-300 pt-4 font-serif text-[11px] text-gray-800">
-        <h4 className="text-center font-bold text-[12px] uppercase mb-1 font-serif">ĐỀ THI</h4>
-        <p className="text-center font-bold mb-1 font-serif">MÔN THI: {(currentQuiz.title || '').toUpperCase()}</p>
-        <p className="text-center italic mb-4 font-serif">Thời gian làm bài: {currentQuiz.duration || 45} phút (Không kể giao đề)</p>
-        {currentQuiz.examCode && (
-          <div className="text-center mb-3">
-            <span className="inline-block border border-black font-mono font-bold px-3 py-0.5 text-[9px] text-black">
-              Mã đề: {currentQuiz.examCode}
-            </span>
-          </div>
-        )}
-        
-        {questions.map((q: any, idx: number) => (
-          <div key={idx} className="mb-3 font-serif">
-            <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
-            {q.questionType === 'fill-in-the-blank' ? (
-              <p className="pl-4 italic text-gray-500 font-serif">Đáp án: ..........................................................................</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-x-2 pl-4 mt-1 font-serif">
-                {(q.options || []).map((opt: string, oIdx: number) => (
-                  <p key={oIdx} className="font-serif">{String.fromCharCode(65 + oIdx)}. {opt}</p>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-
-        {includeAnswers && (
-          <div className="mt-4 pt-3 border-t border-gray-300">
-            <h4 className="text-center font-bold text-[12px] uppercase mb-2 font-serif">BẢNG ĐÁP ÁN</h4>
-            <div className="grid grid-cols-5 gap-1 border border-gray-400 font-serif text-[10px]">
-              {questions.map((q: any, idx: number) => {
-                const label = q.questionType === 'fill-in-the-blank'
-                  ? ((q.correctAnswers || []).join(' / ') || '—')
-                  : ((q.correctAnswers || []).map((a: string) => String.fromCharCode(65 + parseInt(a, 10))).join('/') || '—');
-                return (
-                  <div key={idx} className="border border-gray-300 text-center py-1">
-                    Câu {idx + 1}: <span className="font-bold">{label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      <div className="py-2">
+        {renderQuizPrintContent(quizPrintData, 'preview')}
       </div>
     );
   };
@@ -371,7 +360,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn lg:h-[85vh] lg:max-h-[850px] max-h-[95vh] overflow-y-auto lg:overflow-hidden relative">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg animate-fadeIn lg:h-[88vh] lg:max-h-[900px] max-h-[95vh] overflow-y-auto lg:overflow-hidden relative">
         
         {/* Absolute Close Button (X) */}
         <button
@@ -518,31 +507,46 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 </div>
                 
                 <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Hướng giấy</label>
-                    <div className="flex border border-vpa-olive-light/30">
-                      <button
-                        type="button"
-                        onClick={() => setOrientation('portrait')}
-                        className={`flex-1 text-[10px] py-1 text-center font-bold transition-all ${
-                          orientation === 'portrait'
-                            ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark'
-                            : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
-                        }`}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Hướng giấy</label>
+                      <div className="flex border border-vpa-olive-light/30">
+                        <button
+                          type="button"
+                          onClick={() => setOrientation('portrait')}
+                          className={`flex-1 text-[10px] py-1 text-center font-bold transition-all ${
+                            orientation === 'portrait'
+                              ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark'
+                              : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
+                          }`}
+                        >
+                          Dọc
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrientation('landscape')}
+                          className={`flex-1 text-[10px] py-1 text-center font-bold transition-all ${
+                            orientation === 'landscape'
+                              ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark'
+                              : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
+                          }`}
+                        >
+                          Ngang
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Khổ giấy</label>
+                      <select
+                        value={paperSize}
+                        onChange={e => setPaperSize(e.target.value as PaperSize)}
+                        className="w-full text-[10px] py-1 px-1.5 border border-vpa-olive-light/30 bg-transparent text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded"
                       >
-                        Dọc (Portrait)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setOrientation('landscape')}
-                        className={`flex-1 text-[10px] py-1 text-center font-bold transition-all ${
-                          orientation === 'landscape'
-                            ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark'
-                            : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
-                        }`}
-                      >
-                        Ngang (Landscape)
-                      </button>
+                        {PAPER_SIZES.map(size => (
+                          <option key={size} value={size} className="text-black">{PAPER_SIZE_LABELS[size]}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -625,23 +629,49 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                     </div>
 
                     {showPageNumber && (
-                      <div className="mt-2">
-                        <span className="block text-[8px] text-gray-400 mb-1">Vị trí số trang</span>
-                        <div className="grid grid-cols-3 gap-1">
-                          {PAGE_NUMBER_POSITIONS.map(pos => (
-                            <button
-                              key={pos}
-                              type="button"
-                              onClick={() => setPageNumberPosition(pos)}
-                              className={`text-[9px] py-1 border transition-colors ${
-                                pageNumberPosition === pos
-                                  ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark border-transparent'
-                                  : 'border-vpa-olive-light/30 text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
-                              }`}
-                            >
-                              {PAGE_NUMBER_POSITION_LABELS[pos]}
-                            </button>
-                          ))}
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <span className="block text-[8px] text-gray-400 mb-1">Vị trí số trang</span>
+                          <div className="grid grid-cols-3 gap-1">
+                            {PAGE_NUMBER_POSITIONS.map(pos => (
+                              <button
+                                key={pos}
+                                type="button"
+                                onClick={() => setPageNumberPosition(pos)}
+                                className={`text-[9px] py-1 border transition-colors ${
+                                  pageNumberPosition === pos
+                                    ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark border-transparent'
+                                    : 'border-vpa-olive-light/30 text-gray-500 hover:bg-gray-100 dark:hover:bg-vpa-dark-card/50'
+                                }`}
+                              >
+                                {PAGE_NUMBER_POSITION_LABELS[pos]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="block text-[8px] text-gray-400 mb-1">Cách hiển thị {`(VD: ${pageNumberShowLabel ? 'Trang ' : ''}2${pageNumberShowTotal ? '/5' : ''})`}</span>
+                          <div className="flex gap-3">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={pageNumberShowLabel}
+                                onChange={e => setPageNumberShowLabel(e.target.checked)}
+                                className="w-3.5 h-3.5 accent-vpa-gold rounded cursor-pointer"
+                              />
+                              <span className="text-[9px] text-gray-500">Chữ "Trang"</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={pageNumberShowTotal}
+                                onChange={e => setPageNumberShowTotal(e.target.checked)}
+                                className="w-3.5 h-3.5 accent-vpa-gold rounded cursor-pointer"
+                              />
+                              <span className="text-[9px] text-gray-500">Tổng số trang</span>
+                            </label>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -650,69 +680,79 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
               </div>
             )}
 
-            {/* Signature Toggle */}
-            <div className="mb-5 p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between">
-              <div>
-                <label htmlFor="popup-showSignature" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Hiện chữ ký chỉ huy</label>
-                <p className="text-[9px] text-gray-500">Đính kèm khung ký xác nhận ở cuối văn bản</p>
-              </div>
-              <input
-                type="checkbox"
-                id="popup-showSignature"
-                checked={showSignature}
-                onChange={e => setShowSignature(e.target.checked)}
-                className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* Include Answer Key Toggle (quiz export only) */}
-            {type === 'quiz' && (
-              <div className="mb-5 p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between">
-                <div>
-                  <label htmlFor="popup-includeAnswers" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Kèm theo đáp án</label>
-                  <p className="text-[9px] text-gray-500">In đáp án đúng (in đậm) và giải thích ngay dưới mỗi câu hỏi</p>
-                </div>
+            {/* Signature + Answer Key toggles — gộp 1 hàng cho gọn */}
+            <div className={`mb-5 grid ${type === 'quiz' ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+              <div className="p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between gap-2">
+                <label htmlFor="popup-showSignature" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Chữ ký chỉ huy</label>
                 <input
                   type="checkbox"
-                  id="popup-includeAnswers"
-                  checked={includeAnswers}
-                  onChange={e => setIncludeAnswers(e.target.checked)}
-                  className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer"
+                  id="popup-showSignature"
+                  checked={showSignature}
+                  onChange={e => setShowSignature(e.target.checked)}
+                  className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer flex-shrink-0"
                 />
               </div>
-            )}
+
+              {type === 'quiz' && (
+                <div className="p-3 bg-vpa-olive-light/10 border border-vpa-olive-light/20 flex items-center justify-between gap-2">
+                  <label htmlFor="popup-includeAnswers" className="block text-xs font-bold text-vpa-olive dark:text-vpa-sand cursor-pointer">Kèm đáp án</label>
+                  <input
+                    type="checkbox"
+                    id="popup-includeAnswers"
+                    checked={includeAnswers}
+                    onChange={e => setIncludeAnswers(e.target.checked)}
+                    className="w-4.5 h-4.5 accent-vpa-gold rounded-lg cursor-pointer flex-shrink-0"
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Setup Inputs */}
             <div className="space-y-3">
-              <div>
-                <label htmlFor="popup-upperUnit" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị cấp trên</label>
-                <input
-                  type="text"
-                  id="popup-upperUnit"
-                  value={upperUnit}
-                  onChange={e => setUpperUnit(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label htmlFor="popup-upperUnit" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị cấp trên</label>
+                  <input
+                    type="text"
+                    id="popup-upperUnit"
+                    value={upperUnit}
+                    onChange={e => setUpperUnit(e.target.value)}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="popup-currentUnit" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị hiện tại</label>
+                  <input
+                    type="text"
+                    id="popup-currentUnit"
+                    value={currentUnit}
+                    onChange={e => setCurrentUnit(e.target.value)}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
+                  />
+                </div>
               </div>
-              <div>
-                <label htmlFor="popup-currentUnit" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đơn vị hiện tại</label>
-                <input
-                  type="text"
-                  id="popup-currentUnit"
-                  value={currentUnit}
-                  onChange={e => setCurrentUnit(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
-                />
-              </div>
-              <div>
-                <label htmlFor="popup-position" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ người ký</label>
-                <input
-                  type="text"
-                  id="popup-position"
-                  value={position}
-                  onChange={e => setPosition(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
-                />
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label htmlFor="popup-position" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chức vụ người ký</label>
+                  <input
+                    type="text"
+                    id="popup-position"
+                    value={position}
+                    onChange={e => setPosition(e.target.value)}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono uppercase rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="popup-province" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Địa danh / Tỉnh</label>
+                  <input
+                    type="text"
+                    id="popup-province"
+                    value={province}
+                    onChange={e => setProvince(e.target.value)}
+                    className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
+                  />
+                </div>
               </div>
 
               {showSignature && (
@@ -741,17 +781,6 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   </div>
                 </div>
               )}
-
-              <div>
-                <label htmlFor="popup-province" className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Địa danh / Tỉnh</label>
-                <input
-                  type="text"
-                  id="popup-province"
-                  value={province}
-                  onChange={e => setProvince(e.target.value)}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg"
-                />
-              </div>
             </div>
           </div>
 
@@ -798,12 +827,18 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
           
           {(format === 'xlsx' || format === 'csv') ? (
             renderSpreadsheetPreview()
+          ) : type === 'quiz' ? (
+            // Xem trước dạng "tờ A4": mỗi trang (đề, và đáp án nếu có) là 1
+            // khối riêng, đúng bố cục/nội dung với file sẽ tải về.
+            <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 flex-1 overflow-auto select-none rounded shadow-inner">
+              {renderQuizPreviewContent(currentQuizToShow)}
+            </div>
           ) : (
             <div className="border border-vpa-olive-light/35 bg-vpa-sand/30 dark:bg-vpa-dark-card/50 p-6 font-serif leading-relaxed flex-1 overflow-y-auto select-none rounded shadow-inner text-black flex justify-center items-start min-h-[350px]">
-              <div 
+              <div
                 className={`bg-white border border-gray-200 shadow-md transition-all duration-300 ${
-                  orientation === 'landscape' 
-                    ? 'w-full max-w-2xl aspect-[1.41/1]' 
+                  orientation === 'landscape'
+                    ? 'w-full max-w-2xl aspect-[1.41/1]'
                     : 'w-full max-w-md aspect-[1/1.41]'
                 }`}
                 style={{
@@ -813,7 +848,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                   paddingRight: `${marginRight * 14}px`
                 }}
               >
-                
+
                 {/* VPA Document Header block */}
                 <div className="flex justify-between items-start text-[10px] leading-tight mb-6 text-black font-serif">
                   <div className="text-center w-[38%] font-serif">
@@ -833,7 +868,7 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 </div>
 
                 {/* Dynamic Content block */}
-                {type === 'quiz' ? renderQuizPreviewContent(currentQuizToShow) : renderResultsPreviewContent()}
+                {renderResultsPreviewContent()}
 
                 {/* Signature block preview */}
                 {showSignature && (

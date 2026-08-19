@@ -6,23 +6,35 @@ const PAGE_NUMBER_ALIGNMENT = {
   right: AlignmentType.RIGHT
 };
 
+// Khổ giấy theo twips (1cm ≈ 567 twips), dạng PORTRAIT — đổi sang LANDSCAPE
+// bằng cách hoán width/height khi dùng.
+export const PAPER_SIZES = {
+  A4: { width: 11906, height: 16838 },
+  A5: { width: 8391, height: 11907 },
+  letter: { width: 12240, height: 15840 },
+  legal: { width: 12240, height: 20160 }
+};
+
 // "Trang X/Y" dùng field PAGE/NUMPAGES thật của Word (tự cập nhật khi mở/in,
 // không phải text tĩnh) — đặt ở header hay footer, căn trái/giữa/phải tuỳ
 // `position` dạng "top-left" | "top-center" | "top-right" | "bottom-left" |
-// "bottom-center" | "bottom-right". Trả về object để spread thẳng vào
-// `sections[0]` của Document (chỉ có đúng 1 trong 2 khoá headers/footers).
-export const createPageNumberSection = (position = 'bottom-center') => {
+// "bottom-center" | "bottom-right". `showLabel` = có chữ "Trang " trước số
+// hay không; `showTotal` = có "/tổng số trang" hay chỉ hiện trang hiện tại.
+// Trả về object để spread thẳng vào `sections[0]` của Document (chỉ có đúng
+// 1 trong 2 khoá headers/footers).
+export const createPageNumberSection = (position = 'bottom-center', showLabel = true, showTotal = true) => {
   const [vSide, hSide] = String(position).split('-');
   const alignment = PAGE_NUMBER_ALIGNMENT[hSide] || AlignmentType.CENTER;
-  const paragraph = new Paragraph({
-    alignment,
-    children: [
-      new TextRun({ text: 'Trang ', size: 18, font: 'Times New Roman' }),
-      new TextRun({ children: [PageNumber.CURRENT], size: 18, font: 'Times New Roman' }),
-      new TextRun({ text: '/', size: 18, font: 'Times New Roman' }),
-      new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, font: 'Times New Roman' }),
-    ],
-  });
+  const children = [];
+  if (showLabel) {
+    children.push(new TextRun({ text: 'Trang ', size: 18, font: 'Times New Roman' }));
+  }
+  children.push(new TextRun({ children: [PageNumber.CURRENT], size: 18, font: 'Times New Roman' }));
+  if (showTotal) {
+    children.push(new TextRun({ text: '/', size: 18, font: 'Times New Roman' }));
+    children.push(new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, font: 'Times New Roman' }));
+  }
+  const paragraph = new Paragraph({ alignment, children });
   return vSide === 'top'
     ? { headers: { default: new Header({ children: [paragraph] }) } }
     : { footers: { default: new Footer({ children: [paragraph] }) } };
@@ -184,7 +196,16 @@ const createVPASignature = (position = 'TRƯỞNG PHÒNG ĐÀO TẠO', rank = '�
 /**
  * Generates a DOCX document for a quiz (Question Paper)
  */
-export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName, marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5, orientation = 'portrait', includeAnswers = false, showPageNumber = true, pageNumberPosition = 'bottom-center') => {
+export const generateQuizDOCX = (quiz, adminUser, options = {}) => {
+  const {
+    upperUnit, currentUnit, province, position,
+    showSignature = true, signerRank, signerName,
+    marginTop = 2.5, marginBottom = 2.0, marginLeft = 3.0, marginRight = 1.5,
+    orientation = 'portrait', includeAnswers = false,
+    showPageNumber = true, pageNumberPosition = 'bottom-center',
+    pageNumberShowLabel = true, pageNumberShowTotal = true,
+    paperSize = 'A4'
+  } = options;
   const finalPosition = position || adminUser.position || 'TRƯỞNG PHÒNG ĐÀO TẠO';
   const finalRank = signerRank || adminUser.rank || 'Đại tá';
   const finalName = signerName || adminUser.fullName || 'Nguyễn Văn A';
@@ -342,11 +363,15 @@ export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, provin
     left: Math.round(parseFloat(marginLeft) * 567),
     right: Math.round(parseFloat(marginRight) * 567)
   };
+  const preset = PAPER_SIZES[paperSize] || PAPER_SIZES.A4;
   const pageSize = orientation === 'landscape'
-    ? { width: 16838, height: 11906, orientation: PageOrientation.LANDSCAPE }
-    : { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT };
+    ? { width: preset.height, height: preset.width, orientation: PageOrientation.LANDSCAPE }
+    : { width: preset.width, height: preset.height, orientation: PageOrientation.PORTRAIT };
 
   return new Document({
+    // Word cache field PAGE/NUMPAGES từ lần lưu trước, dẫn tới hiện "1" dù
+    // file thật có nhiều trang — updateFields buộc Word tính lại khi mở.
+    features: { updateFields: true },
     sections: [
       {
         properties: {
@@ -355,7 +380,7 @@ export const generateQuizDOCX = (quiz, adminUser, upperUnit, currentUnit, provin
             size: pageSize,
           },
         },
-        ...(showPageNumber ? createPageNumberSection(pageNumberPosition) : {}),
+        ...(showPageNumber ? createPageNumberSection(pageNumberPosition, pageNumberShowLabel, pageNumberShowTotal) : {}),
         children: paragraphs,
       },
     ],

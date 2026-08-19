@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '@phosphor-icons/react';
-import { VPAExportPopup, type PageNumberPosition } from '../components/VPAExportPopup';
+import { VPAExportPopup } from '../components/VPAExportPopup';
+import { type QuizPrintData, type PageNumberPosition, type PaperSize, renderQuizPrintContent } from '../utils/quizPrintTemplate';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
@@ -30,25 +31,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   // VPA Export configurations
   const [showExportPopup, setShowExportPopup] = useState(false);
   const [selectedQuizForExport, setSelectedQuizForExport] = useState<any>(null);
-  type QuizPrintData = {
-    upperUnit: string;
-    currentUnit: string;
-    province: string;
-    position: string;
-    showSignature: boolean;
-    signerRank: string;
-    signerName: string;
-    marginTop?: number;
-    marginBottom?: number;
-    marginLeft?: number;
-    marginRight?: number;
-    mirrorMargins?: boolean;
-    orientation?: 'portrait' | 'landscape';
-    includeAnswers?: boolean;
-    showPageNumber?: boolean;
-    pageNumberPosition?: PageNumberPosition;
-    quizzes: any[];
-  };
   const [printData, setPrintData] = useState<QuizPrintData | null>(null);
   const [defaultUpperUnit, setDefaultUpperUnit] = useState('');
 
@@ -618,6 +600,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     includeAnswers?: boolean;
     showPageNumber?: boolean;
     pageNumberPosition?: PageNumberPosition;
+    pageNumberShowLabel?: boolean;
+    pageNumberShowTotal?: boolean;
+    paperSize?: PaperSize;
   }) => {
     setShowExportPopup(false);
     if (!selectedQuizForExport) return;
@@ -635,6 +620,21 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     }).filter(Boolean);
 
     if (quizListToExport.length === 0) return;
+
+    // Trình duyệt lấy tên file tải về từ attribute `download` của thẻ <a>,
+    // KHÔNG phải từ header Content-Disposition của response (vì đã được đọc
+    // vào Blob) — nên phải tự đặt tên khớp với tên đề thi ở đây.
+    const sanitizeFilenamePart = (text: string) => {
+      const cleaned = (text || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .replace(/[^a-zA-Z0-9\s-_]/g, '')
+        .trim()
+        .replace(/\s+/g, '_');
+      return cleaned || 'De_thi';
+    };
 
     if (vpaData.format === 'pdf') {
       // In thẳng luôn — bản xem trước riêng của app không cần nữa vì bản
@@ -657,6 +657,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         includeAnswers: vpaData.includeAnswers,
         showPageNumber: vpaData.showPageNumber,
         pageNumberPosition: vpaData.pageNumberPosition,
+        pageNumberShowLabel: vpaData.pageNumberShowLabel,
+        pageNumberShowTotal: vpaData.pageNumberShowTotal,
+        paperSize: vpaData.paperSize,
         quizzes: quizListToExport
       });
       return;
@@ -677,7 +680,10 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       orientation: vpaData.orientation,
       includeAnswers: vpaData.includeAnswers,
       showPageNumber: vpaData.showPageNumber,
-      pageNumberPosition: vpaData.pageNumberPosition
+      pageNumberPosition: vpaData.pageNumberPosition,
+      pageNumberShowLabel: vpaData.pageNumberShowLabel,
+      pageNumberShowTotal: vpaData.pageNumberShowTotal,
+      paperSize: vpaData.paperSize
     };
 
     try {
@@ -688,10 +694,11 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           ...exportParams
         }, { responseType: 'blob' });
 
+        const zipName = quizListToExport.length === 1 ? sanitizeFilenamePart(quizListToExport[0].title) : 'bo_de';
         const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.setAttribute('download', `De_thi_${quizListToExport[0].shareCode || 'bo_de'}.zip`);
+        link.setAttribute('download', `De_thi_${zipName}.zip`);
         document.body.appendChild(link);
         link.click();
         link.parentNode?.removeChild(link);
@@ -705,7 +712,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.setAttribute('download', `De_thi_${currentQuiz.shareCode || currentQuiz.examCode || 'code'}.docx`);
+        link.setAttribute('download', `De_thi_${sanitizeFilenamePart(currentQuiz.title)}${vpaData.includeAnswers ? '_DapAn' : ''}.docx`);
         document.body.appendChild(link);
         link.click();
         link.parentNode?.removeChild(link);
@@ -1091,210 +1098,6 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const isQuizSubviewOpen = isCreating || isGenerating || isImporting || isGeneratingAI || isAddingToBank || !!viewingQuiz;
   useSubviewBack(isQuizSubviewOpen, closeQuizSubview);
 
-  // Nội dung layout đề thi dùng chung cho cả bản in thật (portal) và bản xem
-  // trước (modal) — đảm bảo xem trước khớp 100% với file in ra.
-  const renderQuizPrintContent = (data: QuizPrintData) => {
-    const pagesPerQuiz = data.includeAnswers ? 2 : 1;
-    const totalPages = data.quizzes.length * pagesPerQuiz;
-
-    const [pageNumberVSide, pageNumberHSide] = (data.pageNumberPosition || 'bottom-center').split('-') as ['top' | 'bottom', 'left' | 'center' | 'right'];
-    const pageNumberStyle: React.CSSProperties = {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      textAlign: pageNumberHSide,
-      fontSize: '9px',
-      color: '#555',
-      padding: '0 0.3cm',
-      ...(pageNumberVSide === 'top' ? { top: '0.3cm' } : { bottom: '0.3cm' })
-    };
-    const pageNumberFooter = (pageNumber: number) => data.showPageNumber && (
-      <div style={pageNumberStyle}>
-        Trang {pageNumber}/{totalPages}
-      </div>
-    );
-
-    return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          @page {
-            size: A4 ${data.orientation === 'landscape' ? 'landscape' : 'portrait'};
-          }
-
-          /* margin-top/bottom luôn = 0: đây là cách duy nhất khiến Chrome hết
-             chỗ vẽ header/footer mặc định của nó (ngày giờ, tên file, URL,
-             số trang) — lề trên/dưới thật được tự vẽ lại bằng padding của
-             .print-page-break bên dưới, KHÔNG dùng @page margin-top/bottom
-             nữa. Lề trái/phải vẫn để @page xử lý vì không liên quan tới
-             header/footer và cần lặp lại đúng trên mọi trang tự ngắt. */
-          ${data.mirrorMargins ? `
-            /* Mirrored margins for double-sided printing */
-            @page :left {
-              margin-top: 0;
-              margin-bottom: 0;
-              margin-left: ${data.marginRight || 1.5}cm;
-              margin-right: ${data.marginLeft || 3.0}cm;
-            }
-            @page :right {
-              margin-top: 0;
-              margin-bottom: 0;
-              margin-left: ${data.marginLeft || 3.0}cm;
-              margin-right: ${data.marginRight || 1.5}cm;
-            }
-            @page :first {
-              margin-top: 0;
-              margin-bottom: 0;
-              margin-left: ${data.marginLeft || 3.0}cm;
-              margin-right: ${data.marginRight || 1.5}cm;
-            }
-          ` : `
-            /* Standard identical margins for all pages */
-            @page {
-              margin-top: 0;
-              margin-bottom: 0;
-              margin-left: ${data.marginLeft || 3.0}cm;
-              margin-right: ${data.marginRight || 1.5}cm;
-            }
-          `}
-
-          .print-page-break {
-            page-break-after: always;
-            box-sizing: border-box;
-            width: 100%;
-            position: relative;
-            padding-top: ${data.marginTop || 2.5}cm;
-            padding-bottom: ${data.marginBottom || 2.0}cm;
-          }
-
-          .print-page-break:last-child {
-            page-break-after: avoid;
-          }
-
-          /* Wrapper .print-area-only (portal thật để in) có padding-top/bottom
-             inline riêng cho bản xem trước không phân trang — khi in thật thì
-             .print-page-break ở trên đã tự lo lề trên/dưới cho TỪNG trang rồi,
-             giữ nguyên padding của wrapper nữa sẽ bị cộng dồn thành lề đôi. */
-          .print-area-only {
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-          }
-
-          body {
-            background: white;
-            color: black;
-          }
-        }
-      `}} />
-
-      {data.quizzes.map((quizItem: any, quizIdx: number) => {
-        const questionPageNumber = quizIdx * pagesPerQuiz + 1;
-        const answerPageNumber = questionPageNumber + 1;
-        return (
-        <React.Fragment key={quizItem._id || quizIdx}>
-        <div className="print-page-break">
-          {/* Header */}
-          <div className="flex justify-between items-start text-xs leading-normal mb-8 font-serif">
-            <div className="text-center w-[38%] font-serif">
-              <p className="uppercase font-serif">{data.upperUnit}</p>
-              <p className="font-bold uppercase font-serif">{data.currentUnit}</p>
-              <p className="font-bold mt-0.5">---------</p>
-            </div>
-            <div className="text-center w-[58%] font-serif">
-              <p className="font-bold text-[13px] font-serif whitespace-nowrap">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-              <p className="font-bold border-b border-black pb-1 inline-block mx-auto text-[13px] font-serif whitespace-nowrap">
-                Độc lập - Tự do - Hạnh phúc
-              </p>
-              <p className="italic mt-1.5 font-serif">
-                {data.province}, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
-              </p>
-            </div>
-          </div>
-
-          {/* Title & Exam Code */}
-          <div className="text-center my-6 font-serif relative">
-            <h2 className="text-lg font-bold uppercase tracking-wide font-serif">ĐỀ THI TRẮC NGHIỆM</h2>
-            <p className="font-bold mt-1 font-serif">
-              MÔN: {quizItem.title?.toUpperCase()}
-            </p>
-            <p className="italic mt-1 text-xs font-serif">
-              Thời gian làm bài: {quizItem.duration || 45} phút (Không kể thời gian giao đề)
-            </p>
-            {quizItem.examCode && (
-              <div className="absolute right-0 top-0 border border-black px-3 py-1 font-bold text-sm font-serif">
-                Mã đề thi: {quizItem.examCode}
-              </div>
-            )}
-          </div>
-
-          {/* Question List */}
-          <div className="space-y-4 my-6 font-serif">
-            {(quizItem.questions || []).map((q: any, idx: number) => (
-              <div key={idx} className="font-serif text-sm">
-                <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
-                {q.questionType === 'fill-in-the-blank' ? (
-                  <p className="pl-8 italic text-gray-500 font-serif mt-1">
-                    Đáp án: ................................................................................................................
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-x-4 pl-8 mt-1 font-serif">
-                    {(q.options || []).map((opt: string, oIdx: number) => (
-                      <p key={oIdx} className="font-serif">
-                        {String.fromCharCode(65 + oIdx)}. {opt}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Signatures */}
-          {data.showSignature && (
-            <div className="flex justify-end mt-12 font-serif">
-              <div className="text-center w-[45%] font-serif">
-                <p className="font-bold uppercase font-serif text-sm">{data.position}</p>
-                <p className="italic text-xs text-gray-500 mb-16 font-serif">(Ký, ghi rõ họ tên)</p>
-                <p className="font-bold text-sm font-serif">{data.signerRank} {data.signerName}</p>
-              </div>
-            </div>
-          )}
-
-          {pageNumberFooter(questionPageNumber)}
-        </div>
-
-        {/* Trang riêng "Bảng đáp án" — không chèn xen kẽ vào đề, là 1 trang
-            in độc lập (page-break-after của trang câu hỏi ở trên đã tự đẩy
-            nó sang trang mới, không cần breakBefore riêng nữa) */}
-        {data.includeAnswers && (
-          <div className="print-page-break font-serif">
-            <div className="text-center my-6 font-serif">
-              <h2 className="text-lg font-bold uppercase tracking-wide font-serif">BẢNG ĐÁP ÁN</h2>
-              {quizItem.examCode && (
-                <p className="italic mt-1 text-xs font-serif">Mã đề thi: {quizItem.examCode}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-5 gap-2 font-serif text-xs">
-              {(quizItem.questions || []).map((q: any, idx: number) => {
-                const label = q.questionType === 'fill-in-the-blank'
-                  ? ((q.correctAnswers || []).join(' / ') || '—')
-                  : ((q.correctAnswers || []).map((a: string) => String.fromCharCode(65 + parseInt(a, 10))).join('/') || '—');
-                return (
-                  <div key={idx} className="border border-black text-center py-1.5 font-serif">
-                    Câu {idx + 1}: <span className="font-bold">{label}</span>
-                  </div>
-                );
-              })}
-            </div>
-            {pageNumberFooter(answerPageNumber)}
-          </div>
-        )}
-        </React.Fragment>
-        );
-      })}
-    </>
-    );
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
