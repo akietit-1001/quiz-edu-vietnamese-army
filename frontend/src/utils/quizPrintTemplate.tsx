@@ -435,14 +435,13 @@ export const QuizPrintPortalContent: React.FC<{ data: QuizPrintData; onReady?: (
             page-break-after: always;
             box-sizing: border-box;
             width: 100%;
-            /* Trang cuối (hay bất kỳ trang nào) có ít nội dung sẽ khiến box này
-               kết thúc sớm giữa trang giấy — số trang (position:absolute;
-               bottom:0.3cm bên trong box này) khi đó bám vào đáy CỦA BOX chứ
-               không phải đáy TRANG GIẤY THẬT, trông như trôi lơ lửng giữa
-               khoảng trắng. min-height (border-box, đã gồm cả padding) ép
-               box luôn cao đúng bằng 1 trang giấy để số trang luôn nằm đúng
-               đáy trang thật. */
-            min-height: ${sheetHeightCm}cm;
+            /* min-height không đủ với page-break-after:always trên Chromium —
+               trình duyệt vẫn kết thúc box theo nội dung, khiến số trang
+               (position:absolute; bottom) bám đáy BOX chứ không phải đáy
+               TRANG GIẤY THẬT → trôi lơ lửng giữa khoảng trắng.
+               height cố định = 1 tờ giấy ép box đúng cao, số trang luôn
+               đúng đáy bất kể trang có ít hay nhiều nội dung. */
+            height: ${sheetHeightCm}cm;
             position: relative;
             padding-top: ${marginTop}cm;
             padding-bottom: ${marginBottom}cm;
