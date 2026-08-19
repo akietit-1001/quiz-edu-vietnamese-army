@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '@phosphor-icons/react';
 import { VPAExportPopup } from '../components/VPAExportPopup';
-import { type QuizPrintData, type PageNumberPosition, type PaperSize, renderQuizPrintContent, sanitizeFilenamePart } from '../utils/quizPrintTemplate';
+import { type QuizPrintData, type PageNumberPosition, type PaperSize, QuizPrintPortalContent, sanitizeFilenamePart } from '../utils/quizPrintTemplate';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
 import { NumberStepper } from '../components/NumberStepper';
@@ -40,23 +40,28 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
       .catch(() => {});
   }, []);
 
+  // In ngay khi portal báo đã đo/ngắt trang xong (thay vì đoán 1 khoảng chờ
+  // cố định bằng setTimeout) — đề dài/nhiều mã đề đo lâu hơn đề ngắn, một
+  // con số cố định luôn có nguy cơ in "trắng" (chưa render kịp) hoặc chờ
+  // thừa không cần thiết.
+  const printOriginalTitleRef = React.useRef<string>('');
+
   useEffect(() => {
     if (printData) {
-      const originalTitle = document.title;
+      printOriginalTitleRef.current = document.title;
       const firstQuiz = printData.quizzes && printData.quizzes.length > 0 ? printData.quizzes[0] : null;
       document.title = `De_thi_${sanitizeFilenamePart(firstQuiz?.title)}`;
-
-      const timer = setTimeout(() => {
-        window.print();
-        document.title = originalTitle;
-        setPrintData(null);
-      }, 500);
       return () => {
-        clearTimeout(timer);
-        document.title = originalTitle;
+        document.title = printOriginalTitleRef.current;
       };
     }
   }, [printData]);
+
+  const handlePrintReady = () => {
+    window.print();
+    document.title = printOriginalTitleRef.current;
+    setPrintData(null);
+  };
 
   // View states
   const [isCreating, setIsCreating] = useState(false);
@@ -3298,7 +3303,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             padding: `${printData.marginTop || 2.5}cm ${printData.marginRight || 1.5}cm ${printData.marginBottom || 2.0}cm ${printData.marginLeft || 3.0}cm`
           }}
         >
-          {renderQuizPrintContent(printData)}
+          <QuizPrintPortalContent data={printData} onReady={handlePrintReady} />
         </div>,
         document.body
       )}

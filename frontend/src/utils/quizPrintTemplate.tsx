@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type PageNumberPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
 
@@ -78,8 +79,14 @@ export type QuizPrintData = {
 
 // ---------------------------------------------------------------------------
 // Các khối nội dung dùng chung — cùng 1 JSX cho cả bản in thật (portal) và
-// bản đo để tính ngắt trang khi xem trước, đảm bảo 2 bên khớp nhau tuyệt đối.
+// bản đo để tính ngắt trang, đảm bảo 2 bên khớp nhau tuyệt đối.
 // ---------------------------------------------------------------------------
+
+// break-inside: avoid là lưới an toàn cuối — thuật toán ngắt trang bên dưới
+// đã đảm bảo mỗi trang chỉ chứa các khối vừa đủ, nhưng nếu có sai số đo nhỏ
+// (VD khác biệt render ẩn/hiện), CSS này ngăn trình duyệt tách đôi 1 câu hỏi
+// giữa 2 trang — thà đẩy nguyên khối sang trang sau còn hơn cắt dở câu chữ.
+const NO_BREAK_INSIDE: React.CSSProperties = { breakInside: 'avoid', pageBreakInside: 'avoid' };
 
 const HeaderTitleBlock: React.FC<{ data: QuizPrintData; quizItem: any }> = ({ data, quizItem }) => (
   <>
@@ -115,8 +122,8 @@ const HeaderTitleBlock: React.FC<{ data: QuizPrintData; quizItem: any }> = ({ da
   </>
 );
 
-const QuestionBlock: React.FC<{ q: any; idx: number }> = ({ q, idx }) => (
-  <div className="font-serif text-sm">
+const QuestionBlock: React.FC<{ q: any; idx: number; noBreak?: boolean }> = ({ q, idx, noBreak }) => (
+  <div className="font-serif text-sm" style={noBreak ? NO_BREAK_INSIDE : undefined}>
     <p className="font-bold font-serif">Câu {idx + 1}: {q.questionText}</p>
     {q.questionType === 'fill-in-the-blank' ? (
       <p className="pl-8 italic text-gray-500 font-serif mt-1">
@@ -158,8 +165,8 @@ const answerLabelFor = (q: any) => q.questionType === 'fill-in-the-blank'
 // 1 "hàng" 5 ô đáp án — grid-cols-5 xếp mỗi hàng riêng thay vì 1 grid liền
 // khối lớn, để có thể đo/ngắt trang theo từng hàng (visual giống hệt 1 grid
 // liên tục vì grid-cols-5 vốn tự xuống hàng sau mỗi 5 phần tử).
-const AnswerRowBlock: React.FC<{ rowQuestions: any[]; rowStartIdx: number }> = ({ rowQuestions, rowStartIdx }) => (
-  <div className="grid grid-cols-5 gap-2 font-serif text-xs">
+const AnswerRowBlock: React.FC<{ rowQuestions: any[]; rowStartIdx: number; noBreak?: boolean }> = ({ rowQuestions, rowStartIdx, noBreak }) => (
+  <div className="grid grid-cols-5 gap-2 font-serif text-xs" style={noBreak ? NO_BREAK_INSIDE : undefined}>
     {rowQuestions.map((q, i) => (
       <div key={i} className="border border-black text-center py-1.5 font-serif">
         Câu {rowStartIdx + i + 1}: <span className="font-bold">{answerLabelFor(q)}</span>
@@ -174,23 +181,166 @@ const chunk = <T,>(arr: T[], size: number): T[][] => {
   return out;
 };
 
-// Nội dung layout đề thi cho bản IN THẬT (portal, window.print()) — trình
-// duyệt tự ngắt trang thật (page-break-after/CSS @page) nên không cần tính
-// toán gì, cứ đổ hết nội dung vào 1 khối liên tục cho mỗi mã đề.
-export const renderQuizPrintContent = (data: QuizPrintData) => {
-  const pagesPerQuiz = data.includeAnswers ? 2 : 1;
-  const totalPages = data.quizzes.length * pagesPerQuiz;
+// ---------------------------------------------------------------------------
+// Đo & ngắt trang — dùng CHUNG cho cả bản in thật lẫn bản xem trước, để 2 bên
+// LUÔN khớp nhau tuyệt đối (không còn 2 cơ chế phân trang khác nhau).
+//
+// Trước đây bản in thật đổ toàn bộ câu hỏi vào 1 khối cao vô hạn rồi để
+// trình duyệt tự ngắt trang khi tràn — nhưng @page margin-top/bottom đã bị
+// đặt về 0 (để tắt header/footer mặc định của trình duyệt), nên phần lề
+// trên/dưới chỉ được trình duyệt cấp lại CHO TRANG ĐẦU (do padding-top của
+// khối) — mọi trang KẾ TIẾP do tràn nội dung tự nhiên sinh ra đều không có
+// lề, và có thể ngắt ngay giữa 1 câu hỏi/phương án. Giải pháp: đo chiều cao
+// thật của từng khối nội dung rồi tự dựng RÕ RÀNG từng trang (mỗi trang là
+// 1 khối .print-page-break độc lập, tự có đủ lề) thay vì phó mặc cho trình
+// duyệt — bản in và bản xem trước dùng chung thuật toán này nên luôn khớp.
+// ---------------------------------------------------------------------------
 
+type MeasuredUnit = { top: number; bottom: number };
+
+const measureUnits = (container: HTMLElement, refs: (HTMLElement | null)[]): MeasuredUnit[] => {
+  const containerTop = container.getBoundingClientRect().top;
+  return refs.map(el => {
+    if (!el) return { top: 0, bottom: 0 };
+    const r = el.getBoundingClientRect();
+    return { top: r.top - containerTop, bottom: r.bottom - containerTop };
+  });
+};
+
+// Gói các khối (đã có vị trí top/bottom đo thật) vào từng trang theo budget
+// chiều cao — 1 khối luôn nguyên vẹn trên 1 trang (không tách đôi 1 câu hỏi
+// giữa 2 trang), khối đầu tiên của 1 trang mới luôn bắt đầu full budget mới.
+const packIntoPages = (units: MeasuredUnit[], budgetPx: number): number[][] => {
+  const pages: number[][] = [];
+  let current: number[] = [];
+  let pageStartTop = 0;
+
+  units.forEach((unit, i) => {
+    if (current.length === 0) {
+      current.push(i);
+      pageStartTop = unit.top;
+      return;
+    }
+    const heightIfAdded = unit.bottom - pageStartTop;
+    if (heightIfAdded > budgetPx) {
+      pages.push(current);
+      current = [i];
+      pageStartTop = unit.top;
+    } else {
+      current.push(i);
+    }
+  });
+  if (current.length > 0) pages.push(current);
+  return pages;
+};
+
+type QuizPagination = { examPages: number[][]; answerPages: number[][] | null };
+
+const computeLayout = (data: QuizPrintData) => {
   const marginTop = data.marginTop ?? 2.5;
   const marginBottom = data.marginBottom ?? 2.0;
   const marginLeft = data.marginLeft ?? 3.0;
   const marginRight = data.marginRight ?? 1.5;
   const paperSize: PaperSize = data.paperSize || 'A4';
-  const pageNumberShowLabel = data.pageNumberShowLabel !== false;
-  const pageNumberShowTotal = data.pageNumberShowTotal !== false;
+  const paperDims = PAPER_SIZE_DIMENSIONS_CM[paperSize];
+  const isLandscape = data.orientation === 'landscape';
+  const sheetWidthCm = isLandscape ? paperDims.height : paperDims.width;
+  const sheetHeightCm = isLandscape ? paperDims.width : paperDims.height;
+  const contentWidthCm = sheetWidthCm - marginLeft - marginRight;
+  const budgetPx = (sheetHeightCm - marginTop - marginBottom) * CM_TO_PX;
+  return { marginTop, marginBottom, marginLeft, marginRight, paperSize, sheetWidthCm, sheetHeightCm, contentWidthCm, budgetPx };
+};
 
+// Render ẩn (position: fixed, visibility: hidden) toàn bộ nội dung của 1 mã
+// đề ở đúng bề rộng vùng in thật, đo xong thì báo kết quả lên qua onComputed
+// — không tự vẽ gì ra màn hình.
+const QuizMeasurer: React.FC<{
+  data: QuizPrintData;
+  quizItem: any;
+  contentWidthCm: number;
+  budgetPx: number;
+  onComputed: (result: QuizPagination) => void;
+}> = ({ data, quizItem, contentWidthCm, budgetPx, onComputed }) => {
+  const questions: any[] = quizItem?.questions || [];
+  const answerRows = chunk(questions, 5);
+
+  const measureRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const questionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const signatureRef = useRef<HTMLDivElement>(null);
+  const answerTitleRef = useRef<HTMLDivElement>(null);
+  const answerRowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const reportedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!measureRef.current || !quizItem || reportedRef.current) return;
+
+    // Đơn vị số 0 = header+tiêu đề (bất khả phân, luôn mở đầu trang 1).
+    const examUnits = measureUnits(measureRef.current, [headerRef.current, ...questionRefs.current]);
+    if (data.showSignature && signatureRef.current) {
+      examUnits.push(...measureUnits(measureRef.current, [signatureRef.current]));
+    }
+    const examPages = packIntoPages(examUnits, budgetPx);
+
+    let answerPages: number[][] | null = null;
+    if (data.includeAnswers) {
+      const ansUnits = measureUnits(measureRef.current, [answerTitleRef.current, ...answerRowRefs.current]);
+      answerPages = packIntoPages(ansUnits, budgetPx);
+    }
+
+    reportedRef.current = true;
+    onComputed({ examPages, answerPages });
+  });
+
+  if (!quizItem) return null;
+
+  // Portal thẳng ra document.body — KHÔNG được lồng trong bất kỳ khối nào
+  // đang chờ đo (đặc biệt là khối in thật `.print-area-only`, vốn bị CSS ép
+  // `display: none !important` ngoài lúc in để không hiện ra màn hình khi
+  // chưa in). Nếu lồng bên trong, cha display:none khiến TOÀN BỘ cây con —
+  // kể cả khối đo ẩn này — có kích thước 0x0 dù có style riêng gì đi nữa,
+  // làm mọi phép đo ra 0 và thuật toán ngắt trang tưởng nội dung không
+  // chiếm chỗ nào, gộp hết vào 1 trang duy nhất (đúng bug đã gặp: bản xem
+  // trước ra 3 trang nhưng bản in thật lại ra 1 trang).
+  return createPortal(
+    <div
+      ref={measureRef}
+      aria-hidden="true"
+      style={{ position: 'fixed', top: 0, left: -99999, width: `${contentWidthCm}cm`, visibility: 'hidden', pointerEvents: 'none' }}
+    >
+      <div ref={headerRef}>
+        <HeaderTitleBlock data={data} quizItem={quizItem} />
+      </div>
+      <div className="space-y-4 my-6 font-serif">
+        {questions.map((q, idx) => (
+          <div key={idx} ref={el => { questionRefs.current[idx] = el; }}>
+            <QuestionBlock q={q} idx={idx} />
+          </div>
+        ))}
+      </div>
+      {data.showSignature && (
+        <div ref={signatureRef} className="mt-12">
+          <SignatureBlock data={data} />
+        </div>
+      )}
+      <div ref={answerTitleRef}>
+        <AnswerTitleBlock quizItem={quizItem} />
+      </div>
+      <div className="space-y-2 font-serif text-xs">
+        {answerRows.map((row, rowIdx) => (
+          <div key={rowIdx} ref={el => { answerRowRefs.current[rowIdx] = el; }}>
+            <AnswerRowBlock rowQuestions={row} rowStartIdx={rowIdx * 5} />
+          </div>
+        ))}
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+const usePageNumberStyle = (data: QuizPrintData): React.CSSProperties => {
   const [pageNumberVSide, pageNumberHSide] = (data.pageNumberPosition || 'bottom-center').split('-') as ['top' | 'bottom', 'left' | 'center' | 'right'];
-  const pageNumberStyle: React.CSSProperties = {
+  return {
     position: 'absolute',
     left: 0,
     right: 0,
@@ -201,6 +351,38 @@ export const renderQuizPrintContent = (data: QuizPrintData) => {
     padding: '0 0.3cm',
     ...(pageNumberVSide === 'top' ? { top: '0.3cm' } : { bottom: '0.3cm' })
   };
+};
+
+// ---------------------------------------------------------------------------
+// Bản IN THẬT (portal, window.print()) — đo trước rồi dựng RÕ RÀNG từng
+// trang (mỗi trang tự có lề đầy đủ), thay vì đổ 1 khối cao vô hạn cho trình
+// duyệt tự tràn trang (xem giải thích chi tiết ở khối comment phía trên).
+// ---------------------------------------------------------------------------
+export const QuizPrintPortalContent: React.FC<{ data: QuizPrintData; onReady?: () => void }> = ({ data, onReady }) => {
+  const { marginTop, marginBottom, marginLeft, marginRight, paperSize, sheetWidthCm: _sw, contentWidthCm, budgetPx } = computeLayout(data);
+  void _sw;
+  const pageNumberShowLabel = data.pageNumberShowLabel !== false;
+  const pageNumberShowTotal = data.pageNumberShowTotal !== false;
+  const pageNumberStyle = usePageNumberStyle(data);
+
+  const [results, setResults] = useState<Record<number, QuizPagination>>({});
+  const allComputed = data.quizzes.length > 0 && data.quizzes.every((_: any, i: number) => results[i]);
+
+  // Đợi đo/ngắt trang xong hẳn rồi mới báo "sẵn sàng" ra ngoài (thay vì đoán
+  // 1 khoảng chờ cố định) — in ngay lúc chưa đo xong sẽ ra bản in TRẮNG vì
+  // lúc đó portal chỉ mới render các khối đo ẩn, chưa có trang thật nào.
+  const readyFiredRef = useRef(false);
+  useLayoutEffect(() => {
+    if (allComputed && !readyFiredRef.current) {
+      readyFiredRef.current = true;
+      onReady?.();
+    }
+  }, [allComputed, onReady]);
+
+  const totalPages = allComputed
+    ? data.quizzes.reduce((sum: number, _: any, i: number) => sum + results[i].examPages.length + (results[i].answerPages?.length || 0), 0)
+    : 0;
+
   const pageNumberFooter = (pageNumber: number) => data.showPageNumber && (
     <div className="font-serif" style={pageNumberStyle}>
       {pageNumberShowLabel && 'Trang '}
@@ -210,6 +392,8 @@ export const renderQuizPrintContent = (data: QuizPrintData) => {
   );
 
   const cssPaperSize = { A4: 'A4', A5: 'A5', letter: 'letter', legal: 'legal' }[paperSize];
+
+  let runningPageNum = 0;
 
   return (
     <>
@@ -272,166 +456,103 @@ export const renderQuizPrintContent = (data: QuizPrintData) => {
         }
       `}} />
 
-      {data.quizzes.map((quizItem: any, quizIdx: number) => {
-        const questionPageNumber = quizIdx * pagesPerQuiz + 1;
-        const answerPageNumber = questionPageNumber + 1;
-        return (
-        <React.Fragment key={quizItem._id || quizIdx}>
-        <div className="print-page-break">
-          <HeaderTitleBlock data={data} quizItem={quizItem} />
-          <div className="space-y-4 my-6 font-serif">
-            {(quizItem.questions || []).map((q: any, idx: number) => (
-              <QuestionBlock key={idx} q={q} idx={idx} />
-            ))}
-          </div>
-          {data.showSignature && (
-            <div className="mt-12">
-              <SignatureBlock data={data} />
-            </div>
-          )}
-          {pageNumberFooter(questionPageNumber)}
-        </div>
+      {/* Đo trước (ẩn) từng mã đề — không thấy trên màn hình. */}
+      {data.quizzes.map((quizItem: any, quizIdx: number) => !results[quizIdx] && (
+        <QuizMeasurer
+          key={`measure-${quizItem._id || quizIdx}`}
+          data={data}
+          quizItem={quizItem}
+          contentWidthCm={contentWidthCm}
+          budgetPx={budgetPx}
+          onComputed={result => setResults(prev => (prev[quizIdx] ? prev : { ...prev, [quizIdx]: result }))}
+        />
+      ))}
 
-        {data.includeAnswers && (
-          <div className="print-page-break font-serif">
-            <AnswerTitleBlock quizItem={quizItem} />
-            <div className="space-y-2 font-serif text-xs">
-              {chunk(quizItem.questions || [], 5).map((row, rowIdx) => (
-                <AnswerRowBlock key={rowIdx} rowQuestions={row} rowStartIdx={rowIdx * 5} />
-              ))}
+      {/* Trang in thật — dựng theo đúng điểm ngắt đã đo. */}
+      {allComputed && data.quizzes.map((quizItem: any, quizIdx: number) => {
+        const { examPages, answerPages } = results[quizIdx];
+        const questions: any[] = quizItem.questions || [];
+        const answerRows = chunk(questions, 5);
+
+        const examNodes = examPages.map((unitIdxs, pageIdx) => {
+          runningPageNum += 1;
+          const pageNum = runningPageNum;
+          const hasSignature = data.showSignature && unitIdxs[unitIdxs.length - 1] === questions.length + 1;
+          const questionIdxs = unitIdxs.filter(i => i >= 1 && i <= questions.length).map(i => i - 1);
+          return (
+            <div key={`q-${quizItem._id || quizIdx}-${pageIdx}`} className="print-page-break">
+              {unitIdxs.includes(0) && <HeaderTitleBlock data={data} quizItem={quizItem} />}
+              <div className="space-y-4 my-6 font-serif">
+                {questionIdxs.map(idx => <QuestionBlock key={idx} q={questions[idx]} idx={idx} noBreak />)}
+              </div>
+              {hasSignature && (
+                <div className="mt-12">
+                  <SignatureBlock data={data} />
+                </div>
+              )}
+              {pageNumberFooter(pageNum)}
             </div>
-            {pageNumberFooter(answerPageNumber)}
-          </div>
-        )}
-        </React.Fragment>
-        );
+          );
+        });
+
+        const answerNodes = (answerPages || []).map((unitIdxs, pageIdx) => {
+          runningPageNum += 1;
+          const pageNum = runningPageNum;
+          const rowIdxs = unitIdxs.filter(i => i >= 1).map(i => i - 1);
+          return (
+            <div key={`a-${quizItem._id || quizIdx}-${pageIdx}`} className="print-page-break font-serif">
+              {unitIdxs.includes(0) && <AnswerTitleBlock quizItem={quizItem} />}
+              <div className="space-y-2 font-serif text-xs">
+                {rowIdxs.map(idx => <AnswerRowBlock key={idx} rowQuestions={answerRows[idx]} rowStartIdx={idx * 5} noBreak />)}
+              </div>
+              {pageNumberFooter(pageNum)}
+            </div>
+          );
+        });
+
+        return <React.Fragment key={quizItem._id || quizIdx}>{examNodes}{answerNodes}</React.Fragment>;
       })}
     </>
   );
 };
 
 // ---------------------------------------------------------------------------
-// Xem trước dạng "tờ A4" có NGẮT TRANG THẬT — thay vì gói toàn bộ câu hỏi vào
-// 1 khối cao vô hạn (khiến preview luôn hiện "1 trang" dù bản in ra tới 3
-// trang), component này ĐO chiều cao thật của từng khối nội dung (câu hỏi,
-// hàng đáp án...) bằng 1 lần render ẩn ở đúng bề rộng vùng nội dung thật, rồi
-// tự ngắt trang theo thuật toán tham lam (còn chỗ thì nhét tiếp, hết chỗ thì
-// sang trang mới) — mô phỏng đúng cách trình duyệt in thật tự ngắt trang.
+// Xem trước dạng "tờ A4" — dùng CHUNG thuật toán đo/ngắt trang với bản in
+// thật ở trên, nên số trang và điểm ngắt luôn khớp 100% với file tải về.
 // ---------------------------------------------------------------------------
-
-type MeasuredUnit = { top: number; bottom: number };
-
-const measureUnits = (container: HTMLElement, refs: (HTMLElement | null)[]): MeasuredUnit[] => {
-  const containerTop = container.getBoundingClientRect().top;
-  return refs.map(el => {
-    if (!el) return { top: 0, bottom: 0 };
-    const r = el.getBoundingClientRect();
-    return { top: r.top - containerTop, bottom: r.bottom - containerTop };
-  });
-};
-
-// Gói các khối (đã có vị trí top/bottom đo thật) vào từng trang theo budget
-// chiều cao — 1 khối luôn nguyên vẹn trên 1 trang (không tách đôi 1 câu hỏi
-// giữa 2 trang), khối đầu tiên của 1 trang mới luôn bắt đầu full budget mới.
-const packIntoPages = (units: MeasuredUnit[], budgetPx: number): number[][] => {
-  const pages: number[][] = [];
-  let current: number[] = [];
-  let pageStartTop = 0;
-
-  units.forEach((unit, i) => {
-    const height = unit.bottom - unit.top;
-    if (current.length === 0) {
-      current.push(i);
-      pageStartTop = unit.top;
-      return;
-    }
-    const heightIfAdded = unit.bottom - pageStartTop;
-    if (heightIfAdded > budgetPx) {
-      pages.push(current);
-      current = [i];
-      pageStartTop = unit.top;
-    } else {
-      current.push(i);
-    }
-    void height;
-  });
-  if (current.length > 0) pages.push(current);
-  return pages;
-};
-
 export const PaginatedQuizPreview: React.FC<{ data: QuizPrintData }> = ({ data }) => {
   const quizItem = data.quizzes[0];
   const questions: any[] = quizItem?.questions || [];
   const answerRows = chunk(questions, 5);
 
-  const marginTop = data.marginTop ?? 2.5;
-  const marginBottom = data.marginBottom ?? 2.0;
-  const marginLeft = data.marginLeft ?? 3.0;
-  const marginRight = data.marginRight ?? 1.5;
-  const paperSize: PaperSize = data.paperSize || 'A4';
+  const { marginTop, marginBottom, marginLeft, marginRight, sheetWidthCm, sheetHeightCm, contentWidthCm, budgetPx } = computeLayout(data);
   const pageNumberShowLabel = data.pageNumberShowLabel !== false;
   const pageNumberShowTotal = data.pageNumberShowTotal !== false;
+  const pageNumberStyle = usePageNumberStyle(data);
 
-  const paperDims = PAPER_SIZE_DIMENSIONS_CM[paperSize];
-  const isLandscape = data.orientation === 'landscape';
-  const sheetWidthCm = isLandscape ? paperDims.height : paperDims.width;
-  const sheetHeightCm = isLandscape ? paperDims.width : paperDims.height;
-  const contentWidthCm = sheetWidthCm - marginLeft - marginRight;
-  const budgetPx = (sheetHeightCm - marginTop - marginBottom) * CM_TO_PX;
+  const [result, setResult] = useState<QuizPagination | null>(null);
 
-  // Khối đo ẩn: 1 khối header+tiêu đề (không tách rời), N khối câu hỏi, 1
-  // khối chữ ký (nếu bật) — luôn theo đúng thứ tự/khoảng cách như bản in thật.
-  const measureRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const questionRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const signatureRef = useRef<HTMLDivElement>(null);
-  const answerTitleRef = useRef<HTMLDivElement>(null);
-  const answerRowRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  const [examPages, setExamPages] = useState<number[][] | null>(null);
-  const [answerPages, setAnswerPages] = useState<number[][] | null>(null);
-
+  // Đo lại mỗi khi nội dung/kích thước ảnh hưởng đến bố cục đổi (câu hỏi,
+  // lề, khổ giấy, hướng giấy, chữ ký...) — không đưa `data` thẳng vào deps vì
+  // nó là object literal mới mỗi lần cha re-render (VD gõ phím ở field khác
+  // không liên quan), sẽ đo lại lãng phí liên tục dù bố cục không hề đổi.
   const depsKey = JSON.stringify({
     id: quizItem?._id, qLen: questions.length, includeAnswers: data.includeAnswers,
-    showSignature: data.showSignature, orientation: data.orientation, paperSize,
+    showSignature: data.showSignature, orientation: data.orientation, paperSize: data.paperSize,
     marginTop, marginBottom, marginLeft, marginRight, upperUnit: data.upperUnit,
     currentUnit: data.currentUnit, province: data.province, position: data.position,
     signerRank: data.signerRank, signerName: data.signerName
   });
+  const [measureKey, setMeasureKey] = useState(depsKey);
+  if (measureKey !== depsKey) {
+    setMeasureKey(depsKey);
+    setResult(null);
+  }
 
-  useLayoutEffect(() => {
-    if (!measureRef.current || !quizItem) return;
-
-    // Đơn vị số 0 = header+tiêu đề (bất khả phân, luôn mở đầu trang 1).
-    const examUnits = measureUnits(measureRef.current, [headerRef.current, ...questionRefs.current]);
-    if (data.showSignature && signatureRef.current) {
-      examUnits.push(...measureUnits(measureRef.current, [signatureRef.current]));
-    }
-    setExamPages(packIntoPages(examUnits, budgetPx));
-
-    if (data.includeAnswers) {
-      const ansUnits = measureUnits(measureRef.current, [answerTitleRef.current, ...answerRowRefs.current]);
-      setAnswerPages(packIntoPages(ansUnits, budgetPx));
-    } else {
-      setAnswerPages(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [depsKey, budgetPx]);
-
+  const examPages = result?.examPages ?? null;
+  const answerPages = result?.answerPages ?? null;
   const totalPages = (examPages?.length || 0) + (answerPages?.length || 0);
 
-  const [pageNumberVSide, pageNumberHSide] = (data.pageNumberPosition || 'bottom-center').split('-') as ['top' | 'bottom', 'left' | 'center' | 'right'];
-  const pageNumberStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: pageNumberHSide,
-    fontFamily: "'Times New Roman', Times, serif",
-    fontSize: '9px',
-    color: '#000',
-    padding: '0 0.3cm',
-    ...(pageNumberVSide === 'top' ? { top: '0.3cm' } : { bottom: '0.3cm' })
-  };
   const pageNumberFooter = (pageNumber: number) => data.showPageNumber && (
     <div className="font-serif" style={pageNumberStyle}>
       {pageNumberShowLabel && 'Trang '}
@@ -470,41 +591,17 @@ export const PaginatedQuizPreview: React.FC<{ data: QuizPrintData }> = ({ data }
 
   return (
     <div className="relative">
-      {/* Khối đo ẩn — không hiện ra màn hình, chỉ để lấy chiều cao thật của
-          từng khối nội dung ở đúng bề rộng vùng in thật (contentWidthCm). */}
-      <div
-        ref={measureRef}
-        aria-hidden="true"
-        style={{ position: 'fixed', top: 0, left: -99999, width: `${contentWidthCm}cm`, visibility: 'hidden', pointerEvents: 'none' }}
-      >
-        <div ref={headerRef}>
-          <HeaderTitleBlock data={data} quizItem={quizItem} />
-        </div>
-        <div className="space-y-4 my-6 font-serif">
-          {questions.map((q, idx) => (
-            <div key={idx} ref={el => { questionRefs.current[idx] = el; }}>
-              <QuestionBlock q={q} idx={idx} />
-            </div>
-          ))}
-        </div>
-        {data.showSignature && (
-          <div ref={signatureRef} className="mt-12">
-            <SignatureBlock data={data} />
-          </div>
-        )}
-        <div ref={answerTitleRef}>
-          <AnswerTitleBlock quizItem={quizItem} />
-        </div>
-        <div className="space-y-2 font-serif text-xs">
-          {answerRows.map((row, rowIdx) => (
-            <div key={rowIdx} ref={el => { answerRowRefs.current[rowIdx] = el; }}>
-              <AnswerRowBlock rowQuestions={row} rowStartIdx={rowIdx * 5} />
-            </div>
-          ))}
-        </div>
-      </div>
+      {!result && (
+        <QuizMeasurer
+          key={measureKey}
+          data={data}
+          quizItem={quizItem}
+          contentWidthCm={contentWidthCm}
+          budgetPx={budgetPx}
+          onComputed={setResult}
+        />
+      )}
 
-      {/* Trang hiển thị thật — dựng lại từ kết quả ngắt trang đã tính. */}
       {examPages === null ? (
         <div className="text-center text-xs text-gray-400 py-10 uppercase tracking-wider">Đang tính toán ngắt trang...</div>
       ) : (
