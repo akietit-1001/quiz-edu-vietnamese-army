@@ -147,16 +147,15 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       const m = viewMonthRef.current;
       const y = viewYearRef.current;
       if (e.deltaY < 0) {
-        // Cuộn lên = tiến tới tháng sau (giống thói quen tăng giá trị khi cuộn lên).
-        setSlideDir('left');
-        setAnimKey(k => k + 1);
-        if (m === 11) { setViewMonth(0); setViewYear(y + 1); }
-        else setViewMonth(m + 1);
-      } else {
         setSlideDir('right');
         setAnimKey(k => k + 1);
         if (m === 0) { setViewMonth(11); setViewYear(y - 1); }
         else setViewMonth(m - 1);
+      } else {
+        setSlideDir('left');
+        setAnimKey(k => k + 1);
+        if (m === 11) { setViewMonth(0); setViewYear(y + 1); }
+        else setViewMonth(m + 1);
       }
     };
     panel.addEventListener('wheel', onWheel, { passive: false });
