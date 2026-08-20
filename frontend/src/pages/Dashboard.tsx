@@ -7,7 +7,6 @@ import { Select } from '../components/Select';
 import { NumberStepper } from '../components/NumberStepper';
 import { Tooltip } from '../components/Tooltip';
 import { AdminStatsPanel } from '../components/AdminStatsPanel';
-import { AiCostPanel } from '../components/AiCostPanel';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -614,9 +613,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {(user?.role === 'admin' || user?.role === 'master-admin' || user?.role === 'sub-admin') && (
         <AdminStatsPanel />
       )}
-
-      {/* Chi phí sinh đề bằng AI — dữ liệu toàn hệ thống, chỉ master-admin xem được */}
-      {user?.role === 'master-admin' && <AiCostPanel />}
 
       {/* Offline Pending Submissions Banner */}
       {pendingSubmissions.length > 0 && (

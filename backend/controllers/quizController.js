@@ -16,7 +16,6 @@ import { quizGenQueue, redisConnection } from '../utils/queue.js';
 import { convertDocToDocx } from '../utils/docConverter.js';
 import { validateSingleQuestion, generateJSONWithRetry } from '../utils/aiQuizValidation.js';
 import { createNotification } from '../utils/notify.js';
-import { logAiUsage } from '../utils/aiCost.js';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -1087,8 +1086,7 @@ export const generateQuizFromFile = async (req, res) => {
       fileHash: combinedHash,
       fileListNames,
       firstFileName: files[0].originalname,
-      filesCount: files.length,
-      userId: req.user.id
+      filesCount: files.length
     });
 
     res.status(202).json({ jobId: job.id });
@@ -1192,17 +1190,7 @@ export const regenerateQuestion = async (req, res) => {
       ${attempt > 0 ? `\n      LƯU Ý SỬA LỖI: Lần trả lời trước bị từ chối vì: "${lastError}". Hãy trả lời LẠI đúng chuẩn JSON yêu cầu.` : ''}
     `;
 
-    const usageEvents = [];
-    const onUsage = (usageMetadata) => usageEvents.push(usageMetadata);
-
-    let newQuestion;
-    let succeeded = false;
-    try {
-      newQuestion = await generateJSONWithRetry(model, buildPrompt, validateSingleQuestion, 1, onUsage);
-      succeeded = true;
-    } finally {
-      await logAiUsage({ userId: req.user.id, action: 'regenerate_question', usageEvents, succeeded });
-    }
+    const newQuestion = await generateJSONWithRetry(model, buildPrompt, validateSingleQuestion, 1);
 
     res.status(200).json({
       message: 'Đã sinh lại câu hỏi thành công bằng AI',

@@ -5,7 +5,6 @@ import ExamAttempt from '../models/ExamAttempt.js';
 import ExamRoom from '../models/ExamRoom.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { validateQuizStructure, generateJSONWithRetry } from './aiQuizValidation.js';
-import { logAiUsage } from './aiCost.js';
 
 // Initialize Redis connection
 const connection = new IORedis({
@@ -30,7 +29,7 @@ export const quizGenQueue = new Queue('quizGen', { connection });
 export const examSubmitQueue = new Queue('examSubmit', { connection });
 
 export const quizGenWorker = new Worker('quizGen', async (job) => {
-  const { markdownText, count, category, fileHash, fileListNames, firstFileName, filesCount, userId } = job.data;
+  const { markdownText, count, category, fileHash, fileListNames, firstFileName, filesCount } = job.data;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -79,19 +78,7 @@ export const quizGenWorker = new Worker('quizGen', async (job) => {
 
   await job.updateProgress(30);
 
-  const usageEvents = [];
-  const onUsage = (usageMetadata) => usageEvents.push(usageMetadata);
-
-  let quizData;
-  let succeeded = false;
-  try {
-    quizData = await generateJSONWithRetry(model, buildPrompt, validateQuizStructure, 1, onUsage);
-    succeeded = true;
-  } finally {
-    // Ghi log chi phí AI dù thành công hay thất bại — mỗi lần gọi Gemini
-    // (kể cả lần thử lại bị từ chối) đều tốn phí thật.
-    await logAiUsage({ userId, action: 'generate_quiz', usageEvents, succeeded });
-  }
+  const quizData = await generateJSONWithRetry(model, buildPrompt, validateQuizStructure, 1);
 
   await job.updateProgress(90);
 

@@ -15,7 +15,6 @@ import bankRoutes from './routes/bankRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import unitRoutes from './routes/unitRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
-import aiUsageRoutes from './routes/aiUsageRoutes.js';
 
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
@@ -38,7 +37,6 @@ app.use('/api/bank', bankRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/units', unitRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/ai-usage', aiUsageRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date() });
