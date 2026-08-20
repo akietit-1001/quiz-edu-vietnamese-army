@@ -20,6 +20,14 @@ JWT_REFRESH_SECRET=supersecretrefreshjwtkey_vpa_style_2026
 GMAIL_USER= xxxxx@gmail.com
 # Tạo Mật khẩu ứng dụng (App Password) trong Cài đặt bảo mật tài khoản Google của bạn
 GMAIL_APP_PASSWORD=your_gmail_app_password
+
+# Đơn giá Gemini Flash (USD / 1 triệu token) dùng để ƯỚC TÍNH chi phí AI
+# trên Dashboard chi phí (chỉ master-admin xem được) — không phải hóa đơn
+# chính thức, nên đối chiếu định kỳ với ai.google.dev/pricing và cập nhật
+# lại 2 dòng dưới nếu giá thực tế thay đổi. Bỏ trống sẽ dùng giá mặc định
+# trong backend/utils/aiCost.js.
+GEMINI_INPUT_PRICE_PER_1M_USD=0.075
+GEMINI_OUTPUT_PRICE_PER_1M_USD=0.30
 ```
 
 ### 3. Khởi Chạy Backend (Express + Socket.io)

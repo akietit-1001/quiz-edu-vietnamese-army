@@ -44,14 +44,20 @@ export const validateQuizStructure = (quizData) => {
  * @param {(attempt: number, lastError: string|null) => string} promptBuilder
  * @param {(data: any) => string|null} validate - trả về null nếu hợp lệ
  * @param {number} maxRetries
+ * @param {(usageMetadata: any, attempt: number) => void} [onUsage] - gọi lại
+ *   sau MỖI lần gọi Gemini (kể cả lần thất bại/thử lại) với usageMetadata
+ *   thật từ SDK, để bên gọi ghi log chi phí AI chính xác.
  */
-export const generateJSONWithRetry = async (model, promptBuilder, validate, maxRetries = 1) => {
+export const generateJSONWithRetry = async (model, promptBuilder, validate, maxRetries = 1, onUsage) => {
   let lastError = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const prompt = promptBuilder(attempt, lastError);
       const result = await model.generateContent(prompt);
+      if (onUsage && result.response?.usageMetadata) {
+        onUsage(result.response.usageMetadata, attempt);
+      }
       const responseText = result.response.text();
       const data = JSON.parse(responseText);
 
