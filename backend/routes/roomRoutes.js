@@ -1,11 +1,17 @@
 import express from 'express';
-import { createRoom, getRoomByCode, startRoom, endRoom, getRoomResults, exportRoomResults, submitExam, getExamSubmitStatus, getMyRooms, deleteRoom, updateRoomDuration } from '../controllers/roomController.js';
+import { createRoom, getRoomByCode, startRoom, endRoom, getRoomResults, exportRoomResults, submitExam, getExamSubmitStatus, getMyRooms, deleteRoom, updateRoomDuration, getMyAttempts, getDashboardStats } from '../controllers/roomController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { roleMiddleware } from '../middleware/role.js';
 
 const router = express.Router();
 
 router.use(authMiddleware);
+
+// Personal exam history — mọi vai trò, chỉ xem dữ liệu của chính mình
+router.get('/my-attempts', getMyAttempts);
+
+// Admin dashboard overview stats
+router.get('/stats/overview', roleMiddleware(['master-admin', 'admin', 'sub-admin']), getDashboardStats);
 
 // Create and join rooms
 router.post('/', roleMiddleware(['master-admin', 'admin']), createRoom);

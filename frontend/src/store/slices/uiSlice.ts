@@ -2,7 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 interface UIState {
   darkMode: boolean;
-  currentView: 'login' | 'register' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'lobby' | 'taker' | 'results';
+  currentView: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results';
 }
 
 const getInitialDarkMode = () => {

@@ -5,9 +5,10 @@ import { ShieldWarning, Key, Envelope, Lock, Eye, EyeSlash } from '@phosphor-ico
 interface LoginProps {
   onLoginSuccess: (user: any, token: string) => void;
   onNavigateToRegister: () => void;
+  onNavigateToForgotPassword: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
+export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister, onNavigateToForgotPassword }) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -142,6 +143,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   className="absolute right-3 top-2.5 text-vpa-olive-light hover:text-vpa-gold focus:outline-none flex items-center justify-center"
                 >
                   {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <div className="text-right mt-1.5">
+                <button
+                  type="button"
+                  onClick={onNavigateToForgotPassword}
+                  className="text-[10px] uppercase tracking-wider text-vpa-olive-light hover:text-vpa-gold hover:underline font-semibold"
+                >
+                  Quên mật khẩu?
                 </button>
               </div>
             </div>

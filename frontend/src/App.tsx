@@ -19,9 +19,11 @@ declare global {
 import Navbar from './components/Navbar';
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const QuizManagement = lazy(() => import('./pages/QuizManagement'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const MyHistory = lazy(() => import('./pages/MyHistory'));
 const RoomLobby = lazy(() => import('./pages/RoomLobby'));
 const ExamTaker = lazy(() => import('./pages/ExamTaker'));
 const RoomResults = lazy(() => import('./pages/RoomResults'));
@@ -267,6 +269,8 @@ export const App: React.FC = () => {
               dispatch(setCurrentView('quiz-mgmt'));
             } else if (path === '/user-mgmt') {
               dispatch(setCurrentView('user-mgmt'));
+            } else if (path === '/my-history') {
+              dispatch(setCurrentView('my-history'));
             } else if (path === '/lobby') {
               dispatch(setCurrentView('lobby'));
             } else if (path === '/taker') {
@@ -285,6 +289,8 @@ export const App: React.FC = () => {
       } else {
         if (path === '/register') {
           dispatch(setCurrentView('register'));
+        } else if (path === '/forgot-password') {
+          dispatch(setCurrentView('forgot-password'));
         } else {
           dispatch(setCurrentView('login'));
         }
@@ -306,6 +312,9 @@ export const App: React.FC = () => {
       case 'register':
         path = '/register';
         break;
+      case 'forgot-password':
+        path = '/forgot-password';
+        break;
       case 'dashboard':
         path = '/';
         break;
@@ -314,6 +323,9 @@ export const App: React.FC = () => {
         break;
       case 'user-mgmt':
         path = '/user-mgmt';
+        break;
+      case 'my-history':
+        path = '/my-history';
         break;
       case 'lobby':
         path = '/lobby';
@@ -337,12 +349,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
-      let view: 'login' | 'register' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'lobby' | 'taker' | 'results' = 'dashboard';
-      
+      let view: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results' = 'dashboard';
+
       if (path === '/login') view = 'login';
       else if (path === '/register') view = 'register';
+      else if (path === '/forgot-password') view = 'forgot-password';
       else if (path === '/quiz-mgmt') view = 'quiz-mgmt';
       else if (path === '/user-mgmt') view = 'user-mgmt';
+      else if (path === '/my-history') view = 'my-history';
       else if (path === '/lobby') view = 'lobby';
       else if (path === '/taker') view = 'taker';
       else if (path === '/results') view = 'results';
@@ -546,14 +560,19 @@ export const App: React.FC = () => {
           </div>
         }>
           {currentView === 'register' ? (
-            <Register 
+            <Register
               onRegisterSuccess={handleLoginSuccess}
               onNavigateToLogin={() => dispatch(setCurrentView('login'))}
             />
+          ) : currentView === 'forgot-password' ? (
+            <ForgotPassword
+              onNavigateToLogin={() => dispatch(setCurrentView('login'))}
+            />
           ) : (
-            <Login 
+            <Login
               onLoginSuccess={handleLoginSuccess}
               onNavigateToRegister={() => dispatch(setCurrentView('register'))}
+              onNavigateToForgotPassword={() => dispatch(setCurrentView('forgot-password'))}
             />
           )}
         </Suspense>
@@ -568,6 +587,7 @@ export const App: React.FC = () => {
             onOpenEditProfile={handleOpenEditProfile}
             onOpenChangePassword={handleOpenChangePassword}
             onNavigateHome={() => dispatch(setCurrentView('dashboard'))}
+            onNavigateToHistory={() => dispatch(setCurrentView('my-history'))}
           />
           <main className="transition-colors duration-300">
             <Suspense fallback={
@@ -594,8 +614,13 @@ export const App: React.FC = () => {
                 />
               )}
               {currentView === 'user-mgmt' && (
-                <UserManagement 
+                <UserManagement
                   user={user}
+                  onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
+                />
+              )}
+              {currentView === 'my-history' && (
+                <MyHistory
                   onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
                 />
               )}

@@ -1,26 +1,44 @@
+import crypto from 'crypto';
 import User from '../models/User.js';
 import TempUser from '../models/TempUser.js';
 import Unit from '../models/Unit.js';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
-import { sendRegistrationOTPEmail, send2FAOTPEmail } from '../utils/mailer.js';
+import { sendRegistrationOTPEmail, send2FAOTPEmail, sendPasswordResetOTPEmail } from '../utils/mailer.js';
+
+// Sinh mã OTP 6 chữ số bằng CSPRNG (crypto.randomInt) thay vì Math.random(),
+// vốn không an toàn để dùng cho mục đích bảo mật (dự đoán được seed/state).
+const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
 
 // Helper to generate access and refresh tokens
+// `v` (tokenVersion) được nhúng vào cả 2 token — cho phép thu hồi tức thời
+// (logout, đổi mật khẩu) bằng cách tăng User.tokenVersion, thay vì phải chờ
+// token hết hạn tự nhiên.
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { id: user._id, role: user.role, unitId: user.unitId?._id || user.unitId },
+    { id: user._id, role: user.role, unitId: user.unitId?._id || user.unitId, v: user.tokenVersion || 0 },
     process.env.JWT_SECRET,
     { expiresIn: '15m' }
   );
 
   const refreshToken = jwt.sign(
-    { id: user._id },
+    { id: user._id, v: user.tokenVersion || 0 },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: '7d' }
   );
 
   return { accessToken, refreshToken };
+};
+
+// Đặt lại cookie refreshToken với cùng cấu hình dùng chung ở mọi nơi phát token
+const setRefreshTokenCookie = (res, refreshToken) => {
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  });
 };
 
 // Chuẩn hoá field `unit` trả về client — object {id, name, level} thay vì
@@ -75,12 +93,7 @@ export const register = async (req, res) => {
       newSoldier = await newSoldier.populate('unitId', 'name level');
 
       const { accessToken, refreshToken } = generateTokens(newSoldier);
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
+      setRefreshTokenCookie(res, refreshToken);
 
       return res.status(201).json({
         message: 'Đăng ký tài khoản Chiến sĩ thành công',
@@ -109,7 +122,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'Email này đã được đăng ký sử dụng' });
     }
 
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Create or update record in TempUser
@@ -166,7 +179,7 @@ export const login = async (req, res) => {
     if (user.twoFactorEnabled) {
       // Generate email OTP for 2FA
       // Generate a simple 6-digit OTP code using otplib or simple random
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpCode = generateOtp();
       
       // Store OTP and expiry in user document temporarily
       user.twoFactorSecret = JSON.stringify({
@@ -188,14 +201,7 @@ export const login = async (req, res) => {
     }
 
     const { accessToken, refreshToken } = generateTokens(user);
-
-    // Save refresh token to HTTP-Only cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    setRefreshTokenCookie(res, refreshToken);
 
     res.status(200).json({
       message: 'Đăng nhập thành công',
@@ -247,14 +253,7 @@ export const verify2FA = async (req, res) => {
     await user.save();
 
     const { accessToken, refreshToken } = generateTokens(user);
-
-    // Save refresh to cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    setRefreshTokenCookie(res, refreshToken);
 
     res.status(200).json({
       message: 'Đăng nhập 2FA thành công',
@@ -316,14 +315,7 @@ export const verifyRegister = async (req, res) => {
     user = await user.populate('unitId', 'name level');
 
     const { accessToken, refreshToken } = generateTokens(user);
-
-    // Save refresh to cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    setRefreshTokenCookie(res, refreshToken);
 
     res.status(200).json({
       message: 'Xác thực tài khoản thành công',
@@ -358,7 +350,7 @@ export const setup2FA = async (req, res) => {
     }
 
     // We will use Email OTP for 2FA. Send a test OTP code to verify setup
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = generateOtp();
     
     // Temporarily save secret
     user.twoFactorSecret = JSON.stringify({
@@ -450,7 +442,15 @@ export const refreshToken = async (req, res) => {
       return res.status(401).json({ message: 'Tài khoản không tồn tại' });
     }
 
+    // Token đã bị thu hồi (logout/đổi mật khẩu ở nơi khác tăng tokenVersion)
+    if ((decoded.v || 0) !== (user.tokenVersion || 0)) {
+      return res.status(401).json({ message: 'Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại' });
+    }
+
+    // Rotation: phát refresh token MỚI mỗi lần refresh thay vì tái sử dụng
+    // token cũ tới hết hạn — giảm thời gian sống hữu ích nếu token bị lộ.
     const tokens = generateTokens(user);
+    setRefreshTokenCookie(res, tokens.refreshToken);
 
     res.status(200).json({
       accessToken: tokens.accessToken
@@ -462,10 +462,95 @@ export const refreshToken = async (req, res) => {
 
 // 8. LOGOUT
 export const logout = async (req, res) => {
+  // Thu hồi ngay mọi access/refresh token đã phát hành trước đó (kể cả token
+  // truy cập 15 phút còn hiệu lực) bằng cách tăng tokenVersion — không chỉ
+  // dựa vào việc xoá cookie phía client (kẻ tấn công đã có token vẫn dùng
+  // được nếu không có cơ chế thu hồi phía server).
+  const token = req.cookies.refreshToken;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+      await User.updateOne({ _id: decoded.id }, { $inc: { tokenVersion: 1 } });
+    } catch (err) {
+      // Token đã hết hạn/không hợp lệ — không cần thu hồi thêm, chỉ xoá cookie
+    }
+  }
+
   res.clearCookie('refreshToken', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   });
   res.status(200).json({ message: 'Đăng xuất thành công' });
+};
+
+// 9. FORGOT PASSWORD — yêu cầu gửi mã OTP đặt lại mật khẩu về Gmail
+// Chỉ áp dụng cho tài khoản Cán bộ (có email) — Chiến sĩ đăng nhập bằng
+// username không có email nên phải liên hệ quản trị viên để được đặt lại.
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Vui lòng nhập email' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Luôn trả về cùng một thông điệp bất kể email có tồn tại hay không, để
+    // không lộ thông tin email nào đã đăng ký trên hệ thống (chống dò quét
+    // tài khoản - user enumeration).
+    const genericMessage = 'Nếu email của đồng chí tồn tại trên hệ thống, mã OTP đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư.';
+
+    if (!user) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    const otpCode = generateOtp();
+    user.passwordResetCode = otpCode;
+    user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+    await user.save();
+
+    await sendPasswordResetOTPEmail(user.email, otpCode);
+
+    res.status(200).json({ message: genericMessage });
+  } catch (error) {
+    console.error('Lỗi yêu cầu đặt lại mật khẩu:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi xử lý yêu cầu đặt lại mật khẩu' });
+  }
+};
+
+// 10. RESET PASSWORD — xác thực mã OTP và đặt mật khẩu mới
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ email, mã OTP và mật khẩu mới' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+    }
+
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user || !user.passwordResetCode) {
+      return res.status(400).json({ message: 'Yêu cầu đặt lại mật khẩu không hợp lệ hoặc đã hết hạn' });
+    }
+
+    if (user.passwordResetCode !== code || Date.now() > new Date(user.passwordResetExpires).getTime()) {
+      return res.status(400).json({ message: 'Mã OTP không chính xác hoặc đã hết hạn' });
+    }
+
+    user.password = newPassword;
+    user.passwordResetCode = '';
+    user.passwordResetExpires = null;
+    // Thu hồi mọi phiên đăng nhập cũ — phòng trường hợp mật khẩu bị lộ chính
+    // là lý do đồng chí phải đặt lại mật khẩu.
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    res.status(200).json({ message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại bằng mật khẩu mới.' });
+  } catch (error) {
+    console.error('Lỗi đặt lại mật khẩu:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi đặt lại mật khẩu' });
+  }
 };

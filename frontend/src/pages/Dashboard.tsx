@@ -6,6 +6,7 @@ import { useSubviewBack } from '../hooks/useSubviewBack';
 import { Select } from '../components/Select';
 import { NumberStepper } from '../components/NumberStepper';
 import { Tooltip } from '../components/Tooltip';
+import { AdminStatsPanel } from '../components/AdminStatsPanel';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -312,6 +313,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setSyncing(false);
   };
 
+  // Thông báo real-time cho chủ phòng (host) — vi phạm chống gian lận / thí
+  // sinh nộp bài — nhận qua kênh cá nhân user_{id} nên vẫn hiện được kể cả
+  // khi host đang ở Dashboard, không nhất thiết phải mở đúng màn hình giám
+  // sát phòng thi đó.
+  const [hostToasts, setHostToasts] = useState<{ id: number; message: string; tone: 'warning' | 'success' }[]>([]);
+  const pushHostToast = (message: string, tone: 'warning' | 'success') => {
+    const id = Date.now() + Math.random();
+    setHostToasts(prev => [...prev, { id, message, tone }]);
+    setTimeout(() => setHostToasts(prev => prev.filter(t => t.id !== id)), 6000);
+  };
+
   // Connect to socket for real-time invitation notifications
   useEffect(() => {
     if (!user?.id) return;
@@ -328,6 +340,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
     socket.on('roomParticipantsChanged', () => {
       fetchMyRooms();
     });
+
+    const isHost = user?.role === 'admin' || user?.role === 'master-admin';
+    if (isHost) {
+      socket.on('cheatNotification', ({ message }: { message: string }) => {
+        pushHostToast(message, 'warning');
+      });
+      socket.on('userFinished', ({ fullName, score, totalQuestions }: { fullName: string; score: number; totalQuestions: number }) => {
+        pushHostToast(`Đồng chí ${fullName} đã nộp bài (${score}/${totalQuestions})`, 'success');
+      });
+    }
 
     return () => {
       socket.disconnect();
@@ -559,6 +581,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
+      {/* Host real-time toasts: vi phạm chống gian lận / thí sinh nộp bài */}
+      {hostToasts.length > 0 && (
+        <div className="fixed top-24 right-6 z-[9998] flex flex-col gap-2 w-full max-w-xs">
+          {hostToasts.map(t => (
+            <div
+              key={t.id}
+              className={`flex items-start gap-2 p-3 rounded-lg shadow-2xl border text-xs animate-fade-in ${
+                t.tone === 'warning'
+                  ? 'bg-vpa-red/10 border-vpa-red/40 text-vpa-red'
+                  : 'bg-vpa-olive/10 dark:bg-vpa-gold/10 border-vpa-olive-light/40 text-vpa-olive dark:text-vpa-gold-bright'
+              }`}
+            >
+              {t.tone === 'warning' ? <ShieldWarning size={16} className="mt-0.5 shrink-0" /> : <Check size={16} className="mt-0.5 shrink-0" />}
+              <span>{t.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Welcome Banner */}
       <div className="relative border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 mb-8 overflow-hidden rounded-lg shadow-md">
         <div className="absolute top-0 right-0 w-48 h-48 bg-vpa-olive/5 dark:bg-vpa-gold/5 rounded-full filter blur-3xl" />
@@ -604,6 +645,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
         )}
       </div>
+
+      {/* Admin/Sub-admin/Master-admin overview stats */}
+      {(user?.role === 'admin' || user?.role === 'master-admin' || user?.role === 'sub-admin') && (
+        <AdminStatsPanel />
+      )}
 
       {/* Offline Pending Submissions Banner */}
       {pendingSubmissions.length > 0 && (

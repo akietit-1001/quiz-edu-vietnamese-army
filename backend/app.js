@@ -40,9 +40,33 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date() });
 });
 
-// Global Error Handler
+// Global Error Handler — phân biệt lỗi do client gửi dữ liệu sai (400) với
+// lỗi hệ thống thật (500), thay vì trả 500 chung cho tất cả để dễ debug và
+// không làm ồn log lỗi hệ thống bằng các lỗi validate bình thường.
 app.use((err, req, res, next) => {
   console.error(err.stack);
+
+  // Dữ liệu không hợp lệ theo schema Mongoose (thiếu field required, sai kiểu...)
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ message: 'Dữ liệu gửi lên không hợp lệ: ' + err.message });
+  }
+
+  // ObjectId sai định dạng (ví dụ :id trong URL không phải ObjectId hợp lệ)
+  if (err.name === 'CastError') {
+    return res.status(400).json({ message: 'Định dạng ID không hợp lệ' });
+  }
+
+  // Trùng khoá unique (email/username đã tồn tại) lọt qua tới đây thay vì
+  // được controller bắt trước
+  if (err.code === 11000) {
+    return res.status(409).json({ message: 'Dữ liệu đã tồn tại trên hệ thống (trùng khoá duy nhất)' });
+  }
+
+  // Lỗi tự định nghĩa có gắn sẵn statusCode (throw new Error() với statusCode)
+  if (err.statusCode) {
+    return res.status(err.statusCode).json({ message: err.message || 'Đã xảy ra lỗi' });
+  }
+
   res.status(500).json({ message: 'Đã xảy ra lỗi hệ thống phía server' });
 });
 

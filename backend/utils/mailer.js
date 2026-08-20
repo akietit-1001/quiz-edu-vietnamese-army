@@ -123,6 +123,48 @@ export const send2FAOTPEmail = async (toEmail, otpCode) => {
 };
 
 /**
+ * Sends a password reset OTP code via email
+ * @param {string} toEmail
+ * @param {string} otpCode
+ */
+export const sendPasswordResetOTPEmail = async (toEmail, otpCode) => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 2px solid #da251d; border-radius: 8px; background-color: #fdf8f7;">
+      <h2 style="color: #da251d; text-align: center; border-bottom: 2px solid #da251d; padding-bottom: 15px; margin-top: 0; text-transform: uppercase;">
+        Yêu cầu đặt lại mật khẩu
+      </h2>
+      <p>Kính chào đồng chí,</p>
+      <p>Hệ thống Quiz-Edu ghi nhận yêu cầu đặt lại mật khẩu cho tài khoản gắn với email này.</p>
+      <p>Mã OTP đặt lại mật khẩu của đồng chí là:</p>
+      <div style="background-color: #faeceb; border: 1px solid #da251d; border-radius: 6px; padding: 20px; text-align: center; margin: 25px 0;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #da251d; font-family: 'Courier New', Courier, monospace;">${otpCode}</span>
+      </div>
+      <p style="color: #da251d; font-size: 13px; font-weight: bold; border-left: 3px solid #da251d; padding-left: 10px;">
+        * Mã này có hiệu lực trong vòng 15 phút. Nếu đồng chí không thực hiện yêu cầu này, vui lòng bỏ qua email và liên hệ ngay quản trị viên vì tài khoản có thể đang bị truy cập trái phép.
+      </p>
+      <br/>
+      <div style="border-top: 1px solid #d2d7d4; padding-top: 15px; font-size: 12px; color: #555; text-align: center; font-style: italic;">
+        <p>HỆ THỐNG AN NINH QUIZ-EDU</p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const info = await sendViaBrevoApi({
+      senderName: 'Quiz-Edu',
+      toEmail,
+      subject: 'MÃ OTP ĐẶT LẠI MẬT KHẨU - HỆ THỐNG QUIZ-EDU',
+      html
+    });
+    console.log(`Password reset email sent: ${info.messageId}`);
+    return true;
+  } catch (error) {
+    console.error('Lỗi gửi email đặt lại mật khẩu:', error.message);
+    return false;
+  }
+};
+
+/**
  * Sends a room invitation via email
  * @param {string} toEmail
  * @param {string} senderName

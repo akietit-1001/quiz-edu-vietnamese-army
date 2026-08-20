@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, Moon, SignOut, UserCircle, PencilSimple, Lock } from '@phosphor-icons/react';
+import { Sun, Moon, SignOut, UserCircle, PencilSimple, Lock, ClockCounterClockwise } from '@phosphor-icons/react';
 
 interface NavbarProps {
   user: any;
@@ -9,6 +9,7 @@ interface NavbarProps {
   onOpenEditProfile: () => void;
   onOpenChangePassword: () => void;
   onNavigateHome: () => void;
+  onNavigateToHistory: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,7 +19,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   setDarkMode,
   onOpenEditProfile,
   onOpenChangePassword,
-  onNavigateHome
+  onNavigateHome,
+  onNavigateToHistory
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -82,6 +84,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <Lock size={14} />
                   <span>Đổi mật khẩu</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDropdown(false);
+                    onNavigateToHistory();
+                  }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-vpa-olive-light/10 text-vpa-olive dark:text-vpa-sand border-b border-vpa-olive-light/10 flex items-center space-x-2 cursor-pointer"
+                >
+                  <ClockCounterClockwise size={14} />
+                  <span>Lịch sử làm bài</span>
                 </button>
                 <button
                   onClick={() => {

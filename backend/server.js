@@ -170,13 +170,22 @@ io.on('connection', (socket) => {
     try {
       const user = await User.findById(userId).select('fullName');
       if (user) {
-        // Emit alert to the room (will be processed by host interface)
-        io.to(roomCode).emit('cheatNotification', {
+        const payload = {
+          roomCode,
           userId,
           fullName: user.fullName,
           violationCount,
           message: `Đồng chí ${user.fullName} đã rời màn hình thi (${violationCount} lần)`
-        });
+        };
+        // Emit tới phòng (màn hình giám sát đang mở) VÀ tới kênh cá nhân của
+        // host (user_{hostId}) — để host vẫn nhận được cảnh báo dù đang ở
+        // trang khác (vd Dashboard), không chỉ khi đang mở đúng màn hình
+        // giám sát phòng thi đó.
+        io.to(roomCode).emit('cheatNotification', payload);
+        const room = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() }).select('hostId');
+        if (room?.hostId) {
+          io.to(`user_${room.hostId.toString()}`).emit('cheatNotification', payload);
+        }
       }
     } catch (err) {
       console.error('Lỗi socket cheatAlert:', err.message);
@@ -188,15 +197,22 @@ io.on('connection', (socket) => {
     try {
       const user = await User.findById(userId).select('fullName rank unitId').populate('unitId', 'name');
       if (user) {
-        // Notify host that user has completed the exam
-        io.to(roomCode).emit('userFinished', {
+        const payload = {
+          roomCode,
           userId,
           fullName: user.fullName,
           rank: user.rank,
           unit: user.unitId?.name || '',
           score,
           totalQuestions
-        });
+        };
+        // Notify host that user has completed the exam — cả trong phòng lẫn
+        // qua kênh cá nhân của host (xem giải thích ở cheatAlert phía trên).
+        io.to(roomCode).emit('userFinished', payload);
+        const room = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() }).select('hostId');
+        if (room?.hostId) {
+          io.to(`user_${room.hostId.toString()}`).emit('userFinished', payload);
+        }
       }
     } catch (err) {
       console.error('Lỗi socket submitExamFinished:', err.message);

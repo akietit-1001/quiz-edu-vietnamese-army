@@ -7,6 +7,7 @@ import { Packer } from 'docx';
 import { generateResultsDOCX } from '../utils/documentTemplates.js';
 import { examSubmitQueue } from '../utils/queue.js';
 import { isExamineeCapacityReached } from '../utils/roomCapacity.js';
+import { getManagedDescendantIds } from '../utils/commandChain.js';
 
 // 1. CREATE EXAM ROOM
 export const createRoom = async (req, res) => {
@@ -449,5 +450,85 @@ export const updateRoomDuration = async (req, res) => {
   } catch (error) {
     console.error('Lỗi cập nhật thời gian phòng thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật thời gian phòng thi' });
+  }
+};
+
+// 10. GET MY OWN EXAM ATTEMPT HISTORY (mọi vai trò — chỉ xem dữ liệu của chính mình)
+export const getMyAttempts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const pageNum = Math.max(parseInt(req.query.page) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50);
+    const skip = (pageNum - 1) * limitNum;
+
+    const query = { userId };
+
+    const [attempts, totalCount] = await Promise.all([
+      ExamAttempt.find(query)
+        .populate('quizId', 'title category')
+        .populate('roomId', 'roomCode')
+        .sort({ completedAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      ExamAttempt.countDocuments(query)
+    ]);
+
+    res.status(200).json({
+      attempts,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limitNum),
+      currentPage: pageNum
+    });
+  } catch (error) {
+    console.error('Lỗi lấy lịch sử làm bài cá nhân:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi lấy lịch sử làm bài' });
+  }
+};
+
+// 11. GET DASHBOARD STATS (admin/sub-admin/master-admin) — tổng quan số đề,
+// số lượt thi và tỷ lệ đạt, giới hạn theo chuỗi chỉ huy (managedBy) đối với
+// admin/sub-admin, không giới hạn với master-admin.
+export const getDashboardStats = async (req, res) => {
+  try {
+    const currentUser = req.user;
+
+    let userScope = null; // null = không giới hạn (master-admin)
+    if (currentUser.role !== 'master-admin') {
+      userScope = await getManagedDescendantIds(currentUser._id);
+    }
+
+    const attemptMatch = userScope ? { userId: { $in: userScope } } : {};
+    const roomMatch = userScope ? { hostId: { $in: userScope } } : {};
+    const quizMatch = userScope ? { creatorId: { $in: userScope } } : {};
+
+    const [totalQuizzes, totalRooms, attemptStats] = await Promise.all([
+      Quiz.countDocuments(quizMatch),
+      ExamRoom.countDocuments(roomMatch),
+      ExamAttempt.aggregate([
+        { $match: attemptMatch },
+        {
+          $group: {
+            _id: null,
+            totalAttempts: { $sum: 1 },
+            passedAttempts: { $sum: { $cond: ['$isPassed', 1, 0] } },
+            avgScorePercent: { $avg: { $multiply: [{ $divide: ['$score', '$totalQuestions'] }, 100] } }
+          }
+        }
+      ])
+    ]);
+
+    const stats = attemptStats[0] || { totalAttempts: 0, passedAttempts: 0, avgScorePercent: 0 };
+    const passRate = stats.totalAttempts > 0 ? Math.round((stats.passedAttempts / stats.totalAttempts) * 100) : 0;
+
+    res.status(200).json({
+      totalQuizzes,
+      totalRooms,
+      totalAttempts: stats.totalAttempts,
+      passRate,
+      avgScorePercent: Math.round(stats.avgScorePercent || 0)
+    });
+  } catch (error) {
+    console.error('Lỗi lấy thống kê tổng quan:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi lấy thống kê tổng quan' });
   }
 };

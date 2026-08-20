@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { createQuiz, getQuizzes, getQuizById, updateQuiz, deleteQuiz, importQuiz, exportQuizDocx, exportQuizDocxBulk, generateQuizFromFile, getQuizGenStatus, regenerateQuestion } from '../controllers/quizController.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { aiGenerationLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -19,8 +20,8 @@ router.delete('/:id', deleteQuiz);
 router.get('/:id/export', exportQuizDocx);
 router.post('/export-bulk', exportQuizDocxBulk);
 router.post('/import', upload.single('file'), importQuiz);
-router.post('/generate-from-file', upload.array('files', 10), generateQuizFromFile);
+router.post('/generate-from-file', aiGenerationLimiter, upload.array('files', 10), generateQuizFromFile);
 router.get('/generate-status/:jobId', getQuizGenStatus);
-router.post('/regenerate-question', regenerateQuestion);
+router.post('/regenerate-question', aiGenerationLimiter, regenerateQuestion);
 
 export default router;

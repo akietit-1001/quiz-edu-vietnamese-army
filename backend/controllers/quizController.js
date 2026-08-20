@@ -892,7 +892,10 @@ export const generateQuizFromFile = async (req, res) => {
     }
 
     const { numQuestions, category } = req.body;
-    const count = parseInt(numQuestions) || 10;
+    // Giới hạn trần số câu hỏi AI sinh mỗi lượt để kiểm soát chi phí Gemini
+    // (output token tỉ lệ thuận với count) và tránh yêu cầu phi thực tế.
+    const MAX_AI_QUESTIONS = 50;
+    const count = Math.min(Math.max(parseInt(numQuestions) || 10, 1), MAX_AI_QUESTIONS);
 
     // 3. Trích xuất chữ của tất cả các file
     let combinedMarkdownText = '';

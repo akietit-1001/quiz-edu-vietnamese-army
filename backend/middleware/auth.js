@@ -19,6 +19,11 @@ export const authMiddleware = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'Tài khoản không tồn tại trên hệ thống' });
     }
+    // Token đã bị thu hồi (logout hoặc đổi mật khẩu tăng tokenVersion) — chặn
+    // ngay cả khi access token 15 phút về mặt kỹ thuật vẫn còn hạn.
+    if ((decoded.v || 0) !== (user.tokenVersion || 0)) {
+      return res.status(401).json({ message: 'Phiên đăng nhập đã bị thu hồi, vui lòng đăng nhập lại' });
+    }
     req.user = user;
     next();
   } catch (error) {

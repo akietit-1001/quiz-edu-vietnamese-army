@@ -76,6 +76,21 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Tăng lên mỗi khi logout hoặc đổi mật khẩu — nhúng vào JWT (access +
+  // refresh) để có thể thu hồi toàn bộ token đã phát hành trước đó ngay lập
+  // tức, thay vì phải chờ hết hạn tự nhiên (15 phút/7 ngày).
+  tokenVersion: {
+    type: Number,
+    default: 0
+  },
+  passwordResetCode: {
+    type: String,
+    default: ''
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

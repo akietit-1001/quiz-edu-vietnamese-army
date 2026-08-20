@@ -320,9 +320,13 @@ export const changePassword = async (req, res) => {
 
     // Set new password (which will be automatically hashed by pre-save hook)
     user.password = newPassword;
+    // Thu hồi mọi access/refresh token đã phát hành trước đó (kể cả phiên
+    // hiện tại) — bắt buộc đăng nhập lại bằng mật khẩu mới, đúng thông lệ bảo
+    // mật khi đổi mật khẩu.
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
-    res.status(200).json({ message: 'Thay đổi mật khẩu thành công' });
+    res.status(200).json({ message: 'Thay đổi mật khẩu thành công. Vui lòng đăng nhập lại.' });
   } catch (error) {
     console.error('Lỗi đổi mật khẩu:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi thay đổi mật khẩu' });
