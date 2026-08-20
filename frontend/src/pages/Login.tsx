@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { ShieldWarning, Key, Envelope, Lock, Eye, EyeSlash } from '@phosphor-icons/react';
+import { ShieldWarning, Key, Envelope, Lock, MorphIcon, EyeData, EyeSlashData } from '../icons';
 import { Checkbox } from '../components/Checkbox';
 
 interface LoginProps {
@@ -144,7 +144,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                   onClick={() => setShowPassword(prev => !prev)}
                   className="absolute right-3 top-2.5 text-vpa-olive-light hover:text-vpa-gold focus:outline-none flex items-center justify-center"
                 >
-                  {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+                  <MorphIcon icon={showPassword ? EyeSlashData : EyeData} size={18} />
                 </button>
               </div>
               <div className="text-right mt-1.5">

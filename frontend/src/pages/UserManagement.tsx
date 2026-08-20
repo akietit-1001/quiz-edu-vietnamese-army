@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X, ArrowsLeftRight, IdentificationBadge, DotsThreeVertical } from '@phosphor-icons/react';
+import { ArrowLeft, Trash, PencilSimple, UserPlus, MagnifyingGlass, ShieldCheck, Buildings, Plus, Funnel, CaretRight, Eye, X, ArrowsLeftRight, IdentificationBadge, DotsThreeVertical } from '../icons';
 import { UnitTreeSelect, type UnitNode } from '../components/UnitTreeSelect';
 import { compareUnitSiblings } from '../constants/unitSort';
 import { useSubviewBack } from '../hooks/useSubviewBack';

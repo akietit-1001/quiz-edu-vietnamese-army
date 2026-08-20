@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, Moon, SignOut, UserCircle, PencilSimple, Lock, ClockCounterClockwise } from '@phosphor-icons/react';
+import { MorphIcon, SunData, MoonData, SignOut, UserCircle, PencilSimple, Lock, ClockCounterClockwise } from '../icons';
 import { NotificationBell } from './NotificationBell';
 
 interface NavbarProps {
@@ -136,7 +136,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="p-2.5 border border-vpa-olive-light/30 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 transition-colors"
           title={darkMode ? 'Chế độ sáng' : 'Chế độ tối'}
         >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          <MorphIcon icon={darkMode ? SunData : MoonData} size={20} spring="snappy" />
         </button>
       </div>
     </nav>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Play, Users, ShieldCheck, ArrowLeftIcon, WarningIcon, Check, X, PencilSimple, Trash } from '@phosphor-icons/react';
+import { Play, Users, ShieldCheck, ArrowLeftIcon, WarningIcon, Check, X, PencilSimple, Trash } from '../icons';
 import axios from 'axios';
 
 interface RoomLobbyProps {

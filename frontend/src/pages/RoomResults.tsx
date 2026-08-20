@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { ArrowLeft, DownloadSimpleIcon, Funnel, ShieldWarning } from '@phosphor-icons/react';
+import { ArrowLeft, DownloadSimpleIcon, Funnel, ShieldWarning } from '../icons';
 import { VPAExportPopup } from '../components/VPAExportPopup';
 import { Select } from '../components/Select';
 import { PrintPreviewModal } from '../components/PrintPreviewModal';

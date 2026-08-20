@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { FileText, DoorOpen, ClipboardText, Target } from '@phosphor-icons/react';
+import { FileText, DoorOpen, ClipboardText, Target } from '../icons';
 
 interface Stats {
   totalQuizzes: number;

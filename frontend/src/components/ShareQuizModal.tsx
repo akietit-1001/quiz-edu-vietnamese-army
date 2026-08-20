@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { X, ShareNetwork, CheckCircle, EyeSlash } from '@phosphor-icons/react';
+import { X, ShareNetwork, CheckCircle, EyeSlash } from '../icons';
 import { Select } from './Select';
 
 interface ShareQuizModalProps {

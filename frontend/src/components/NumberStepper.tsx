@@ -1,5 +1,5 @@
 import React from 'react';
-import { CaretUp, CaretDown } from '@phosphor-icons/react';
+import { CaretUp, CaretDown } from '../icons';
 
 interface NumberStepperProps {
   value: number;

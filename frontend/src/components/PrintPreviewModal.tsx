@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Printer } from '@phosphor-icons/react';
+import { X, Printer } from '../icons';
 
 interface PrintPreviewModalProps {
   isOpen: boolean;

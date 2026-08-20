@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
-import { Hourglass, ShieldWarning } from '@phosphor-icons/react';
+import { Hourglass, ShieldWarning } from '../icons';
 
 interface ExamTakerProps {
   user: any;

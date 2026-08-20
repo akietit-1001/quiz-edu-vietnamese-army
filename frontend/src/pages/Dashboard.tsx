@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { getAppSocket } from '../utils/socket';
-import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users, SignIn } from '@phosphor-icons/react';
+import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Users, MorphIcon, EyeData, SignInData } from '../icons';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { Select } from '../components/Select';
 import { NumberStepper } from '../components/NumberStepper';
@@ -872,7 +872,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         onClick={() => onJoinRoom(room.roomCode)}
                         className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors flex items-center space-x-1 whitespace-nowrap flex-shrink-0"
                       >
-                        {room.status === 'finished' ? <Eye size={12} /> : <SignIn size={12} />}
+                        <MorphIcon icon={room.status === 'finished' ? EyeData : SignInData} size={12} />
                         <span>{room.status === 'finished' ? 'Xem kết quả' : 'Vào phòng'}</span>
                       </button>
                     </div>

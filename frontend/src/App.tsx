@@ -27,7 +27,7 @@ const MyHistory = lazy(() => import('./pages/MyHistory'));
 const RoomLobby = lazy(() => import('./pages/RoomLobby'));
 const ExamTaker = lazy(() => import('./pages/ExamTaker'));
 const RoomResults = lazy(() => import('./pages/RoomResults'));
-import { ArrowUp } from '@phosphor-icons/react';
+import { ArrowUp } from './icons';
 import { useSubviewBack } from './hooks/useSubviewBack';
 import { DatePicker } from './components/DatePicker';
 import { Select } from './components/Select';

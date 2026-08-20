@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, ClipboardText, CheckCircle, XCircle } from '@phosphor-icons/react';
+import { ArrowLeft, ClipboardText, CheckCircle, XCircle } from '../icons';
 import { Pagination } from '../components/Pagination';
 
 interface MyHistoryProps {

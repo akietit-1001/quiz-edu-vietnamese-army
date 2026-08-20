@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CaretDown, Check } from '@phosphor-icons/react';
+import { CaretDown, Check } from '../icons';
 import { Tooltip } from './Tooltip';
 
 interface SelectProps {

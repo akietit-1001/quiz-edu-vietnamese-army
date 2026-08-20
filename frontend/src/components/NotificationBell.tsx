@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Envelope, ShieldWarning, CheckCircle, SignOut, BellSlash, ShareNetwork } from '@phosphor-icons/react';
+import { Bell, Envelope, ShieldWarning, CheckCircle, SignOut, BellSlash, ShareNetwork } from '../icons';
 
 interface NotificationBellProps {
   notifications: any[];

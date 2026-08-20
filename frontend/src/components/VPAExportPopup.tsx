@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { X } from '@phosphor-icons/react';
+import { X } from '../icons';
 import { NumberStepper } from './NumberStepper';
 import { Select } from './Select';
 import {
