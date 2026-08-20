@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import User from '../models/User.js';
 import TempUser from '../models/TempUser.js';
+import TrustedDevice from '../models/TrustedDevice.js';
 import Unit from '../models/Unit.js';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
@@ -39,6 +40,63 @@ const setRefreshTokenCookie = (res, refreshToken) => {
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
+};
+
+// --- Thiết bị tin cậy (bỏ qua OTP 2FA trong 30 ngày trên đúng thiết bị đã
+// xác thực thành công 1 lần) ---
+const DEVICE_TRUST_COOKIE = 'deviceTrust';
+const DEVICE_TRUST_DAYS = 30;
+
+// Chỉ lưu HASH của token trong DB — lộ DB cũng không dùng lại được token thật.
+const hashDeviceToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const setDeviceTrustCookie = (res, token) => {
+  res.cookie(DEVICE_TRUST_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: DEVICE_TRUST_DAYS * 24 * 60 * 60 * 1000
+  });
+};
+
+const clearDeviceTrustCookie = (res) => {
+  res.clearCookie(DEVICE_TRUST_COOKIE, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  });
+};
+
+// Kiểm tra cookie deviceTrust của request hiện tại có khớp 1 thiết bị đã
+// được tin cậy của user này hay không (còn hạn — kiểm tra thêm createdAt để
+// không phụ thuộc hoàn toàn vào thời điểm MongoDB TTL job thực sự chạy).
+const isDeviceTrusted = async (req, userId) => {
+  const token = req.cookies?.[DEVICE_TRUST_COOKIE];
+  if (!token) return false;
+
+  const cutoff = new Date(Date.now() - DEVICE_TRUST_DAYS * 24 * 60 * 60 * 1000);
+  const record = await TrustedDevice.findOne({
+    userId,
+    tokenHash: hashDeviceToken(token),
+    createdAt: { $gte: cutoff }
+  });
+
+  if (!record) return false;
+
+  record.lastUsedAt = new Date();
+  await record.save();
+  return true;
+};
+
+// Đánh dấu thiết bị hiện tại là tin cậy sau khi vừa xác thực OTP thành công
+const trustCurrentDevice = async (req, res, userId) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  await TrustedDevice.create({
+    userId,
+    tokenHash: hashDeviceToken(token),
+    userAgent: (req.headers['user-agent'] || '').slice(0, 200)
+  });
+  setDeviceTrustCookie(res, token);
 };
 
 // Chuẩn hoá field `unit` trả về client — object {id, name, level} thay vì
@@ -175,12 +233,40 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: 'Tài khoản hoặc mật khẩu không chính xác' });
     }
 
+    const sendLoginSuccess = () => {
+      const { accessToken, refreshToken } = generateTokens(user);
+      setRefreshTokenCookie(res, refreshToken);
+
+      res.status(200).json({
+        message: 'Đăng nhập thành công',
+        user: {
+          id: user._id,
+          email: user.email,
+          username: user.username,
+          personnelType: user.personnelType,
+          fullName: user.fullName,
+          role: user.role,
+          unit: formatUnit(user.unitId),
+          rank: user.rank,
+          position: user.position,
+          twoFactorEnabled: user.twoFactorEnabled
+        },
+        accessToken
+      });
+    };
+
     // Check if 2FA is enabled
     if (user.twoFactorEnabled) {
+      // Thiết bị này đã từng xác thực OTP thành công và được đánh dấu tin
+      // cậy trong 30 ngày gần nhất — bỏ qua bước OTP, đăng nhập thẳng.
+      if (await isDeviceTrusted(req, user._id)) {
+        return sendLoginSuccess();
+      }
+
       // Generate email OTP for 2FA
       // Generate a simple 6-digit OTP code using otplib or simple random
       const otpCode = generateOtp();
-      
+
       // Store OTP and expiry in user document temporarily
       user.twoFactorSecret = JSON.stringify({
         code: otpCode,
@@ -194,31 +280,13 @@ export const login = async (req, res) => {
       return res.status(200).json({
         requires2FA: true,
         email: user.email,
-        message: sent 
+        message: sent
           ? 'Mã OTP đã được gửi về Gmail của đồng chí. Vui lòng kiểm tra.'
           : 'Lỗi gửi email OTP, vui lòng liên hệ admin hoặc thử lại.'
       });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user);
-    setRefreshTokenCookie(res, refreshToken);
-
-    res.status(200).json({
-      message: 'Đăng nhập thành công',
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        personnelType: user.personnelType,
-        fullName: user.fullName,
-        role: user.role,
-        unit: formatUnit(user.unitId),
-        rank: user.rank,
-        position: user.position,
-        twoFactorEnabled: user.twoFactorEnabled
-      },
-      accessToken
-    });
+    sendLoginSuccess();
   } catch (error) {
     console.error('Lỗi đăng nhập:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi đăng nhập' });
@@ -228,7 +296,7 @@ export const login = async (req, res) => {
 // 3. VERIFY 2FA
 export const verify2FA = async (req, res) => {
   try {
-    const { email, code } = req.body;
+    const { email, code, trustDevice } = req.body;
 
     const user = await User.findOne({ email }).populate('unitId', 'name level');
     if (!user) {
@@ -251,6 +319,12 @@ export const verify2FA = async (req, res) => {
     // 2FA code is valid, clear it
     user.twoFactorSecret = '';
     await user.save();
+
+    // Đồng chí chọn "Tin cậy thiết bị này" -> 30 ngày tới đăng nhập từ đúng
+    // thiết bị/trình duyệt này sẽ được bỏ qua bước nhập OTP.
+    if (trustDevice) {
+      await trustCurrentDevice(req, res, user._id);
+    }
 
     const { accessToken, refreshToken } = generateTokens(user);
     setRefreshTokenCookie(res, refreshToken);
@@ -418,6 +492,11 @@ export const disable2FA = async (req, res) => {
     user.twoFactorSecret = '';
     await user.save();
 
+    // Tắt 2FA thì danh sách thiết bị tin cậy không còn ý nghĩa gì nữa — dọn
+    // sạch để nếu bật lại 2FA sau này, mọi thiết bị đều phải xác thực OTP từ đầu.
+    await TrustedDevice.deleteMany({ userId: user._id });
+    clearDeviceTrustCookie(res);
+
     res.status(200).json({
       message: 'Đã hủy kích hoạt xác thực hai yếu tố (2FA) thành công',
       twoFactorEnabled: false
@@ -425,6 +504,19 @@ export const disable2FA = async (req, res) => {
   } catch (error) {
     console.error('Lỗi hủy kích hoạt 2FA:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi hủy kích hoạt 2FA' });
+  }
+};
+
+// 6.5. REVOKE ALL TRUSTED DEVICES — thu hồi toàn bộ thiết bị đã "tin cậy"
+// (bắt đăng nhập lần sau phải nhập lại OTP dù còn 2FA), không tắt 2FA.
+export const revokeTrustedDevices = async (req, res) => {
+  try {
+    await TrustedDevice.deleteMany({ userId: req.user.id });
+    clearDeviceTrustCookie(res);
+    res.status(200).json({ message: 'Đã thu hồi tất cả thiết bị tin cậy. Lần đăng nhập tiếp theo sẽ cần nhập lại mã OTP.' });
+  } catch (error) {
+    console.error('Lỗi thu hồi thiết bị tin cậy:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi thu hồi thiết bị tin cậy' });
   }
 };
 

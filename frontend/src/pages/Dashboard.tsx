@@ -436,6 +436,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const handleRevokeTrustedDevices = async () => {
+    const confirmed = await window.showConfirm(
+      'Thu hồi tất cả thiết bị đang được tin cậy? Lần đăng nhập tiếp theo trên mọi thiết bị (kể cả thiết bị đang dùng) sẽ cần nhập lại mã OTP.',
+      'Thu hồi thiết bị tin cậy'
+    );
+    if (!confirmed) return;
+    try {
+      const response = await axios.post('/api/auth/revoke-trusted-devices');
+      await window.showAlert(response.data.message, 'Bảo mật 2FA');
+    } catch (err: any) {
+      await window.showAlert(err.response?.data?.message || 'Không thể thu hồi thiết bị tin cậy.', 'Lỗi');
+    }
+  };
+
   // Create room controls
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -598,12 +612,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {loading2FA ? 'Đang gửi OTP...' : 'Bật bảo mật 2FA'}
             </button>
           ) : (
-            <button
-              onClick={handleDisable2FA}
-              className="px-3 py-1 bg-vpa-red/10 border border-vpa-red/30 text-vpa-red text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
-            >
-              Tắt bảo mật 2FA
-            </button>
+            <>
+              <button
+                onClick={handleDisable2FA}
+                className="px-3 py-1 bg-vpa-red/10 border border-vpa-red/30 text-vpa-red text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
+              >
+                Tắt bảo mật 2FA
+              </button>
+              <button
+                onClick={handleRevokeTrustedDevices}
+                title="Bắt tất cả thiết bị (kể cả thiết bị đang dùng) phải nhập lại OTP ở lần đăng nhập tiếp theo"
+                className="px-3 py-1 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light/10 transition-colors rounded-lg"
+              >
+                Thu hồi thiết bị tin cậy
+              </button>
+            </>
           )}
         </div>
         )}

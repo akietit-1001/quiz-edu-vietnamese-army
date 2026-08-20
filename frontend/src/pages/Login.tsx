@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { ShieldWarning, Key, Envelope, Lock, Eye, EyeSlash } from '@phosphor-icons/react';
+import { Checkbox } from '../components/Checkbox';
 
 interface LoginProps {
   onLoginSuccess: (user: any, token: string) => void;
@@ -19,6 +20,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
   const [requires2FA, setRequires2FA] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [message2FA, setMessage2FA] = useState('');
+  const [trustDevice, setTrustDevice] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +49,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/auth/verify-2fa', { email: identifier, code: otpCode });
+      const response = await axios.post('/api/auth/verify-2fa', { email: identifier, code: otpCode, trustDevice });
       onLoginSuccess(response.data.user, response.data.accessToken);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.');
@@ -201,6 +203,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                 />
               </div>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox checked={trustDevice} onChange={() => setTrustDevice(prev => !prev)} />
+              <span className="text-[10px] text-gray-500 leading-relaxed">
+                Tin cậy thiết bị này trong 30 ngày (bỏ qua bước nhập OTP cho các lần đăng nhập sau trên thiết bị này)
+              </span>
+            </label>
 
             <div className="flex space-x-4">
               <button
