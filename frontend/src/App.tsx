@@ -31,6 +31,7 @@ import { ArrowUp } from '@phosphor-icons/react';
 import { useSubviewBack } from './hooks/useSubviewBack';
 import { DatePicker } from './components/DatePicker';
 import { Select } from './components/Select';
+import { getAppSocket, disconnectAppSocket } from './utils/socket';
 
 // Redux Integration
 import { useAppDispatch, useAppSelector } from './store/hooks';
@@ -55,6 +56,14 @@ export const App: React.FC = () => {
     activeExamMode,
     activeRoomSettings,
   } = useAppSelector((state) => state.exam);
+
+  // Icon chuông thông báo (chỉ hiện với Cán bộ — xem Navbar) — quản lý ở
+  // App vì cần dispatch điều hướng view khi bấm vào 1 thông báo. unreadCount
+  // luôn tính lại từ `notifications` (không giữ state riêng) để tránh lệch
+  // số khi backend gộp-cập-nhật 1 thông báo hiện có (vd đếm dồn số thí sinh
+  // nộp bài) thay vì luôn tạo bản ghi mới.
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   // Global Dialog State
   const [modal, setModal] = useState<{
@@ -377,6 +386,64 @@ export const App: React.FC = () => {
     }
   }, [token]);
 
+  // Kết nối socket dùng chung toàn app + tải thông báo ban đầu — chỉ cho
+  // Cán bộ (personnelType === 'officer'), Chiến sĩ dùng bảng lời mời có sẵn
+  // trên Dashboard nên không cần icon chuông đầy đủ này.
+  useEffect(() => {
+    if (!user?.id || user.personnelType !== 'officer') return;
+
+    axios.get('/api/notifications')
+      .then(res => {
+        setNotifications(res.data.notifications || []);
+      })
+      .catch(err => console.error('Lỗi tải thông báo:', err));
+
+    const socket = getAppSocket();
+    socket.connect();
+    socket.emit('registerUser', user.id);
+
+    // Backend có thể GỘP-CẬP-NHẬT 1 thông báo đã tồn tại (cùng _id) thay vì
+    // luôn tạo mới — vd đếm dồn số thí sinh nộp bài trong 1 phòng. Phải thay
+    // thế đúng bản ghi cũ (nếu có) rồi đưa lên đầu, không được prepend thô
+    // vì sẽ tạo ra 2 dòng trùng nhau cho cùng 1 thông báo.
+    const handleNewNotification = (notif: any) => {
+      setNotifications(prev => [notif, ...prev.filter(n => n._id !== notif._id)].slice(0, 20));
+    };
+    socket.on('newNotification', handleNewNotification);
+
+    return () => {
+      socket.off('newNotification', handleNewNotification);
+    };
+  }, [user?.id, user?.personnelType]);
+
+  const handleNotificationClick = async (notif: any) => {
+    if (!notif.isRead) {
+      setNotifications(prev => prev.map(n => (n._id === notif._id ? { ...n, isRead: true } : n)));
+      try {
+        await axios.put(`/api/notifications/${notif._id}/read`);
+      } catch (err) {
+        console.error('Lỗi đánh dấu đã đọc thông báo:', err);
+      }
+    }
+
+    if (notif.actionView === 'lobby' && notif.actionPayload?.roomCode) {
+      handleJoinRoom(notif.actionPayload.roomCode);
+    } else if (notif.actionView === 'quiz-mgmt') {
+      dispatch(setCurrentView('quiz-mgmt'));
+    } else {
+      dispatch(setCurrentView('dashboard'));
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    try {
+      await axios.put('/api/notifications/read-all');
+    } catch (err) {
+      console.error('Lỗi đánh dấu tất cả thông báo đã đọc:', err);
+    }
+  };
+
   const handleLoginSuccess = (userData: any, accessToken: string) => {
     dispatch(setAuth({ user: userData, accessToken }));
     axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
@@ -399,6 +466,8 @@ export const App: React.FC = () => {
     }
     dispatch(clearAuth());
     delete axios.defaults.headers.common['Authorization'];
+    disconnectAppSocket();
+    setNotifications([]);
     dispatch(setCurrentView('login'));
   };
 
@@ -588,6 +657,10 @@ export const App: React.FC = () => {
             onOpenChangePassword={handleOpenChangePassword}
             onNavigateHome={() => dispatch(setCurrentView('dashboard'))}
             onNavigateToHistory={() => dispatch(setCurrentView('my-history'))}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onNotificationClick={handleNotificationClick}
+            onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
           />
           <main className="transition-colors duration-300">
             <Suspense fallback={

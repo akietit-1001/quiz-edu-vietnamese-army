@@ -3,6 +3,7 @@ import ExamRoom from '../models/ExamRoom.js';
 import User from '../models/User.js';
 import { sendInvitationEmail } from '../utils/mailer.js';
 import { isExamineeCapacityReached, ROOM_FULL_MESSAGE } from '../utils/roomCapacity.js';
+import { createNotification } from '../utils/notify.js';
 
 // 1. SEND INVITATION
 export const sendInvitation = async (req, res) => {
@@ -79,10 +80,20 @@ export const sendInvitation = async (req, res) => {
       
       sentTo.push(recipient ? recipient.fullName : email);
 
-      // Real-time socket notification
+      // Real-time socket notification + thông báo bền vững trên icon chuông
       const io = req.app?.get('socketio');
-      if (io && recipient) {
-        io.to(`user_${recipient._id.toString()}`).emit('newInvitation');
+      if (recipient) {
+        if (io) {
+          io.to(`user_${recipient._id.toString()}`).emit('newInvitation');
+        }
+        await createNotification(io, {
+          recipientId: recipient._id,
+          type: 'invitation',
+          title: 'Lời mời phòng thi',
+          message: `${req.user.fullName} đã mời đồng chí tham gia phòng thi ${room.roomCode} với vai trò ${invitation.role === 'examiner' ? 'Giám khảo' : 'Thí sinh'}.`,
+          actionView: 'dashboard',
+          actionPayload: { roomCode: room.roomCode }
+        });
       }
     }
 

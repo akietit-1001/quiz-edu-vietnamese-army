@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { createQuiz, getQuizzes, getQuizById, updateQuiz, deleteQuiz, importQuiz, exportQuizDocx, exportQuizDocxBulk, generateQuizFromFile, getQuizGenStatus, regenerateQuestion } from '../controllers/quizController.js';
+import { createQuiz, getQuizzes, getQuizById, updateQuiz, deleteQuiz, importQuiz, exportQuizDocx, exportQuizDocxBulk, generateQuizFromFile, getQuizGenStatus, regenerateQuestion, shareQuiz, revokeQuizShare, getQuizShares } from '../controllers/quizController.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { aiGenerationLimiter } from '../middleware/rateLimiter.js';
 
@@ -15,6 +15,11 @@ router.get('/:id', getQuizById);
 router.post('/', createQuiz);
 router.put('/:id', updateQuiz);
 router.delete('/:id', deleteQuiz);
+
+// Share/revoke/list private sharing (chia sẻ riêng, độc lập với isPublic)
+router.post('/:id/share', shareQuiz);
+router.get('/:id/shares', getQuizShares);
+router.delete('/:id/share/:userId', revokeQuizShare);
 
 // Export/Import routes
 router.get('/:id/export', exportQuizDocx);

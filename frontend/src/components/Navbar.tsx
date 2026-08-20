@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sun, Moon, SignOut, UserCircle, PencilSimple, Lock, ClockCounterClockwise } from '@phosphor-icons/react';
+import { NotificationBell } from './NotificationBell';
 
 interface NavbarProps {
   user: any;
@@ -10,6 +11,10 @@ interface NavbarProps {
   onOpenChangePassword: () => void;
   onNavigateHome: () => void;
   onNavigateToHistory: () => void;
+  notifications: any[];
+  unreadCount: number;
+  onNotificationClick: (notif: any) => void;
+  onMarkAllNotificationsRead: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -20,7 +25,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEditProfile,
   onOpenChangePassword,
   onNavigateHome,
-  onNavigateToHistory
+  onNavigateToHistory,
+  notifications,
+  unreadCount,
+  onNotificationClick,
+  onMarkAllNotificationsRead
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -108,6 +117,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
+        )}
+
+        {/* Icon chuông thông báo — chỉ Cán bộ mới cần (Chiến sĩ đã có bảng
+            lời mời phòng thi riêng trên Dashboard) */}
+        {user?.personnelType === 'officer' && (
+          <NotificationBell
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onNotificationClick={onNotificationClick}
+            onMarkAllRead={onMarkAllNotificationsRead}
+          />
         )}
 
         {/* Theme Toggle */}

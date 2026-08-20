@@ -12,6 +12,7 @@ import app from './app.js';
 import ExamRoom from './models/ExamRoom.js';
 import User from './models/User.js';
 import { isExamineeCapacityReached, ROOM_FULL_MESSAGE } from './utils/roomCapacity.js';
+import { createNotification, upsertAggregatedNotification } from './utils/notify.js';
 import { setServers } from "node:dns/promises";
 setServers(["1.1.1.1", "8.8.8.8"]);
 
@@ -170,21 +171,28 @@ io.on('connection', (socket) => {
     try {
       const user = await User.findById(userId).select('fullName');
       if (user) {
-        const payload = {
-          roomCode,
-          userId,
-          fullName: user.fullName,
-          violationCount,
-          message: `Đồng chí ${user.fullName} đã rời màn hình thi (${violationCount} lần)`
-        };
-        // Emit tới phòng (màn hình giám sát đang mở) VÀ tới kênh cá nhân của
-        // host (user_{hostId}) — để host vẫn nhận được cảnh báo dù đang ở
-        // trang khác (vd Dashboard), không chỉ khi đang mở đúng màn hình
-        // giám sát phòng thi đó.
-        io.to(roomCode).emit('cheatNotification', payload);
+        const message = `Đồng chí ${user.fullName} đã rời màn hình thi (${violationCount} lần)`;
+        // Emit tới phòng — cho màn hình giám sát đang mở (real-time feed,
+        // không lưu trữ). Đồng thời tạo 1 thông báo bền vững + bắn qua kênh
+        // cá nhân của host (icon chuông) để host vẫn nhận được dù đang ở
+        // trang khác, không chỉ khi đang mở đúng màn hình giám sát phòng đó.
+        io.to(roomCode).emit('cheatNotification', { roomCode, userId, fullName: user.fullName, violationCount, message });
+
         const room = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() }).select('hostId');
         if (room?.hostId) {
-          io.to(`user_${room.hostId.toString()}`).emit('cheatNotification', payload);
+          // Gộp theo (phòng, thí sinh) — 1 thí sinh vi phạm nhiều lần chỉ có
+          // 1 thông báo tự cập nhật số lần, không tạo mới mỗi lần vi phạm.
+          await upsertAggregatedNotification(io, {
+            recipientId: room.hostId,
+            type: 'cheat_alert',
+            matchKey: { roomCode: roomCode.toUpperCase(), userId },
+            buildUpdate: (notif) => {
+              notif.title = 'Cảnh báo vi phạm thi cử';
+              notif.message = message;
+              notif.actionView = 'lobby';
+              notif.actionPayload = { roomCode: roomCode.toUpperCase(), userId, violationCount };
+            }
+          });
         }
       }
     } catch (err) {
@@ -197,7 +205,9 @@ io.on('connection', (socket) => {
     try {
       const user = await User.findById(userId).select('fullName rank unitId').populate('unitId', 'name');
       if (user) {
-        const payload = {
+        // Notify host that user has completed the exam — real-time feed cho
+        // màn hình giám sát đang mở.
+        io.to(roomCode).emit('userFinished', {
           roomCode,
           userId,
           fullName: user.fullName,
@@ -205,13 +215,24 @@ io.on('connection', (socket) => {
           unit: user.unitId?.name || '',
           score,
           totalQuestions
-        };
-        // Notify host that user has completed the exam — cả trong phòng lẫn
-        // qua kênh cá nhân của host (xem giải thích ở cheatAlert phía trên).
-        io.to(roomCode).emit('userFinished', payload);
+        });
+
         const room = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() }).select('hostId');
         if (room?.hostId) {
-          io.to(`user_${room.hostId.toString()}`).emit('userFinished', payload);
+          // Gộp theo phòng — cả phòng nộp bài dồn dập chỉ có 1 thông báo tự
+          // đếm số thí sinh đã nộp, không tạo 1 thông báo riêng cho mỗi người.
+          await upsertAggregatedNotification(io, {
+            recipientId: room.hostId,
+            type: 'exam_submitted',
+            matchKey: { roomCode: roomCode.toUpperCase() },
+            buildUpdate: (notif) => {
+              const count = (notif.actionPayload?.count || 0) + 1;
+              notif.title = 'Thí sinh nộp bài';
+              notif.message = `${count} thí sinh đã nộp bài trong phòng ${roomCode.toUpperCase()} (gần nhất: ${user.fullName})`;
+              notif.actionView = 'lobby';
+              notif.actionPayload = { roomCode: roomCode.toUpperCase(), count };
+            }
+          });
         }
       }
     } catch (err) {
@@ -317,11 +338,16 @@ io.on('connection', (socket) => {
       });
 
       // Notify the kicked user directly
-      io.to(`user_${userId}`).emit('kickedFromRoom', {
-        roomCode,
-        message: 'Đồng chí đã bị chỉ huy trục xuất khỏi phòng thi này.'
+      const kickMessage = 'Đồng chí đã bị chỉ huy trục xuất khỏi phòng thi này.';
+      io.to(`user_${userId}`).emit('kickedFromRoom', { roomCode, message: kickMessage });
+      await createNotification(io, {
+        recipientId: userId,
+        type: 'kicked',
+        title: 'Bị trục xuất khỏi phòng thi',
+        message: `${kickMessage} (Mã phòng: ${roomCode})`,
+        actionView: 'dashboard'
       });
-      
+
       console.log(`User ${userId} was kicked from room ${roomCode}`);
     } catch (err) {
       console.error('Lỗi socket kickParticipant:', err.message);

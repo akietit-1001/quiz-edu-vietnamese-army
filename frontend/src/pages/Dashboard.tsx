@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { io } from 'socket.io-client';
+import { getAppSocket } from '../utils/socket';
 import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Eye, Users, SignIn } from '@phosphor-icons/react';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { Select } from '../components/Select';
@@ -313,46 +313,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setSyncing(false);
   };
 
-  // Thông báo real-time cho chủ phòng (host) — vi phạm chống gian lận / thí
-  // sinh nộp bài — nhận qua kênh cá nhân user_{id} nên vẫn hiện được kể cả
-  // khi host đang ở Dashboard, không nhất thiết phải mở đúng màn hình giám
-  // sát phòng thi đó.
-  const [hostToasts, setHostToasts] = useState<{ id: number; message: string; tone: 'warning' | 'success' }[]>([]);
-  const pushHostToast = (message: string, tone: 'warning' | 'success') => {
-    const id = Date.now() + Math.random();
-    setHostToasts(prev => [...prev, { id, message, tone }]);
-    setTimeout(() => setHostToasts(prev => prev.filter(t => t.id !== id)), 6000);
-  };
-
-  // Connect to socket for real-time invitation notifications
+  // Dùng chung 1 socket cho toàn app (xem utils/socket.ts) thay vì tự mở kết
+  // nối riêng — App.tsx sở hữu vòng đời connect/disconnect (connect lúc đăng
+  // nhập, disconnect lúc đăng xuất); ở đây chỉ đảm bảo đã connect + đăng ký
+  // kênh cá nhân (idempotent, an toàn khi gọi lại) rồi gắn/gỡ listener riêng
+  // của Dashboard. Cảnh báo gian lận / nộp bài cho host giờ đi qua icon
+  // chuông thông báo (NotificationBell), không xử lý riêng ở đây nữa.
   useEffect(() => {
     if (!user?.id) return;
 
-    const socketUrl = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/');
-    const socket = io(socketUrl);
-
+    const socket = getAppSocket();
+    socket.connect();
     socket.emit('registerUser', user.id);
 
-    socket.on('newInvitation', () => {
-      fetchInvitations();
-    });
+    const handleNewInvitation = () => fetchInvitations();
+    const handleRoomParticipantsChanged = () => fetchMyRooms();
 
-    socket.on('roomParticipantsChanged', () => {
-      fetchMyRooms();
-    });
-
-    const isHost = user?.role === 'admin' || user?.role === 'master-admin';
-    if (isHost) {
-      socket.on('cheatNotification', ({ message }: { message: string }) => {
-        pushHostToast(message, 'warning');
-      });
-      socket.on('userFinished', ({ fullName, score, totalQuestions }: { fullName: string; score: number; totalQuestions: number }) => {
-        pushHostToast(`Đồng chí ${fullName} đã nộp bài (${score}/${totalQuestions})`, 'success');
-      });
-    }
+    socket.on('newInvitation', handleNewInvitation);
+    socket.on('roomParticipantsChanged', handleRoomParticipantsChanged);
 
     return () => {
-      socket.disconnect();
+      socket.off('newInvitation', handleNewInvitation);
+      socket.off('roomParticipantsChanged', handleRoomParticipantsChanged);
     };
   }, [user]);
 
@@ -581,25 +563,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
-      {/* Host real-time toasts: vi phạm chống gian lận / thí sinh nộp bài */}
-      {hostToasts.length > 0 && (
-        <div className="fixed top-24 right-6 z-[9998] flex flex-col gap-2 w-full max-w-xs">
-          {hostToasts.map(t => (
-            <div
-              key={t.id}
-              className={`flex items-start gap-2 p-3 rounded-lg shadow-2xl border text-xs animate-fade-in ${
-                t.tone === 'warning'
-                  ? 'bg-vpa-red/10 border-vpa-red/40 text-vpa-red'
-                  : 'bg-vpa-olive/10 dark:bg-vpa-gold/10 border-vpa-olive-light/40 text-vpa-olive dark:text-vpa-gold-bright'
-              }`}
-            >
-              {t.tone === 'warning' ? <ShieldWarning size={16} className="mt-0.5 shrink-0" /> : <Check size={16} className="mt-0.5 shrink-0" />}
-              <span>{t.message}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Welcome Banner */}
       <div className="relative border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-8 mb-8 overflow-hidden rounded-lg shadow-md">
         <div className="absolute top-0 right-0 w-48 h-48 bg-vpa-olive/5 dark:bg-vpa-gold/5 rounded-full filter blur-3xl" />

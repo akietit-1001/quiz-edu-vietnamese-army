@@ -11,7 +11,7 @@ interface Stats {
 }
 
 const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: string | number }> = ({ icon, label, value }) => (
-  <div className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 flex items-center space-x-3">
+  <div className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 rounded flex items-center space-x-3">
     <div className="w-10 h-10 rounded-lg bg-vpa-olive/10 dark:bg-vpa-gold/10 flex items-center justify-center text-vpa-olive dark:text-vpa-gold-bright shrink-0">
       {icon}
     </div>
@@ -42,7 +42,7 @@ export const AdminStatsPanel: React.FC = () => {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[0, 1, 2, 3].map(i => (
-          <div key={i} className="border border-vpa-olive-light/20 bg-vpa-sand/30 dark:bg-vpa-dark/10 p-4 h-[68px] animate-pulse" />
+          <div key={i} className="border border-vpa-olive-light/20 bg-vpa-sand/30 dark:bg-vpa-dark/10 p-4 h-[68px] rounded animate-pulse" />
         ))}
       </div>
     );

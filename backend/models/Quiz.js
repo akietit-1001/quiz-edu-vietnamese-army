@@ -76,6 +76,24 @@ const quizSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Chia sẻ riêng cho từng người cụ thể — độc lập với isPublic (đề vẫn NỘI
+  // BỘ, chỉ những người có tên trong danh sách này mới xem được, ngoài
+  // creatorId và admin/master-admin).
+  sharedWith: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    sharedAt: {
+      type: Date,
+      default: Date.now
+    },
+    viewedAt: {
+      type: Date,
+      default: null
+    }
+  }],
   createdAt: {
     type: Date,
     default: Date.now

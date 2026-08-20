@@ -12,6 +12,7 @@ import { Pagination } from '../components/Pagination';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { Tooltip } from '../components/Tooltip';
 import { CreateRoomModal } from '../components/CreateRoomModal';
+import { ShareQuizModal } from '../components/ShareQuizModal';
 
 interface QuizManagementProps {
   user?: any;
@@ -25,6 +26,7 @@ const DIFFICULTIES = ['Dễ', 'Trung bình', 'Khó'];
 export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigateBack, onJoinRoom }) => {
   // Đề thi được chọn để tạo phòng thi ngay từ kho đề thi (null = modal đang đóng).
   const [createRoomQuizId, setCreateRoomQuizId] = useState<string | null>(null);
+  const [shareQuizTarget, setShareQuizTarget] = useState<{ _id: string; title: string } | null>(null);
   const canCreateRoom = user?.role === 'admin' || user?.role === 'master-admin';
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [currentTab, setCurrentTab] = useState<'quizzes' | 'bank'>('quizzes');
@@ -1590,6 +1592,13 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     </button>
                                     <button
                                       type="button"
+                                      onClick={() => { setActiveDropdownQuizId(null); setShareQuizTarget(quiz); }}
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                    >
+                                      Chia sẻ
+                                    </button>
+                                    <button
+                                      type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
                                       className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
                                     >
@@ -1721,6 +1730,13 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                 className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
                               >
                                 Xuất bản
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setActiveDropdownQuizId(null); setShareQuizTarget(quiz); }}
+                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                              >
+                                Chia sẻ
                               </button>
                               <button
                                 type="button"
@@ -3238,6 +3254,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           initialQuizId={createRoomQuizId}
           onClose={() => setCreateRoomQuizId(null)}
           onCreated={(roomCode) => { setCreateRoomQuizId(null); onJoinRoom(roomCode); }}
+        />
+      )}
+
+      {/* Chia sẻ đề thi nội bộ tới người cụ thể (không công khai toàn hệ thống) */}
+      {shareQuizTarget && (
+        <ShareQuizModal
+          quiz={shareQuizTarget}
+          onClose={() => setShareQuizTarget(null)}
         />
       )}
 
