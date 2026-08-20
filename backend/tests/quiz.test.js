@@ -43,7 +43,7 @@ describe('POST /api/quizzes (tạo đề thi)', () => {
     expect(q.questions).toHaveLength(1);
   });
 
-  it('[PHÁT HIỆN] route KHÔNG có roleMiddleware — role "user" (chiến sĩ) vẫn tạo được đề thi qua API thẳng, dù giao diện không cho phép', async () => {
+  it('role "user" (chiến sĩ) không được tạo đề thi -> 403 (chỉ sub-admin trở lên được soạn đề)', async () => {
     const { accessToken, user } = await registerAndLogin(app, { role: 'user', unitId: unit._id });
     expect(user.role).toBe('user');
 
@@ -52,11 +52,7 @@ describe('POST /api/quizzes (tạo đề thi)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ title: 'Đề do user thường tạo', duration: 20, questions: [] });
 
-    // Đây KHÔNG phải hành vi test kỳ vọng ban đầu (mong đợi 403), mà là kết
-    // quả thực tế đo được — ghi nhận nguyên trạng làm cơ sở khuyến nghị bổ
-    // sung roleMiddleware(['master-admin','admin','sub-admin']) cho các route
-    // POST/PUT/DELETE /api/quizzes, nhất quán với bankRoutes/userRoutes/unitRoutes.
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(403);
   });
 
   it('thiếu title (required) -> lỗi (500 do controller chưa validate tay, Mongoose ném ValidationError)', async () => {

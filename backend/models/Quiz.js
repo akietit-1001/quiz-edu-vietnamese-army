@@ -85,6 +85,14 @@ const quizSchema = new mongoose.Schema({
       ref: 'User',
       required: true
     },
+    // 'view': chỉ xem đề. 'edit': được sửa nội dung đề (KHÔNG được xóa hay
+    // tự thêm/xóa người khác trong danh sách chia sẻ — 2 việc đó vẫn chỉ
+    // dành cho chủ đề/master-admin).
+    permission: {
+      type: String,
+      enum: ['view', 'edit'],
+      default: 'view'
+    },
     sharedAt: {
       type: Date,
       default: Date.now

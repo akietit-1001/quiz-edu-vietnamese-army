@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { X, ShareNetwork, CheckCircle, EyeSlash } from '@phosphor-icons/react';
+import { Select } from './Select';
 
 interface ShareQuizModalProps {
   quiz: { _id: string; title: string };
   onClose: () => void;
 }
 
+type SharePermission = 'view' | 'edit';
+
 interface ShareEntry {
   userId: { _id: string; fullName: string; email: string; rank?: string; position?: string };
+  permission: SharePermission;
   sharedAt: string;
   viewedAt: string | null;
 }
@@ -18,9 +22,11 @@ export const ShareQuizModal: React.FC<ShareQuizModalProps> = ({ quiz, onClose })
   const [loadingShares, setLoadingShares] = useState(true);
   const [emailInput, setEmailInput] = useState('');
   const [pendingEmails, setPendingEmails] = useState<string[]>([]);
+  const [pendingPermission, setPendingPermission] = useState<SharePermission>('view');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   const fetchShares = async () => {
     setLoadingShares(true);
@@ -68,7 +74,7 @@ export const ShareQuizModal: React.FC<ShareQuizModalProps> = ({ quiz, onClose })
     setError('');
     setSuccess('');
     try {
-      const res = await axios.post(`/api/quizzes/${quiz._id}/share`, { emails: finalEmails });
+      const res = await axios.post(`/api/quizzes/${quiz._id}/share`, { emails: finalEmails, permission: pendingPermission });
       setSuccess(res.data.message || 'Đã chia sẻ đề thi thành công.');
       setPendingEmails([]);
       setEmailInput('');
@@ -88,6 +94,18 @@ export const ShareQuizModal: React.FC<ShareQuizModalProps> = ({ quiz, onClose })
       setShares(prev => prev.filter(s => s.userId._id !== userId));
     } catch (err: any) {
       await window.showAlert(err.response?.data?.message || 'Không thể thu hồi chia sẻ.', 'Lỗi');
+    }
+  };
+
+  const handleChangePermission = async (userId: string, permission: SharePermission) => {
+    setUpdatingUserId(userId);
+    try {
+      await axios.put(`/api/quizzes/${quiz._id}/share/${userId}`, { permission });
+      setShares(prev => prev.map(s => (s.userId._id === userId ? { ...s, permission } : s)));
+    } catch (err: any) {
+      await window.showAlert(err.response?.data?.message || 'Không thể đổi quyền chia sẻ.', 'Lỗi');
+    } finally {
+      setUpdatingUserId(null);
     }
   };
 
@@ -157,6 +175,20 @@ export const ShareQuizModal: React.FC<ShareQuizModalProps> = ({ quiz, onClose })
             </div>
           )}
 
+          <div>
+            <label className="block text-[9px] uppercase tracking-wider text-gray-500 font-mono mb-1">
+              Quyền cấp cho những người trên
+            </label>
+            <Select
+              value={pendingPermission}
+              onChange={v => setPendingPermission(v as SharePermission)}
+              className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
+            >
+              <option value="view">Chỉ xem</option>
+              <option value="edit">Được sửa nội dung đề</option>
+            </Select>
+          </div>
+
           {success && (
             <p className="text-green-600 text-[10px] font-bold uppercase tracking-wider bg-green-500/10 p-2 border border-green-500/20 rounded">{success}</p>
           )}
@@ -196,6 +228,15 @@ export const ShareQuizModal: React.FC<ShareQuizModalProps> = ({ quiz, onClose })
                     <p className="text-[9px] text-gray-400 truncate">{s.userId.email}</p>
                   </div>
                   <div className="flex items-center space-x-3 shrink-0 ml-2">
+                    <Select
+                      value={s.permission}
+                      onChange={v => handleChangePermission(s.userId._id, v as SharePermission)}
+                      disabled={updatingUserId === s.userId._id}
+                      className="text-[10px] py-1 px-1.5 bg-transparent border border-vpa-olive-light/40 text-vpa-olive dark:text-vpa-sand rounded flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <option value="view">Xem</option>
+                      <option value="edit">Sửa</option>
+                    </Select>
                     {s.viewedAt ? (
                       <span className="flex items-center gap-1 text-[9px] text-green-600 dark:text-green-500 font-bold uppercase">
                         <CheckCircle size={12} weight="fill" /> Đã xem

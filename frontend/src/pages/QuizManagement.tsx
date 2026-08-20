@@ -28,6 +28,19 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [createRoomQuizId, setCreateRoomQuizId] = useState<string | null>(null);
   const [shareQuizTarget, setShareQuizTarget] = useState<{ _id: string; title: string } | null>(null);
   const canCreateRoom = user?.role === 'admin' || user?.role === 'master-admin';
+
+  // Quyền sửa/xóa/chia sẻ theo TỪNG đề — chỉ chủ đề hoặc master-admin quản lý
+  // toàn quyền; "Sửa" có thể được cấp riêng qua chia sẻ (kể cả cho role user).
+  const getQuizPermission = (quiz: any) => {
+    const isOwner = quiz.creatorId?._id === user?.id;
+    const isMasterAdmin = user?.role === 'master-admin';
+    const shareEntry = quiz.sharedWith?.find((s: any) => s.userId === user?.id);
+    return {
+      canEdit: isOwner || isMasterAdmin || shareEntry?.permission === 'edit',
+      canDelete: isOwner || isMasterAdmin,
+      canShare: isOwner || isMasterAdmin
+    };
+  };
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [currentTab, setCurrentTab] = useState<'quizzes' | 'bank'>('quizzes');
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
@@ -1496,7 +1509,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                         </tr>
                       ))
                     ) : (
-                      displayedQuizzes.map(quiz => (
+                      displayedQuizzes.map(quiz => {
+                        const perm = getQuizPermission(quiz);
+                        return (
                         <tr key={quiz._id} className="border-b border-vpa-olive-light/10 hover:bg-vpa-olive-light/5">
                           <td className="py-3 px-4 font-bold text-vpa-olive dark:text-vpa-sand uppercase">
                             <Tooltip content={quiz.title} className="block">
@@ -1576,13 +1591,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                         Tạo phòng thi
                                       </button>
                                     )}
-                                    <button
-                                      type="button"
-                                      onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
-                                    >
-                                      Sửa đề
-                                    </button>
+                                    {perm.canEdit && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
+                                        className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                      >
+                                        Sửa đề
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => { setActiveDropdownQuizId(null); handleOpenExportPopup(quiz); }}
@@ -1590,20 +1607,24 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     >
                                       Xuất bản
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { setActiveDropdownQuizId(null); setShareQuizTarget(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
-                                    >
-                                      Chia sẻ
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
-                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
-                                    >
-                                      Xóa đề
-                                    </button>
+                                    {perm.canShare && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setActiveDropdownQuizId(null); setShareQuizTarget(quiz); }}
+                                        className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                      >
+                                        Chia sẻ
+                                      </button>
+                                    )}
+                                    {perm.canDelete && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
+                                        className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                                      >
+                                        Xóa đề
+                                      </button>
+                                    )}
                                   </div>
                                 </>,
                                 document.body
@@ -1611,7 +1632,8 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                             </div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                     {!quizzesLoading && displayedQuizzes.length === 0 && (
                       <tr>
@@ -1642,7 +1664,9 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     </div>
                   ))
                 :
-                  displayedQuizzes.map(quiz => (
+                  displayedQuizzes.map(quiz => {
+                    const perm = getQuizPermission(quiz);
+                    return (
                     <div key={quiz._id} className="py-4">
                       <div className="flex justify-between items-start gap-2 mb-2">
                         <Tooltip content={quiz.title} className="min-w-0 flex-1 block">
@@ -1717,13 +1741,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                   Tạo phòng thi
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
-                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
-                              >
-                                Sửa đề
-                              </button>
+                              {perm.canEdit && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setActiveDropdownQuizId(null); handleEditQuiz(quiz); }}
+                                  className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                >
+                                  Sửa đề
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => { setActiveDropdownQuizId(null); handleOpenExportPopup(quiz); }}
@@ -1731,27 +1757,32 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                               >
                                 Xuất bản
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => { setActiveDropdownQuizId(null); setShareQuizTarget(quiz); }}
-                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
-                              >
-                                Chia sẻ
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
-                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
-                              >
-                                Xóa đề
-                              </button>
+                              {perm.canShare && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setActiveDropdownQuizId(null); setShareQuizTarget(quiz); }}
+                                  className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
+                                >
+                                  Chia sẻ
+                                </button>
+                              )}
+                              {perm.canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setActiveDropdownQuizId(null); handleDeleteQuiz(quiz); }}
+                                  className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-red hover:bg-vpa-red hover:text-white transition-colors"
+                                >
+                                  Xóa đề
+                                </button>
+                              )}
                             </div>
                           </>,
                           document.body
                         )}
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 }
                 {!quizzesLoading && displayedQuizzes.length === 0 && (
                   <div className={`text-center py-8 ${quizFetchError ? 'text-vpa-red font-bold' : 'text-gray-400'}`}>

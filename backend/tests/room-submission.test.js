@@ -83,8 +83,9 @@ describe('POST /api/rooms (tạo phòng thi)', () => {
 
 describe('POST /api/rooms/submit (nộp bài — đẩy vào hàng đợi)', () => {
   it('nộp bài hợp lệ -> 202, trả jobId, KHÔNG chấm điểm ngay trong response', async () => {
+    const { accessToken: adminToken } = await registerAndLogin(app, { role: 'admin', unitId: unit._id });
+    const quiz = await createQuizWith2Questions(adminToken);
     const { accessToken } = await registerAndLogin(app, { role: 'user', unitId: unit._id });
-    const quiz = await createQuizWith2Questions(accessToken);
 
     const res = await request(app).post('/api/rooms/submit').set('Authorization', `Bearer ${accessToken}`).send({
       quizId: quiz._id,
@@ -173,8 +174,9 @@ describe('GET /api/rooms/submit-status/:jobId (theo dõi tiến trình)', () => 
 describe('processExamSubmission() — logic chấm điểm thuần tuý (không qua hàng đợi)', () => {
   it('chấm đúng điểm, đạt ngưỡng -> isPassed=true, rank tương ứng khoảng điểm', async () => {
     const { processExamSubmission } = await import('../utils/queue.js');
-    const { accessToken, user } = await registerAndLogin(app, { role: 'user', unitId: unit._id });
-    const quiz = await createQuizWith2Questions(accessToken);
+    const { accessToken: adminToken } = await registerAndLogin(app, { role: 'admin', unitId: unit._id });
+    const quiz = await createQuizWith2Questions(adminToken);
+    const { user } = await registerAndLogin(app, { role: 'user', unitId: unit._id });
 
     const attempt = await processExamSubmission({
       userId: user.id,
@@ -194,8 +196,9 @@ describe('processExamSubmission() — logic chấm điểm thuần tuý (không 
 
   it('chấm dưới ngưỡng đạt -> isPassed=false, rank="Yếu"', async () => {
     const { processExamSubmission } = await import('../utils/queue.js');
-    const { accessToken, user } = await registerAndLogin(app, { role: 'user', unitId: unit._id });
-    const quiz = await createQuizWith2Questions(accessToken);
+    const { accessToken: adminToken } = await registerAndLogin(app, { role: 'admin', unitId: unit._id });
+    const quiz = await createQuizWith2Questions(adminToken);
+    const { user } = await registerAndLogin(app, { role: 'user', unitId: unit._id });
 
     const attempt = await processExamSubmission({
       userId: user.id,

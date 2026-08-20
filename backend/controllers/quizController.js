@@ -19,6 +19,15 @@ import { createNotification } from '../utils/notify.js';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
+// Chủ đề hoặc master-admin — quyền sở hữu tuyệt đối (xóa, quản lý chia sẻ).
+// admin/sub-admin KHÔNG còn được ghi đè đề của người khác nữa.
+const isOwnerOrMasterAdmin = (quiz, currentUser) =>
+  quiz.creatorId.toString() === currentUser.id || currentUser.role === 'master-admin';
+
+// Quyền chia sẻ riêng của currentUser trên quiz này (nếu có)
+const getSharedPermission = (quiz, currentUserId) =>
+  quiz.sharedWith?.find(s => s.userId.toString() === currentUserId)?.permission || null;
+
 const sanitizeQuizPayload = (category, questions) => {
   let finalCategory = category;
   if (category && !CATEGORIES.includes(category)) {
@@ -283,14 +292,14 @@ export const getQuizzes = async (req, res) => {
       const rootQuery = { $and: [...andConditions, { parentQuizId: null }] };
 
       const rootQuizzes = await Quiz.find(rootQuery)
-        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id sharedWith')
         .populate('creatorId', 'fullName rank')
         .sort(sortQuery)
         .skip(skip)
         .limit(limitNum);
 
       const variants = await Quiz.find({ parentQuizId: { $in: rootQuizzes.map(q => q._id) } })
-        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id sharedWith')
         .populate('creatorId', 'fullName rank');
 
       const totalCount = await Quiz.countDocuments(rootQuery);
@@ -309,7 +318,7 @@ export const getQuizzes = async (req, res) => {
 
       // Project questions._id only for extreme speed and compat with questions.length
       const quizzes = await Quiz.find(query)
-        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id sharedWith')
         .populate('creatorId', 'fullName rank')
         .sort(sortQuery)
         .skip(skip)
@@ -327,7 +336,7 @@ export const getQuizzes = async (req, res) => {
     } else {
       // Return all (fallback for compatibility, projecting only questions._id for speed)
       const quizzes = await Quiz.find(query)
-        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id')
+        .select('title description category creatorId isPublic duration passingScorePercent shareCode documentHash parentQuizId examCode createdAt questions._id sharedWith')
         .populate('creatorId', 'fullName rank')
         .sort(sortQuery);
       res.status(200).json(quizzes);
@@ -403,8 +412,11 @@ export const updateQuiz = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi cần chỉnh sửa' });
     }
 
-    // Permission: Only creator, admin or master-admin can edit
-    if (quiz.creatorId.toString() !== currentUser.id && currentUser.role === 'user') {
+    // Quyền sửa: chủ đề, master-admin, hoặc người được chia sẻ quyền "Sửa"
+    // (kể cả khi họ là role "user" — quyền cấp riêng theo từng đề, không
+    // theo role hệ thống).
+    const canEdit = isOwnerOrMasterAdmin(quiz, currentUser) || getSharedPermission(quiz, currentUser.id) === 'edit';
+    if (!canEdit) {
       return res.status(403).json({ message: 'Đồng chí không có quyền sửa đổi đề thi này' });
     }
 
@@ -441,8 +453,9 @@ export const deleteQuiz = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi cần xóa' });
     }
 
-    // Permission: creator or master-admin or admin
-    if (quiz.creatorId.toString() !== currentUser.id && currentUser.role === 'user') {
+    // Quyền xóa: CHỈ chủ đề hoặc master-admin — quyền chia sẻ "Sửa" không
+    // bao gồm quyền xóa.
+    if (!isOwnerOrMasterAdmin(quiz, currentUser)) {
       return res.status(403).json({ message: 'Đồng chí không có quyền xóa đề thi này' });
     }
 
@@ -463,24 +476,28 @@ export const deleteQuiz = async (req, res) => {
 export const shareQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    const { emails } = req.body;
+    const { emails, permission } = req.body;
     const currentUser = req.user;
 
     if (!Array.isArray(emails) || emails.length === 0) {
       return res.status(400).json({ message: 'Vui lòng nhập ít nhất 1 email để chia sẻ' });
     }
+    const finalPermission = permission === 'edit' ? 'edit' : 'view';
 
     const quiz = await Quiz.findById(id);
     if (!quiz) {
       return res.status(404).json({ message: 'Không tìm thấy đề thi' });
     }
 
-    if (quiz.creatorId.toString() !== currentUser.id && currentUser.role === 'user') {
+    // Chỉ chủ đề hoặc master-admin được quyết định chia sẻ cho ai — người
+    // được cấp quyền "Sửa" không được tự ý mời thêm người khác.
+    if (!isOwnerOrMasterAdmin(quiz, currentUser)) {
       return res.status(403).json({ message: 'Đồng chí không có quyền chia sẻ đề thi này' });
     }
 
     const normalizedEmails = [...new Set(emails.map(e => (e || '').trim().toLowerCase()).filter(Boolean))];
     const sharedNames = [];
+    const updatedNames = [];
     const alreadySharedNames = [];
     const notFoundEmails = [];
     const io = req.app?.get('socketio');
@@ -494,19 +511,26 @@ export const shareQuiz = async (req, res) => {
       if (recipient._id.toString() === quiz.creatorId.toString()) {
         continue; // Không cần tự chia sẻ cho chính mình
       }
-      if (quiz.sharedWith.some(s => s.userId.toString() === recipient._id.toString())) {
-        alreadySharedNames.push(recipient.fullName);
+
+      const existing = quiz.sharedWith.find(s => s.userId.toString() === recipient._id.toString());
+      if (existing) {
+        if (existing.permission !== finalPermission) {
+          existing.permission = finalPermission;
+          updatedNames.push(`${recipient.fullName} (${finalPermission === 'edit' ? 'Sửa' : 'Xem'})`);
+        } else {
+          alreadySharedNames.push(recipient.fullName);
+        }
         continue;
       }
 
-      quiz.sharedWith.push({ userId: recipient._id });
+      quiz.sharedWith.push({ userId: recipient._id, permission: finalPermission });
       sharedNames.push(recipient.fullName);
 
       await createNotification(io, {
         recipientId: recipient._id,
         type: 'quiz_shared',
         title: 'Đề thi được chia sẻ',
-        message: `${currentUser.fullName} đã chia sẻ đề thi "${quiz.title}" với đồng chí`,
+        message: `${currentUser.fullName} đã chia sẻ đề thi "${quiz.title}" với đồng chí (quyền: ${finalPermission === 'edit' ? 'Sửa' : 'Xem'})`,
         actionView: 'quiz-mgmt',
         actionPayload: { quizId: quiz._id.toString() }
       });
@@ -515,9 +539,10 @@ export const shareQuiz = async (req, res) => {
     await quiz.save();
 
     let message = sharedNames.length > 0
-      ? `Đã chia sẻ đề thi tới: ${sharedNames.join(', ')}.`
+      ? `Đã chia sẻ đề thi (quyền ${finalPermission === 'edit' ? 'Sửa' : 'Xem'}) tới: ${sharedNames.join(', ')}.`
       : 'Không có đồng chí nào được chia sẻ mới.';
-    if (alreadySharedNames.length > 0) message += ` Đã chia sẻ trước đó: ${alreadySharedNames.join(', ')}.`;
+    if (updatedNames.length > 0) message += ` Đã cập nhật quyền: ${updatedNames.join(', ')}.`;
+    if (alreadySharedNames.length > 0) message += ` Đã chia sẻ trước đó (không đổi): ${alreadySharedNames.join(', ')}.`;
     if (notFoundEmails.length > 0) message += ` Không tìm thấy tài khoản với email: ${notFoundEmails.join(', ')}.`;
 
     res.status(200).json({ message, sharedWith: quiz.sharedWith });
@@ -527,7 +552,42 @@ export const shareQuiz = async (req, res) => {
   }
 };
 
-// 5.2. REVOKE SHARE (thu hồi quyền xem của 1 người cụ thể)
+// 5.2. UPDATE SHARE PERMISSION (đổi quyền Xem/Sửa cho 1 người đã có trong danh sách)
+export const updateQuizSharePermission = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const { permission } = req.body;
+    const currentUser = req.user;
+
+    if (!['view', 'edit'].includes(permission)) {
+      return res.status(400).json({ message: 'Quyền không hợp lệ (chỉ chấp nhận "view" hoặc "edit")' });
+    }
+
+    const quiz = await Quiz.findById(id);
+    if (!quiz) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    if (!isOwnerOrMasterAdmin(quiz, currentUser)) {
+      return res.status(403).json({ message: 'Đồng chí không có quyền thay đổi quyền chia sẻ của đề thi này' });
+    }
+
+    const entry = quiz.sharedWith.find(s => s.userId.toString() === userId);
+    if (!entry) {
+      return res.status(404).json({ message: 'Không tìm thấy người này trong danh sách chia sẻ' });
+    }
+
+    entry.permission = permission;
+    await quiz.save();
+
+    res.status(200).json({ message: 'Đã cập nhật quyền chia sẻ', sharedWith: quiz.sharedWith });
+  } catch (error) {
+    console.error('Lỗi cập nhật quyền chia sẻ đề thi:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật quyền chia sẻ' });
+  }
+};
+
+// 5.3. REVOKE SHARE (thu hồi quyền xem của 1 người cụ thể)
 export const revokeQuizShare = async (req, res) => {
   try {
     const { id, userId } = req.params;
@@ -538,7 +598,7 @@ export const revokeQuizShare = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi' });
     }
 
-    if (quiz.creatorId.toString() !== currentUser.id && currentUser.role === 'user') {
+    if (!isOwnerOrMasterAdmin(quiz, currentUser)) {
       return res.status(403).json({ message: 'Đồng chí không có quyền thu hồi chia sẻ đề thi này' });
     }
 
@@ -552,7 +612,7 @@ export const revokeQuizShare = async (req, res) => {
   }
 };
 
-// 5.3. GET SHARE LIST (kèm trạng thái đã xem/chưa xem — chỉ chủ đề/admin xem được)
+// 5.4. GET SHARE LIST (kèm trạng thái đã xem/chưa xem — chỉ chủ đề/master-admin xem được)
 export const getQuizShares = async (req, res) => {
   try {
     const { id } = req.params;
@@ -563,7 +623,7 @@ export const getQuizShares = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi' });
     }
 
-    if (quiz.creatorId.toString() !== currentUser.id && currentUser.role === 'user') {
+    if (!isOwnerOrMasterAdmin(quiz, currentUser)) {
       return res.status(403).json({ message: 'Đồng chí không có quyền xem danh sách chia sẻ của đề thi này' });
     }
 
