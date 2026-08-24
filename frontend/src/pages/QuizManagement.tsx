@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '../icons';
+import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, CheckCircle, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '../icons';
 import { VPAExportPopup } from '../components/VPAExportPopup';
 import { type QuizPrintData, type PageNumberPosition, type PaperSize, QuizPrintPortalContent, sanitizeFilenamePart } from '../utils/quizPrintTemplate';
 import { useSubviewBack } from '../hooks/useSubviewBack';
@@ -119,6 +119,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [importDuration, setImportDuration] = useState(45);
   const [importPassingScore, setImportPassingScore] = useState(50);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const importFileInputRef = React.useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [activeDropdownQuizId, setActiveDropdownQuizId] = useState<string | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
@@ -761,6 +762,11 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0]);
     }
+  };
+
+  const handleRemoveSelectedFile = () => {
+    setSelectedFile(null);
+    if (importFileInputRef.current) importFileInputRef.current.value = '';
   };
 
   const handleImportSubmit = async (e: React.FormEvent) => {
@@ -2332,20 +2338,60 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                   </div>
                 </div>
 
-                <div className="border-2 border-dashed border-vpa-olive-light/50 p-8 text-center bg-vpa-sand/30 dark:bg-vpa-dark/30 hover:border-vpa-gold transition-colors relative cursor-pointer">
-                  <input
-                    type="file"
-                    required
-                    accept=".xlsx,.xls,.csv,.doc,.docx,.pdf"
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <UploadSimple size={36} className="mx-auto mb-2 text-vpa-olive-light" />
-                  <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
-                    {selectedFile ? `File đã chọn: ${selectedFile.name}` : 'Kéo thả tệp tin hoặc click để chọn'}
-                  </p>
-                  <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng: .xlsx, .xls, .csv, .doc, .docx, .pdf</p>
-                </div>
+                {selectedFile ? (
+                  <div className="border-2 border-solid border-emerald-500/60 dark:border-emerald-400/50 p-4 bg-emerald-50/40 dark:bg-emerald-950/20 rounded-lg flex items-center justify-between gap-3">
+                    <div className="flex items-center space-x-3 overflow-hidden">
+                      {getFileIcon(selectedFile.name.split('.').pop()?.toLowerCase())}
+                      <div className="overflow-hidden text-left">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                          <Tooltip content={selectedFile.name} className="block">
+                            <p className="text-xs font-bold text-vpa-olive dark:text-vpa-sand truncate max-w-[240px] sm:max-w-[360px]">
+                              {selectedFile.name}
+                            </p>
+                          </Tooltip>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{formatBytes(selectedFile.size)} &middot; Đã sẵn sàng để nhập</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <label className="p-2 text-gray-400 hover:text-vpa-gold transition-colors cursor-pointer" title="Chọn tệp khác">
+                        <input
+                          ref={importFileInputRef}
+                          type="file"
+                          accept=".xlsx,.xls,.csv,.doc,.docx,.pdf"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <PencilSimple size={14} />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleRemoveSelectedFile}
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                        title="Bỏ chọn tệp tin"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-vpa-olive-light/50 p-8 text-center bg-vpa-sand/30 dark:bg-vpa-dark/30 hover:border-vpa-gold transition-colors relative cursor-pointer">
+                    <input
+                      ref={importFileInputRef}
+                      type="file"
+                      required
+                      accept=".xlsx,.xls,.csv,.doc,.docx,.pdf"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <UploadSimple size={36} className="mx-auto mb-2 text-vpa-olive-light" />
+                    <p className="text-xs text-vpa-olive dark:text-vpa-sand font-bold uppercase">
+                      Kéo thả tệp tin hoặc click để chọn
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-1">Hỗ trợ các định dạng: .xlsx, .xls, .csv, .doc, .docx, .pdf</p>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-4 border-t border-vpa-olive-light/30 pt-6">
