@@ -14,17 +14,27 @@ interface RoomManagementProps {
   onViewResults: (roomId: string) => void;
 }
 
+type RoomStatus = 'waiting' | 'active' | 'finished';
+
 const STATUS_LABEL: Record<string, string> = {
   waiting: 'ĐANG CHỜ THI',
   active: 'ĐANG THI',
   finished: 'ĐÃ KẾT THÚC'
 };
 
+const STATUS_TAG_OPTIONS: { value: RoomStatus; label: string; activeClass: string }[] = [
+  { value: 'waiting', label: 'Đang chờ thi', activeClass: 'bg-vpa-olive text-white border-vpa-olive dark:bg-vpa-sand dark:text-vpa-dark dark:border-vpa-sand' },
+  { value: 'active', label: 'Đang thi', activeClass: 'bg-yellow-500 text-white border-yellow-500' },
+  { value: 'finished', label: 'Đã kết thúc', activeClass: 'bg-vpa-red text-white border-vpa-red' }
+];
+
 export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigateBack, onJoinRoom, onViewResults }) => {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'' | 'waiting' | 'active' | 'finished'>('');
+  // Nhiều tag trạng thái cùng lúc (VD: xem cả phòng đang chờ lẫn đang thi,
+  // bỏ qua phòng đã kết thúc) — rỗng nghĩa là không lọc, hiện tất cả.
+  const [statusFilters, setStatusFilters] = useState<RoomStatus[]>([]);
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
   const [quizFilter, setQuizFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -42,6 +52,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
     setDateTo('');
     setAntiCheatFilter('');
     setShowResultFilter('');
+  };
+
+  const toggleStatusFilter = (status: RoomStatus) => {
+    setStatusFilters(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
   };
 
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -65,7 +79,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
+  }, [searchTerm, statusFilters, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
 
   // Danh sách đề thi đang xuất hiện trong các phòng — dùng cho ô lọc theo đề
   // thi, luôn khớp đúng dữ liệu hiện có thay vì gọi thêm API riêng.
@@ -83,7 +97,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
     const toDate = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
 
     return rooms.filter(room => {
-      const matchStatus = !statusFilter || room.status === statusFilter;
+      const matchStatus = statusFilters.length === 0 || statusFilters.includes(room.status);
       const matchTerm = term === ''
         || room.roomCode?.toLowerCase().includes(term)
         || (room.quizId?.title || '').toLowerCase().includes(term);
@@ -95,7 +109,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
       const matchShowResult = !showResultFilter || String(!!room.settings?.showResultImmediately) === showResultFilter;
       return matchStatus && matchTerm && matchQuiz && matchDateFrom && matchDateTo && matchAntiCheat && matchShowResult;
     });
-  }, [rooms, searchTerm, statusFilter, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
+  }, [rooms, searchTerm, statusFilters, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
 
   const totalPages = Math.ceil(filteredRooms.length / pageSize);
   const startIndex = (page - 1) * pageSize;
@@ -158,17 +172,6 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
             <MagnifyingGlass size={16} className="absolute left-3 top-3 text-gray-400" />
           </div>
 
-          <Select
-            value={statusFilter}
-            onChange={v => setStatusFilter(v as typeof statusFilter)}
-            className="w-full md:w-56 shrink-0 text-xs p-2.5 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="waiting">Đang chờ thi</option>
-            <option value="active">Đang thi</option>
-            <option value="finished">Đã kết thúc</option>
-          </Select>
-
           <button
             type="button"
             onClick={() => setShowAdvancedFilter(prev => !prev)}
@@ -186,6 +189,33 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
               </span>
             )}
           </button>
+        </div>
+
+        <div className="px-4 pb-4 flex flex-wrap items-center gap-2">
+          <span className="text-[9px] uppercase tracking-wider font-semibold text-gray-500 mr-1">Trạng thái:</span>
+          {STATUS_TAG_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => toggleStatusFilter(opt.value)}
+              className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-full border transition-colors ${
+                statusFilters.includes(opt.value)
+                  ? opt.activeClass
+                  : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          {statusFilters.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setStatusFilters([])}
+              className="text-[10px] uppercase tracking-wider font-bold text-vpa-red hover:underline ml-1"
+            >
+              Bỏ chọn
+            </button>
+          )}
         </div>
 
         {/* Advanced filter panel — trượt xuống thay vì popup */}
