@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Play, Users, ShieldCheck, ArrowLeftIcon, WarningIcon, Check, X, PencilSimple, Trash } from '../icons';
+import { Play, Users, ShieldCheck, ArrowLeftIcon, WarningIcon, Check, X, PencilSimple, Trash, UserPlus } from '../icons';
 import axios from 'axios';
+import { InviteToRoomModal } from '../components/InviteToRoomModal';
 
 interface RoomLobbyProps {
   user: any;
@@ -45,6 +46,7 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [violationLogs, setViolationLogs] = useState<ViolationLogItem[]>([]);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const addToast = (message: string) => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -333,6 +335,13 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
 
         {isHost && roomStatus === 'waiting' && (
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="px-4 py-2 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded-lg"
+            >
+              <UserPlus size={16} />
+              <span>Mời quân nhân</span>
+            </button>
             <button
               onClick={handleDeleteRoom}
               className="px-4 py-2 bg-vpa-red hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded-lg"
@@ -624,6 +633,15 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             </div>
           ))}
         </div>
+      )}
+
+      {isHost && (
+        <InviteToRoomModal
+          isOpen={showInviteModal}
+          roomCode={roomCode}
+          user={user}
+          onClose={() => setShowInviteModal(false)}
+        />
       )}
     </div>
   );
