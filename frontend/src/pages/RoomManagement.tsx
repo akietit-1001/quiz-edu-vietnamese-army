@@ -36,7 +36,6 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
   // bỏ qua phòng đã kết thúc) — rỗng nghĩa là không lọc, hiện tất cả.
   const [statusFilters, setStatusFilters] = useState<RoomStatus[]>([]);
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
-  const [quizFilter, setQuizFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [antiCheatFilter, setAntiCheatFilter] = useState<'' | 'true' | 'false'>('');
@@ -44,10 +43,9 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const advancedFilterCount = [quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter].filter(Boolean).length;
+  const advancedFilterCount = [dateFrom, dateTo, antiCheatFilter, showResultFilter].filter(Boolean).length;
 
   const handleClearAdvancedFilters = () => {
-    setQuizFilter('');
     setDateFrom('');
     setDateTo('');
     setAntiCheatFilter('');
@@ -79,17 +77,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilters, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
-
-  // Danh sách đề thi đang xuất hiện trong các phòng — dùng cho ô lọc theo đề
-  // thi, luôn khớp đúng dữ liệu hiện có thay vì gọi thêm API riêng.
-  const quizOptions = React.useMemo(() => {
-    const titles = new Set<string>();
-    rooms.forEach(r => {
-      if (r.quizId?.title) titles.add(r.quizId.title);
-    });
-    return Array.from(titles).sort((a, b) => a.localeCompare(b));
-  }, [rooms]);
+  }, [searchTerm, statusFilters, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
 
   const filteredRooms = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -101,15 +89,14 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
       const matchTerm = term === ''
         || room.roomCode?.toLowerCase().includes(term)
         || (room.quizId?.title || '').toLowerCase().includes(term);
-      const matchQuiz = !quizFilter || room.quizId?.title === quizFilter;
       const createdAt = room.createdAt ? new Date(room.createdAt) : null;
       const matchDateFrom = !fromDate || (createdAt !== null && createdAt >= fromDate);
       const matchDateTo = !toDate || (createdAt !== null && createdAt <= toDate);
       const matchAntiCheat = !antiCheatFilter || String(!!room.settings?.antiCheatEnabled) === antiCheatFilter;
       const matchShowResult = !showResultFilter || String(!!room.settings?.showResultImmediately) === showResultFilter;
-      return matchStatus && matchTerm && matchQuiz && matchDateFrom && matchDateTo && matchAntiCheat && matchShowResult;
+      return matchStatus && matchTerm && matchDateFrom && matchDateTo && matchAntiCheat && matchShowResult;
     });
-  }, [rooms, searchTerm, statusFilters, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
+  }, [rooms, searchTerm, statusFilters, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
 
   const totalPages = Math.ceil(filteredRooms.length / pageSize);
   const startIndex = (page - 1) * pageSize;
@@ -221,20 +208,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
         {/* Advanced filter panel — trượt xuống thay vì popup */}
         <div className={`grid transition-all duration-300 ease-in-out ${showAdvancedFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
           <div className="overflow-hidden">
-            <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đề thi</label>
-                <Select
-                  value={quizFilter}
-                  onChange={setQuizFilter}
-                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
-                >
-                  <option value="">Tất cả</option>
-                  {quizOptions.map(title => (
-                    <option key={title} value={title}>{title}</option>
-                  ))}
-                </Select>
-              </div>
+            <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chống gian lận</label>
                 <Select
@@ -269,7 +243,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
                   <DatePicker value={dateTo} onChange={setDateTo} />
                 </div>
               </div>
-              <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+              <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
                 <button
                   type="button"
                   onClick={handleClearAdvancedFilters}
