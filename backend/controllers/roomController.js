@@ -6,7 +6,7 @@ import xlsx from 'xlsx';
 import { Packer } from 'docx';
 import { generateResultsDOCX, generateResultsXLSX } from '../utils/documentTemplates.js';
 import { examSubmitQueue } from '../utils/queue.js';
-import { isExamineeCapacityReached } from '../utils/roomCapacity.js';
+import { isExamineeCapacityReached, countActiveExaminees } from '../utils/roomCapacity.js';
 import { getManagedDescendantIds } from '../utils/commandChain.js';
 
 // 1. CREATE EXAM ROOM
@@ -167,6 +167,16 @@ export const endRoom = async (req, res) => {
 
     room.status = 'finished';
     await room.save();
+
+    // Báo cho các thí sinh đang làm bài (ExamTaker) biết phòng đã đóng để tự
+    // khóa + nộp bài ngay — thiếu bước này thì bài thi của họ vẫn chạy tiếp
+    // bình thường dù giám thị đã kết thúc phòng.
+    const io = req.app?.get('socketio');
+    if (io) {
+      io.to(room.roomCode).emit('roomEnded', {
+        message: 'Giám thị đã kết thúc phòng thi. Hệ thống tự động nộp bài của đồng chí.'
+      });
+    }
 
     res.status(200).json({ message: 'Đã đóng phòng thi thành công', room });
   } catch (error) {
@@ -465,6 +475,60 @@ export const updateRoomDuration = async (req, res) => {
   } catch (error) {
     console.error('Lỗi cập nhật thời gian phòng thi:', error.message);
     res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật thời gian phòng thi' });
+  }
+};
+
+// 9.5. UPDATE EXAM ROOM SETTINGS (anti-cheat, xem kết quả ngay, sĩ số tối đa)
+// Chỉ cho sửa khi phòng còn "waiting" — sửa giữa lúc đang thi (VD: tắt chống
+// gian lận) sẽ không nhất quán với những gì thí sinh đã/đang trải nghiệm.
+export const updateRoomSettings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { showResultImmediately, antiCheatEnabled, maxParticipants } = req.body;
+
+    const room = await ExamRoom.findById(id);
+    if (!room) {
+      return res.status(404).json({ message: 'Không tìm thấy phòng thi' });
+    }
+
+    if (room.hostId.toString() !== req.user.id && req.user.role !== 'master-admin') {
+      return res.status(403).json({ message: 'Đồng chí không có quyền chỉnh sửa cài đặt phòng thi này' });
+    }
+
+    if (room.status !== 'waiting') {
+      return res.status(400).json({ message: 'Chỉ có thể chỉnh sửa cài đặt khi phòng thi còn đang chờ, chưa bắt đầu' });
+    }
+
+    if (maxParticipants !== undefined) {
+      let normalizedMaxParticipants = null;
+      if (maxParticipants !== null && maxParticipants !== 0 && maxParticipants !== '0') {
+        const n = Number(maxParticipants);
+        if (!Number.isInteger(n) || n < 1) {
+          return res.status(400).json({ message: 'Sĩ số tối đa thí sinh phải là số nguyên dương (hoặc để trống/0 nếu không giới hạn)' });
+        }
+        const currentCount = countActiveExaminees(room);
+        if (n < currentCount) {
+          return res.status(400).json({ message: `Sĩ số tối đa không được nhỏ hơn số thí sinh đang có trong phòng (${currentCount})` });
+        }
+        normalizedMaxParticipants = n;
+      }
+      room.settings.maxParticipants = normalizedMaxParticipants;
+    }
+
+    if (showResultImmediately !== undefined) {
+      room.settings.showResultImmediately = !!showResultImmediately;
+    }
+
+    if (antiCheatEnabled !== undefined) {
+      room.settings.antiCheatEnabled = !!antiCheatEnabled;
+    }
+
+    await room.save();
+
+    res.status(200).json({ message: 'Cập nhật cài đặt phòng thi thành công', room });
+  } catch (error) {
+    console.error('Lỗi cập nhật cài đặt phòng thi:', error.message);
+    res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật cài đặt phòng thi' });
   }
 };
 

@@ -37,6 +37,10 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
   const violationsRef = useRef(0);
   const isSubmittingRef = useRef(false);
   const lastViolationAtRef = useRef(0);
+  // Luôn trỏ tới bản handleAutoSubmit mới nhất (đóng gói đúng answers/quiz
+  // hiện tại) — effect socket chỉ chạy 1 lần lúc mount nên nếu gọi thẳng
+  // handleAutoSubmit từ đó sẽ dùng closure cũ, nộp bài với answers rỗng.
+  const handleAutoSubmitRef = useRef<() => void>(() => {});
 
   // 1. Fetch Quiz Data and Initialize Answers (Offline Recovery check)
   useEffect(() => {
@@ -115,6 +119,26 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
     const socketUrl = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/');
     const newSocket = io(socketUrl);
     setSocket(newSocket);
+
+    // Phải "vào phòng" lại ở đây (không chỉ kết nối socket suông) — nếu
+    // không, khi RoomLobby unmount lúc chuyển sang trang làm bài, server sẽ
+    // tưởng đồng chí này rớt kết nối thật và đánh dấu "đã rời phòng thi"
+    // (báo động giả cho giám thị), đồng thời đồng chí sẽ không nằm trong
+    // kênh socket của phòng nên không nhận được các lệnh điều khiển từ giám
+    // thị (VD: kết thúc thi sớm) trong lúc đang làm bài.
+    newSocket.emit('joinRoom', {
+      roomCode,
+      userId: user.id,
+      role: user.role
+    });
+
+    // Giám thị kết thúc phòng thi sớm — khóa và nộp bài ngay thay vì để
+    // đồng chí tiếp tục làm bài dù phòng đã đóng.
+    newSocket.on('roomEnded', async () => {
+      if (isSubmittingRef.current) return;
+      await window.showAlert('Giám thị đã kết thúc phòng thi. Hệ thống tự động nộp bài của đồng chí.', 'Phòng thi đã đóng');
+      handleAutoSubmitRef.current();
+    });
 
     return () => {
       newSocket.disconnect();
@@ -304,6 +328,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
     isSubmittingRef.current = true;
     submitExamResults();
   };
+  handleAutoSubmitRef.current = handleAutoSubmit;
 
   const handleSubmitClick = async () => {
     const confirmSubmit = await window.showConfirm('Đồng chí có chắc chắn muốn nộp bài thi?', 'Xác nhận nộp bài');

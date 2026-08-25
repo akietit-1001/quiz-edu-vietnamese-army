@@ -605,7 +605,15 @@ export const App: React.FC = () => {
 
   const handleExamFinished = async (attempt: any) => {
     if (attempt) {
-      await window.showAlert(`Nộp bài thành công! Điểm của đồng chí: ${attempt.score}/${attempt.totalQuestions} (${attempt.rank})`, 'Thông báo kết quả');
+      // Phòng thi có thể tắt "xem kết quả ngay" — khi đó không được lộ
+      // điểm/xếp loại cho thí sinh lúc vừa nộp bài, chỉ báo đã nhận bài.
+      const canShowResult = activeExamMode !== 'exam' || activeRoomSettings?.showResultImmediately !== false;
+      await window.showAlert(
+        canShowResult
+          ? `Nộp bài thành công! Điểm của đồng chí: ${attempt.score}/${attempt.totalQuestions} (${attempt.rank})`
+          : 'Nộp bài thành công! Giám thị đã tắt xem kết quả ngay — kết quả sẽ được thông báo sau.',
+        'Thông báo kết quả'
+      );
     }
     dispatch(clearExam());
     dispatch(setCurrentView('dashboard'));
