@@ -107,7 +107,12 @@ io.on('connection', (socket) => {
             socket.emit('error', ROOM_FULL_MESSAGE);
             return;
           }
-          room.participants.push({ userId, role, status: 'waiting' });
+          // Nếu vào phòng khi cuộc thi đã "active" (mời trễ, hoặc vào lại
+          // sau khi bị rớt kết nối trước khi kịp ghi nhận) thì phải vào
+          // thẳng trạng thái "taking" — nếu cứ để "waiting" thì màn hình
+          // giám sát sẽ hiển thị sai và participant này không bao giờ được
+          // chuyển sang "taking" nữa (bước đó chỉ chạy 1 lần lúc startExam).
+          room.participants.push({ userId, role, status: room.status === 'active' ? 'taking' : 'waiting' });
           await room.save();
         } else {
           // If already in list, set status back to waiting/taking if they reconnected

@@ -33,6 +33,11 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [isEditingDuration, setIsEditingDuration] = useState(false);
   const [newDuration, setNewDuration] = useState<number | string>('');
   const userRoomRoleRef = React.useRef(userRoomRole);
+  // Đảm bảo chỉ điều hướng sang màn hình làm bài đúng 1 lần — dùng chung
+  // giữa sự kiện socket 'examStarted' (thi bắt đầu khi đang ở trong phòng
+  // chờ) và luồng tự phát hiện phòng đã "active" khi mới vào (mời trễ / tải
+  // lại trang giữa lúc đang thi) để tránh gọi onExamStarted 2 lần.
+  const hasAutoJoinedExamRef = React.useRef(false);
   interface ToastItem {
     id: string;
     message: string;
@@ -111,7 +116,8 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     newSocket.on('examStarted', () => {
       // Only redirect participants to exam taker, host & examiner stay in lobby to monitor
       const currentRole = userRoomRoleRef.current;
-      if (currentRole !== 'host' && currentRole !== 'examiner') {
+      if (currentRole !== 'host' && currentRole !== 'examiner' && !hasAutoJoinedExamRef.current) {
+        hasAutoJoinedExamRef.current = true;
         onExamStarted(roomId, quizDetails._id, roomSettings);
       }
     });
@@ -183,6 +189,18 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
       newSocket.disconnect();
     };
   }, [roomId]);
+
+  // Thí sinh vào phòng SAU KHI cuộc thi đã bắt đầu (mời trễ, join muộn, hoặc
+  // tải lại trang giữa lúc đang thi) sẽ không còn nhận được sự kiện socket
+  // 'examStarted' nữa vì nó đã phát ra trước khi họ kết nối — nếu không xử
+  // lý riêng, họ sẽ bị kẹt mãi ở màn hình chờ dù cuộc thi đang thực sự diễn ra.
+  useEffect(() => {
+    if (hasAutoJoinedExamRef.current) return;
+    if (userRoomRole === 'host' || userRoomRole === 'examiner') return;
+    if (roomStatus !== 'active' || !quizDetails || !roomId) return;
+    hasAutoJoinedExamRef.current = true;
+    onExamStarted(roomId, quizDetails._id, roomSettings);
+  }, [roomStatus, quizDetails, roomId, userRoomRole]);
 
   // Host starts the exam room
   const handleStartExam = () => {
