@@ -436,6 +436,16 @@ export const deleteRoom = async (req, res) => {
       return res.status(403).json({ message: 'Đồng chí không có quyền xóa phòng thi này' });
     }
 
+    // Xóa phòng không xóa ExamAttempt đi kèm — điểm/kết quả của thí sinh vẫn
+    // còn trong DB nhưng mất liên kết "Phòng: XXXXXX" hiển thị ở lịch sử thi
+    // cá nhân, dễ khiến quân nhân tưởng nhầm là mất luôn kết quả thi. Chặn
+    // hẳn ở đây (không chỉ ẩn nút trên UI) để không thể xóa phòng đã có
+    // người làm bài, bất kể gọi qua đường nào.
+    const hasAttempts = await ExamAttempt.exists({ roomId: id });
+    if (hasAttempts) {
+      return res.status(400).json({ message: 'Không thể xóa phòng thi đã có thí sinh làm bài — sẽ ảnh hưởng đến lịch sử thi của các đồng chí đó.' });
+    }
+
     await ExamRoom.findByIdAndDelete(id);
 
     // Clean up related invitations
