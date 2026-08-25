@@ -252,6 +252,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     return unit.positions && unit.positions.length > 0 ? unit.positions : POSITIONS;
   }, [units, unitId]);
 
+  // Danh sách chức vụ thực sự hiển thị trong dropdown của form — thêm chức
+  // vụ hiện tại của quân nhân vào nếu nó không nằm trong danh sách của đơn
+  // vị (VD: dữ liệu cũ, hoặc đơn vị chưa khai báo đúng), để dropdown luôn
+  // phản ánh đúng giá trị thật thay vì lặng lẽ hiện sai/trống.
+  const positionOptionsForForm = React.useMemo(() => {
+    const base = positionsForSelectedUnit.length > 0 ? positionsForSelectedUnit : POSITIONS;
+    return base.includes(position) || !position ? base : [...base, position];
+  }, [positionsForSelectedUnit, position]);
+
   // Hợp nhất chức vụ của MỌI đơn vị (dùng cho ô "Bộ lọc nâng cao" — không
   // gắn với 1 đơn vị cụ thể) — luôn khớp đúng dữ liệu DB hiện tại thay vì
   // 1 danh sách tĩnh cố định.
@@ -261,13 +270,19 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   }, [units]);
 
   // Chỉ tự chuyển chức vụ khi đơn vị THỰC SỰ đổi do người dùng bấm chọn lại
-  // — bỏ qua lần đầu form mở ra (kể cả khi sửa quân nhân có sẵn, có thể
-  // đang mang chức vụ thuộc danh sách cũ/chung chung), tránh vừa mở form
-  // sửa đã âm thầm đổi mất chức vụ thật đang lưu của quân nhân đó.
-  const prevUnitIdRef = React.useRef(unitId);
+  // trong form — mọi lần setUnitId "lập trình" (mở form thêm/sửa quân nhân,
+  // đổi đơn vị từ popup chi tiết đơn vị) phải bật cờ này trước để effect bỏ
+  // qua, tránh vừa mở form sửa đã âm thầm đổi mất chức vụ thật đang lưu của
+  // quân nhân đó chỉ vì đơn vị của họ có danh sách chức vụ riêng không chứa
+  // đúng chức vụ hiện tại (VD: "Chiến sĩ" không nằm trong danh sách của đơn
+  // vị đó). So sánh giá trị unitId cũ/mới KHÔNG đủ để phân biệt 2 trường hợp
+  // này vì mở form sửa cũng luôn khiến unitId "đổi" từ giá trị mặc định.
+  const skipNextPositionAutoResetRef = React.useRef(true); // bỏ qua lần chạy đầu tiên lúc mount
   useEffect(() => {
-    if (prevUnitIdRef.current === unitId) return;
-    prevUnitIdRef.current = unitId;
+    if (skipNextPositionAutoResetRef.current) {
+      skipNextPositionAutoResetRef.current = false;
+      return;
+    }
     if (positionsForSelectedUnit.length > 0 && !positionsForSelectedUnit.includes(position)) {
       setPosition(positionsForSelectedUnit[0]);
     }
@@ -548,6 +563,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     setDateOfBirth('');
     setRank(OFFICER_RANKS[0]);
     setPosition('Chiến sĩ');
+    skipNextPositionAutoResetRef.current = true;
     setUnitId(user?.role === 'master-admin' ? '' : user?.unit?.id || '');
     setAddress('');
     setRole('user');
@@ -560,6 +576,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
   // đơn vị) — gọi lại handleOpenCreateModal() rồi ghi đè unitId mặc định.
   const handleOpenCreateModalForUnit = (presetUnitId: string) => {
     handleOpenCreateModal();
+    skipNextPositionAutoResetRef.current = true;
     setUnitId(presetUnitId);
   };
 
@@ -574,6 +591,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
     setDateOfBirth(targetUser.dateOfBirth ? new Date(targetUser.dateOfBirth).toISOString().split('T')[0] : '');
     setRank(targetUser.rank || 'Binh nhì');
     setPosition(targetUser.position || 'Chiến sĩ');
+    skipNextPositionAutoResetRef.current = true;
     setUnitId(targetUser.unit?.id || '');
     setAddress(targetUser.address || '');
     setRole(targetUser.role || 'user');
@@ -1567,7 +1585,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ user, onNavigate
                     onChange={setPosition}
                     className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
                   >
-                    {(positionsForSelectedUnit.length > 0 ? positionsForSelectedUnit : POSITIONS).map(ps => (
+                    {positionOptionsForForm.map(ps => (
                       <option key={ps} value={ps}>{ps}</option>
                     ))}
                   </Select>
