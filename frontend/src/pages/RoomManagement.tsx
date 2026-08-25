@@ -23,7 +23,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_TAG_OPTIONS: { value: RoomStatus; label: string; activeClass: string }[] = [
-  { value: 'waiting', label: 'Đang chờ thi', activeClass: 'bg-vpa-olive text-white border-vpa-olive dark:bg-vpa-sand dark:text-vpa-dark dark:border-vpa-sand' },
+  { value: 'waiting', label: 'Đang chờ thi', activeClass: 'bg-green-500 text-white border-green-500' },
   { value: 'active', label: 'Đang thi', activeClass: 'bg-yellow-500 text-white border-yellow-500' },
   { value: 'finished', label: 'Đã kết thúc', activeClass: 'bg-vpa-red text-white border-vpa-red' }
 ];
@@ -331,7 +331,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
                         ? 'border-yellow-500 bg-yellow-500/10 text-yellow-600'
                         : room.status === 'finished'
                         ? 'border-red-500 bg-red-500/10 text-red-600 font-bold'
-                        : 'border-vpa-olive-light text-gray-500 bg-vpa-olive/5'
+                        : 'border-green-500 bg-green-500/10 text-green-600'
                     }`}>
                       {STATUS_LABEL[room.status] || room.status}
                     </span>
