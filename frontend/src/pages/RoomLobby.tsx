@@ -36,8 +36,15 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     id: string;
     message: string;
   }
+  interface ViolationLogItem {
+    id: string;
+    userId: string;
+    message: string;
+    time: string;
+  }
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [violationLogs, setViolationLogs] = useState<ViolationLogItem[]>([]);
 
   const addToast = (message: string) => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -120,10 +127,21 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
         return p;
       }));
 
-      // Only show popup alert to host or examiner (supervisors)
+      // Ghi vào nhật ký giám sát (không dùng modal chặn để tránh bỏ lỡ khi
+      // nhiều quân nhân vi phạm liên tiếp — modal cũ chỉ giữ được 1 cảnh báo
+      // tại một thời điểm) + toast nhắc nhanh, không chặn thao tác.
       const currentRole = userRoomRoleRef.current;
       if (currentRole === 'host' || currentRole === 'examiner') {
-        window.showAlert?.(message, 'CẢNH BÁO GIÁM SÁT');
+        setViolationLogs(prev => [
+          {
+            id: `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            userId,
+            message,
+            time: new Date().toLocaleTimeString('vi-VN')
+          },
+          ...prev
+        ]);
+        addToast(message);
       }
     });
 
@@ -448,6 +466,29 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
                 </button>
               )}
             </div>
+
+            {/* Nhật ký cảnh báo giám sát — thay cho modal chặn để không bỏ
+                lỡ khi nhiều quân nhân vi phạm dồn dập cùng lúc. */}
+            {(isHost || userRoomRole === 'examiner') && violationLogs.length > 0 && (
+              <div className="border border-vpa-red/40 bg-vpa-sand-light dark:bg-vpa-dark-card p-4 shadow-md rounded-lg overflow-hidden relative">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-vpa-red" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-red mb-3 flex items-center space-x-2 mt-1">
+                  <span className="inline-block w-2 h-2 bg-vpa-red rounded-full shrink-0" />
+                  <span>Nhật ký cảnh báo giám sát ({violationLogs.length})</span>
+                </h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {violationLogs.map(log => (
+                    <div
+                      key={log.id}
+                      className="text-[10px] font-mono border-b border-vpa-olive-light/10 dark:border-white/10 pb-2 last:border-none last:pb-0"
+                    >
+                      <span className="text-gray-500">[{log.time}]</span>{' '}
+                      <span className="text-vpa-olive dark:text-vpa-sand">{log.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
 
