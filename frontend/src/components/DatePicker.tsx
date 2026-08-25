@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarBlank, CaretLeft, CaretRight } from '../icons';
+import { CalendarBlank, CaretLeft, CaretRight, ArrowLeft } from '../icons';
 
 interface DatePickerProps {
   value: string; // 'YYYY-MM-DD' hoặc rỗng
@@ -384,13 +384,23 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               <>
                 {/* Header năm — chọn tháng cho năm đang hiện, đổi năm bằng mũi tên */}
                 <div className="flex items-center justify-between mb-2">
-                  <button
-                    type="button"
-                    onClick={goToPrevYear}
-                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
-                  >
-                    <CaretLeft size={12} weight="bold" />
-                  </button>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('days')}
+                      title="Quay lại lịch"
+                      className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                    >
+                      <ArrowLeft size={12} weight="bold" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goToPrevYear}
+                      className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                    >
+                      <CaretLeft size={12} weight="bold" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={openYearPicker}
@@ -436,13 +446,23 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               <>
                 {/* Header khối 12 năm — chọn năm rồi tự chuyển sang lưới tháng */}
                 <div className="flex items-center justify-between mb-2">
-                  <button
-                    type="button"
-                    onClick={goToPrevYearRange}
-                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
-                  >
-                    <CaretLeft size={12} weight="bold" />
-                  </button>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('days')}
+                      title="Quay lại lịch"
+                      className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                    >
+                      <ArrowLeft size={12} weight="bold" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goToPrevYearRange}
+                      className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                    >
+                      <CaretLeft size={12} weight="bold" />
+                    </button>
+                  </div>
                   <span className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono select-none">
                     {yearRangeStart} - {yearRangeStart + YEAR_GRID_SIZE - 1}
                   </span>
