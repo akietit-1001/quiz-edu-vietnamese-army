@@ -1,4 +1,5 @@
 import { Document, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, PageOrientation, Header, Footer, PageNumber } from 'docx';
+import ExcelJS from 'exceljs';
 
 const PAGE_NUMBER_ALIGNMENT = {
   left: AlignmentType.LEFT,
@@ -482,4 +483,109 @@ export const generateResultsDOCX = (room, results, adminUser, upperUnit, current
       },
     ],
   });
+};
+
+const XLSX_THIN_BORDER = {
+  top: { style: 'thin', color: { argb: 'FF999999' } },
+  bottom: { style: 'thin', color: { argb: 'FF999999' } },
+  left: { style: 'thin', color: { argb: 'FF999999' } },
+  right: { style: 'thin', color: { argb: 'FF999999' } }
+};
+
+/**
+ * Generates an XLSX report (workbook) for Exam Results — cùng cấu trúc quốc
+ * hiệu/tiêu ngữ, tiêu đề báo cáo và chữ ký như bản DOCX (generateResultsDOCX),
+ * chỉ khác định dạng bảng tính. Trả về ExcelJS.Workbook, gọi
+ * `workbook.xlsx.writeBuffer()` ở nơi dùng để lấy buffer.
+ */
+export const generateResultsXLSX = async (room, results, adminUser, upperUnit, currentUnit, province, position, showSignature = true, signerRank, signerName) => {
+  const finalPosition = (position || adminUser.position || 'TRƯỞNG PHÒNG ĐÀO TẠO').toUpperCase();
+  const finalRank = signerRank || adminUser.rank || 'Đại tá';
+  const finalName = signerName || adminUser.fullName || 'Nguyễn Văn A';
+  const dateStr = `${province || 'Đồng Tháp'}, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Ket_qua_thi', {
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+  });
+
+  const COLS = 10; // Họ và tên, Gmail, Cấp bậc, Chức vụ, Đơn vị, Số câu đúng, Tỷ lệ (%), Kết quả, Xếp loại, Vi phạm chuyển tab
+  sheet.columns = [
+    { width: 24 }, { width: 24 }, { width: 12 }, { width: 16 }, { width: 20 },
+    { width: 13 }, { width: 11 }, { width: 13 }, { width: 11 }, { width: 16 }
+  ];
+
+  const mergeText = (rowIdx, startCol, endCol, text, { bold = false, italic = false, size = 12 } = {}) => {
+    sheet.mergeCells(rowIdx, startCol, rowIdx, endCol);
+    const cell = sheet.getCell(rowIdx, startCol);
+    cell.value = text;
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.font = { name: 'Times New Roman', size, bold, italic };
+    return cell;
+  };
+
+  let r = 1;
+  mergeText(r, 1, 4, (upperUnit || 'BỘ QUỐC PHÒNG').toUpperCase());
+  mergeText(r, 5, COLS, 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', { bold: true });
+  r++;
+  mergeText(r, 1, 4, (currentUnit || 'ĐƠN VỊ THI').toUpperCase(), { bold: true });
+  mergeText(r, 5, COLS, 'Độc lập - Tự do - Hạnh phúc', { bold: true });
+  r++;
+  mergeText(r, 1, 4, '-------');
+  mergeText(r, 5, COLS, '-----------------------');
+  r++;
+  mergeText(r, 5, COLS, dateStr, { italic: true });
+  r += 2; // spacer
+
+  mergeText(r, 1, COLS, 'BÁO CÁO KẾT QUẢ THI', { bold: true, size: 16 });
+  r++;
+  mergeText(r, 1, COLS, `PHÒNG THI: ${room.roomCode} - ĐỀ THI: ${(room.quizId?.title || '').toUpperCase()}`, { bold: true });
+  r += 2; // spacer
+
+  const headers = ['Họ và tên', 'Gmail', 'Cấp bậc', 'Chức vụ', 'Đơn vị', 'Số câu đúng', 'Tỷ lệ (%)', 'Kết quả', 'Xếp loại', 'Vi phạm chuyển tab'];
+  headers.forEach((h, idx) => {
+    const cell = sheet.getCell(r, idx + 1);
+    cell.value = h;
+    cell.font = { name: 'Times New Roman', bold: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = XLSX_THIN_BORDER;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E2E2' } };
+  });
+  r++;
+
+  results.forEach(res => {
+    const correctRatio = res.totalQuestions ? Math.round((res.score / res.totalQuestions) * 100) : 0;
+    const rowValues = [
+      res.userId.fullName,
+      res.userId.email || '',
+      res.userId.rank || 'Binh nhì',
+      res.userId.position || 'Học viên',
+      res.userId.unitId?.name || '',
+      `${res.score}/${res.totalQuestions}`,
+      correctRatio,
+      res.isPassed ? 'ĐẠT' : 'KHÔNG ĐẠT',
+      res.rank,
+      res.antiCheatViolations || 0
+    ];
+    rowValues.forEach((val, idx) => {
+      const cell = sheet.getCell(r, idx + 1);
+      cell.value = val;
+      cell.font = { name: 'Times New Roman' };
+      cell.alignment = { horizontal: idx === 0 || idx === 4 ? 'left' : 'center', vertical: 'middle' };
+      cell.border = XLSX_THIN_BORDER;
+    });
+    r++;
+  });
+
+  r += 2; // spacer after table
+
+  if (showSignature) {
+    mergeText(r, 6, COLS, finalPosition, { bold: true });
+    r++;
+    mergeText(r, 6, COLS, '(Ký, ghi rõ họ tên)', { italic: true });
+    r += 4; // signature space
+    mergeText(r, 6, COLS, `${finalRank} ${finalName}`, { bold: true });
+  }
+
+  return workbook;
 };

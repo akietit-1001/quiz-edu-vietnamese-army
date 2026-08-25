@@ -4,7 +4,7 @@ import ExamAttempt from '../models/ExamAttempt.js';
 import Unit from '../models/Unit.js';
 import xlsx from 'xlsx';
 import { Packer } from 'docx';
-import { generateResultsDOCX } from '../utils/documentTemplates.js';
+import { generateResultsDOCX, generateResultsXLSX } from '../utils/documentTemplates.js';
 import { examSubmitQueue } from '../utils/queue.js';
 import { isExamineeCapacityReached } from '../utils/roomCapacity.js';
 import { getManagedDescendantIds } from '../utils/commandChain.js';
@@ -225,8 +225,16 @@ export const exportRoomResults = async (req, res) => {
         populate: { path: 'unitId', select: 'name' }
       });
 
-    if (format === 'xlsx' || format === 'csv') {
-      // Create spreadsheet
+    // Tên đơn vị cấp trên mặc định (dùng cho phần quốc hiệu/tiêu ngữ cả xlsx
+    // lẫn docx khi người dùng không tự nhập upperUnit).
+    let defaultUpperUnit = 'CẤP TRÊN TRỰC TIẾP';
+    if (req.user.unitId?.parentId) {
+      const parentUnit = await Unit.findById(req.user.unitId.parentId).select('name');
+      if (parentUnit) defaultUpperUnit = parentUnit.name;
+    }
+
+    if (format === 'csv') {
+      // CSV không hỗ trợ merge/định dạng nên vẫn xuất phẳng dạng bảng dữ liệu
       const data = attempts.map(attempt => {
         const correctRatio = Math.round((attempt.score / attempt.totalQuestions) * 100);
         return {
@@ -247,27 +255,34 @@ export const exportRoomResults = async (req, res) => {
       const wb = xlsx.utils.book_new();
       xlsx.utils.book_append_sheet(wb, ws, 'Ket_qua_thi');
 
-      if (format === 'csv') {
-        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'csv' });
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename=Ket_qua_phong_${room.roomCode}.csv`);
-        const bom = Buffer.from([0xEF, 0xBB, 0xBF]); // UTF-8 BOM
-        return res.send(Buffer.concat([bom, buffer]));
-      } else {
-        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Ket_qua_phong_${room.roomCode}.xlsx`);
-        return res.send(buffer);
-      }
+      const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'csv' });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=Ket_qua_phong_${room.roomCode}.csv`);
+      const bom = Buffer.from([0xEF, 0xBB, 0xBF]); // UTF-8 BOM
+      return res.send(Buffer.concat([bom, buffer]));
+    }
+
+    if (format === 'xlsx') {
+      const workbook = await generateResultsXLSX(
+        room,
+        attempts,
+        req.user,
+        upperUnit || defaultUpperUnit,
+        currentUnit || req.user.unitId?.name || 'ĐƠN VỊ THI',
+        province || 'Đồng Tháp',
+        position,
+        showSignature !== 'false',
+        signerRank,
+        signerName
+      );
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=Bao_cao_ket_qua_${room.roomCode}.xlsx`);
+      return res.send(buffer);
     }
 
     if (format === 'docx') {
-      let defaultUpperUnit = 'CẤP TRÊN TRỰC TIẾP';
-      if (req.user.unitId?.parentId) {
-        const parentUnit = await Unit.findById(req.user.unitId.parentId).select('name');
-        if (parentUnit) defaultUpperUnit = parentUnit.name;
-      }
-
       const doc = generateResultsDOCX(
         room,
         attempts,

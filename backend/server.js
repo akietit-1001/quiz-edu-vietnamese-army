@@ -160,6 +160,22 @@ io.on('connection', (socket) => {
         await room.save();
 
         io.to(roomCode).emit('examStarted', { startTime: room.startTime });
+
+        // Phát lại roomData với trạng thái "taking" mới cập nhật — thiếu
+        // bước này khiến màn hình giám sát của host/giám khảo (ở lại
+        // RoomLobby khi thi bắt đầu) vẫn hiển thị toàn bộ thí sinh là
+        // "waiting" dù họ đã vào làm bài.
+        const updatedRoom = await ExamRoom.findOne({ roomCode: roomCode.toUpperCase() })
+          .populate({
+            path: 'participants.userId',
+            select: 'fullName rank position unitId avatarUrl',
+            populate: { path: 'unitId', select: 'name' }
+          });
+        io.to(roomCode).emit('roomData', {
+          status: updatedRoom.status,
+          participants: updatedRoom.participants,
+          startTime: updatedRoom.startTime
+        });
       }
     } catch (err) {
       console.error('Lỗi socket startExam:', err.message);
