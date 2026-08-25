@@ -195,6 +195,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Invitations & Rooms state
   const [invitations, setInvitations] = useState<any[]>([]);
   const [myRooms, setMyRooms] = useState<any[]>([]);
+  const [myRoomsTab, setMyRoomsTab] = useState<'active' | 'finished'>('active');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteRoomCode, setInviteRoomCode] = useState('');
 
@@ -217,6 +218,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
     }
   };
+
+  // Tách phòng đã kết thúc ra khỏi danh sách chính — phòng thi tích lũy theo
+  // thời gian nên để chung sẽ nhanh chóng làm loãng những phòng đang thi/chờ
+  // thi thực sự cần theo dõi.
+  const activeMyRooms = React.useMemo(() => myRooms.filter(r => r.status !== 'finished'), [myRooms]);
+  const finishedMyRooms = React.useMemo(() => myRooms.filter(r => r.status === 'finished'), [myRooms]);
+  const visibleMyRooms = myRoomsTab === 'active' ? activeMyRooms : finishedMyRooms;
 
   useEffect(() => {
     fetchPracticeQuizzes(1);
@@ -726,7 +734,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Created Exam Rooms (Host only) */}
           {(user?.role === 'admin' || user?.role === 'master-admin') && (
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg animate-fadeIn">
-              <div className="flex justify-between items-center mb-6 pb-2 border-b border-vpa-olive-light/30">
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-vpa-olive-light/30">
                 <h3 className="text-sm font-bold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider flex items-center space-x-2 font-semibold">
                   <Users size={20} className="text-vpa-olive dark:text-vpa-gold-bright" />
                   <span>Danh sách phòng thi đã tạo</span>
@@ -736,8 +744,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </span>
               </div>
 
+              <div className="flex items-center space-x-1 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setMyRoomsTab('active')}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors border-b-2 ${
+                    myRoomsTab === 'active'
+                      ? 'border-vpa-gold text-vpa-olive dark:text-vpa-sand'
+                      : 'border-transparent text-gray-400 hover:text-vpa-olive dark:hover:text-vpa-sand'
+                  }`}
+                >
+                  Đang hoạt động ({activeMyRooms.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMyRoomsTab('finished')}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors border-b-2 ${
+                    myRoomsTab === 'finished'
+                      ? 'border-vpa-gold text-vpa-olive dark:text-vpa-sand'
+                      : 'border-transparent text-gray-400 hover:text-vpa-olive dark:hover:text-vpa-sand'
+                  }`}
+                >
+                  Đã kết thúc ({finishedMyRooms.length})
+                </button>
+              </div>
+
               <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                {myRooms.map(room => (
+                {visibleMyRooms.map(room => (
                   <div
                     key={room._id}
                     className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 transition-all hover:border-vpa-gold flex flex-col md:flex-row md:items-center justify-between"
@@ -787,9 +820,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
                 ))}
-                {myRooms.length === 0 && (
+                {visibleMyRooms.length === 0 && (
                   <div className="text-center py-8 text-gray-400 border border-dashed border-vpa-olive-light/25">
-                    <p className="text-xs uppercase tracking-wider font-mono">Chưa khởi tạo phòng thi nào</p>
+                    <p className="text-xs uppercase tracking-wider font-mono">
+                      {myRoomsTab === 'active' ? 'Chưa khởi tạo phòng thi nào' : 'Chưa có phòng thi nào kết thúc'}
+                    </p>
                   </div>
                 )}
               </div>
