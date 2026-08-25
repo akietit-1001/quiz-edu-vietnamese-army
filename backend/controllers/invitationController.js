@@ -22,39 +22,52 @@ export const sendInvitation = async (req, res) => {
       return res.status(403).json({ message: 'Đồng chí không phải chủ phòng thi này, không có quyền mời' });
     }
 
-    // Unify emails
-    let emails = [];
+    // Unify identifiers — mỗi mục có thể là email (cán bộ) hoặc mã số quân
+    // nhân/tên đăng nhập (chiến sĩ, vốn không có email).
+    let identifiers = [];
     if (Array.isArray(recipientEmails)) {
-      emails = recipientEmails;
+      identifiers = recipientEmails;
     } else if (recipientEmail) {
-      emails = [recipientEmail];
+      identifiers = [recipientEmail];
     }
 
     // Remove empty entries and lowercase them
-    emails = [...new Set(emails.map(e => e.trim().toLowerCase()).filter(Boolean))];
+    identifiers = [...new Set(identifiers.map(e => e.trim().toLowerCase()).filter(Boolean))];
 
-    if (emails.length === 0) {
-      return res.status(400).json({ message: 'Đồng chí chưa chọn hoặc nhập email người nhận' });
+    if (identifiers.length === 0) {
+      return res.status(400).json({ message: 'Đồng chí chưa chọn hoặc nhập mã số/email người nhận' });
     }
 
     const hostUrl = req.headers.origin || 'http://localhost:5173';
     const invitationLink = `${hostUrl}/?joinRoom=${room.roomCode}`;
     const sentTo = [];
     const skipped = [];
+    const notFound = [];
 
-    for (const email of emails) {
-      // Find recipient (optional)
-      const recipient = await User.findOne({ email });
+    for (const identifier of identifiers) {
+      // Tìm theo email trước (cán bộ), sau đó theo username (chiến sĩ)
+      const recipient = await User.findOne({
+        $or: [{ email: identifier }, { username: identifier }]
+      });
+
+      const recipientEmailValue = recipient?.email || (identifier.includes('@') ? identifier : '');
+
+      if (!recipient && !recipientEmailValue) {
+        // Không tìm thấy tài khoản và chuỗi nhập vào không phải email hợp lệ
+        // để gửi lời mời cho người chưa có tài khoản trên hệ thống.
+        notFound.push(identifier);
+        continue;
+      }
 
       // Check duplicate invitation
       const existing = await Invitation.findOne({
         roomId: room._id,
-        recipientEmail: email,
-        status: 'pending'
+        status: 'pending',
+        ...(recipient ? { recipientId: recipient._id } : { recipientEmail: recipientEmailValue })
       });
-      
+
       if (existing) {
-        skipped.push(recipient ? recipient.fullName : email);
+        skipped.push(recipient ? recipient.fullName : identifier);
         continue;
       }
 
@@ -62,23 +75,26 @@ export const sendInvitation = async (req, res) => {
       const invitation = await Invitation.create({
         senderId,
         recipientId: recipient ? recipient._id : null,
-        recipientEmail: email,
+        recipientEmail: recipientEmailValue,
         roomId: room._id,
         roomCode: room.roomCode,
         role: role || 'examinee',
         status: 'pending'
       });
 
-      // Send invitation email
-      await sendInvitationEmail(
-        email,
-        req.user.fullName,
-        room.roomCode,
-        invitation.role,
-        invitationLink
-      );
-      
-      sentTo.push(recipient ? recipient.fullName : email);
+      // Gửi email lời mời nếu người nhận có email (chiến sĩ không có email
+      // sẽ chỉ nhận thông báo trong ứng dụng bên dưới)
+      if (recipientEmailValue) {
+        await sendInvitationEmail(
+          recipientEmailValue,
+          req.user.fullName,
+          room.roomCode,
+          invitation.role,
+          invitationLink
+        );
+      }
+
+      sentTo.push(recipient ? recipient.fullName : identifier);
 
       // Real-time socket notification + thông báo bền vững trên icon chuông
       const io = req.app?.get('socketio');
@@ -97,15 +113,20 @@ export const sendInvitation = async (req, res) => {
       }
     }
 
-    let message = `Đã gửi lời mời phòng thi thành công tới: ${sentTo.join(', ')}.`;
+    let message = sentTo.length > 0
+      ? `Đã gửi lời mời phòng thi thành công tới: ${sentTo.join(', ')}.`
+      : 'Không có lời mời nào được gửi.';
     if (skipped.length > 0) {
       message += ` Bỏ qua lời mời trùng lặp tới: ${skipped.join(', ')}.`;
+    }
+    if (notFound.length > 0) {
+      message += ` Không tìm thấy tài khoản với mã số/email: ${notFound.join(', ')}.`;
     }
 
     res.status(201).json({
       message,
       sentCount: sentTo.length,
-      skippedCount: skipped.length
+      skippedCount: skipped.length + notFound.length
     });
   } catch (error) {
     console.error('Lỗi gửi lời mời phòng thi:', error.message);
@@ -119,7 +140,7 @@ export const getMyInvitations = async (req, res) => {
     const invitations = await Invitation.find({
       $or: [
         { recipientId: req.user.id },
-        { recipientEmail: req.user.email.toLowerCase() }
+        ...(req.user.email ? [{ recipientEmail: req.user.email.toLowerCase() }] : [])
       ],
       status: 'pending'
     })
@@ -154,7 +175,7 @@ export const respondToInvitation = async (req, res) => {
     }
 
     const isRecipientById = invitation.recipientId && invitation.recipientId.toString() === userId;
-    const isRecipientByEmail = invitation.recipientEmail && invitation.recipientEmail.toLowerCase() === req.user.email.toLowerCase();
+    const isRecipientByEmail = !!(invitation.recipientEmail && req.user.email && invitation.recipientEmail.toLowerCase() === req.user.email.toLowerCase());
 
     if (!isRecipientById && !isRecipientByEmail) {
       return res.status(403).json({ message: 'Đồng chí không phải là người nhận thư mời này' });

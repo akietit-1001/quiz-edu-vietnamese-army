@@ -508,7 +508,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const email = emailToAdd.trim().toLowerCase();
     if (!email) return;
     if (inviteEmails.includes(email)) {
-      setInviteError('Email này đã có trong danh sách chuẩn bị mời.');
+      setInviteError('Quân nhân này đã có trong danh sách chuẩn bị mời.');
       return;
     }
     setInviteEmails([...inviteEmails, email]);
@@ -558,13 +558,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const filteredUsers = React.useMemo(() => {
-    // Mời qua email — Chiến sĩ không có email nên không thể xuất hiện ở đây.
-    const withEmail = managedUsers.filter(u => u.email);
+    // Cán bộ mời qua email, chiến sĩ (không có email) mời qua mã số quân
+    // nhân/tên đăng nhập — cần ít nhất một trong hai để có định danh mời.
+    const invitable = managedUsers.filter(u => u.email || u.username);
     return inviteEmail.trim() === ''
-      ? withEmail
-      : withEmail.filter(u =>
+      ? invitable
+      : invitable.filter(u =>
           u.fullName.toLowerCase().includes(inviteEmail.toLowerCase()) ||
-          u.email.toLowerCase().includes(inviteEmail.toLowerCase()) ||
+          (u.email && u.email.toLowerCase().includes(inviteEmail.toLowerCase())) ||
+          (u.username && u.username.toLowerCase().includes(inviteEmail.toLowerCase())) ||
           (u.rank && u.rank.toLowerCase().includes(inviteEmail.toLowerCase()))
         );
   }, [inviteEmail, managedUsers]);
@@ -1251,13 +1253,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <form onSubmit={handleSendInvite} className="space-y-4">
               <div className="relative">
                 <label className="block text-[9px] uppercase tracking-wider text-gray-500 mb-1 font-mono">
-                  Quân nhân nhận lời mời (Nhập email hoặc chọn từ danh sách)
+                  Quân nhân nhận lời mời (Nhập mã số/email hoặc chọn từ danh sách)
                 </label>
                 <div className="flex space-x-2">
                   <div className="flex-1 flex relative">
                     <input
                       type="text"
-                      placeholder="Tìm theo tên, cấp bậc hoặc nhập email..."
+                      placeholder="Tìm theo tên, cấp bậc, mã số quân nhân hoặc email..."
                       value={inviteEmail}
                       onChange={e => setInviteEmail(e.target.value)}
                       onFocus={() => setShowSuggestions(true)}
@@ -1292,7 +1294,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <div
                         key={u._id}
                         onMouseDown={() => {
-                          handleAddEmail(u.email);
+                          handleAddEmail(u.email || u.username);
                           setShowSuggestions(false);
                         }}
                         className="p-2.5 cursor-pointer hover:bg-vpa-olive/10 dark:hover:bg-vpa-gold/15 text-vpa-olive dark:text-vpa-sand border-b border-vpa-olive-light/10 last:border-none flex flex-col justify-start items-start"
@@ -1307,7 +1309,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           Chức vụ: <span className="font-semibold text-vpa-olive dark:text-vpa-sand">{u.position || 'N/A'}</span>
                         </div>
                         <div className="text-[9px] text-gray-400 font-mono mt-0.5">
-                          Email: {u.email}
+                          {u.email ? `Email: ${u.email}` : `Mã số quân nhân: ${u.username}`}
                         </div>
                       </div>
                     ))}
@@ -1322,7 +1324,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </label>
                     <div className="flex flex-wrap gap-2 p-3 bg-vpa-sand/20 dark:bg-vpa-dark/30 border border-vpa-olive-light/20 max-h-32 overflow-y-auto">
                       {inviteEmails.map(email => {
-                        const userObj = managedUsers.find(u => u.email === email);
+                        const userObj = managedUsers.find(u => u.email === email || u.username === email);
                         return (
                           <div 
                             key={email}

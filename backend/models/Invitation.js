@@ -11,9 +11,12 @@ const invitationSchema = new mongoose.Schema({
     ref: 'User',
     required: false
   },
+  // Chiến sĩ đăng ký bằng username (không có email) nên trường này không
+  // còn bắt buộc — recipientId là nguồn xác định người nhận đáng tin cậy hơn.
   recipientEmail: {
     type: String,
-    required: true,
+    required: false,
+    default: '',
     lowercase: true,
     trim: true
   },
