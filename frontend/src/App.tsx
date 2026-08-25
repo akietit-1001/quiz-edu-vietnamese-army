@@ -576,6 +576,13 @@ export const App: React.FC = () => {
     dispatch(setCurrentView('lobby'));
   };
 
+  // Đi thẳng tới trang kết quả — dùng khi phòng đã kết thúc rồi, không cần
+  // qua phòng chờ nữa (VD: bấm "Xem kết quả" từ danh sách phòng thi).
+  const handleViewResults = (roomId: string) => {
+    dispatch(startExam({ roomId, quizId: '', mode: 'exam', settings: {} }));
+    dispatch(setCurrentView('results'));
+  };
+
   const handleStartExam = (roomId: string, quizId: string, settings: any) => {
     dispatch(startExam({ roomId, quizId, mode: 'exam', settings }));
     dispatch(setCurrentView('taker'));
@@ -705,6 +712,7 @@ export const App: React.FC = () => {
                   user={user}
                   onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
                   onJoinRoom={handleJoinRoom}
+                  onViewResults={handleViewResults}
                 />
               )}
               {currentView === 'my-history' && (
@@ -721,10 +729,7 @@ export const App: React.FC = () => {
                     dispatch(setCurrentView('dashboard'));
                   }}
                   onExamStarted={handleStartExam}
-                  onNavigateToResults={(roomId) => {
-                    dispatch(startExam({ roomId, quizId: '', mode: 'exam', settings: {} }));
-                    dispatch(setCurrentView('results'));
-                  }}
+                  onNavigateToResults={handleViewResults}
                 />
               )}
               {currentView === 'taker' && activeQuizId && (

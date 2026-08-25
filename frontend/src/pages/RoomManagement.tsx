@@ -10,6 +10,7 @@ interface RoomManagementProps {
   user: any;
   onNavigateBack: () => void;
   onJoinRoom: (roomCode: string) => void;
+  onViewResults: (roomId: string) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -18,7 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
   finished: 'ĐÃ KẾT THÚC'
 };
 
-export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigateBack, onJoinRoom }) => {
+export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigateBack, onJoinRoom, onViewResults }) => {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -208,7 +209,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
                         </button>
                       )}
                       <button
-                        onClick={() => onJoinRoom(room.roomCode)}
+                        onClick={() => room.status === 'finished' ? onViewResults(room._id) : onJoinRoom(room.roomCode)}
                         className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors flex items-center space-x-1 whitespace-nowrap"
                       >
                         <MorphIcon icon={room.status === 'finished' ? EyeData : SignInData} size={12} />
