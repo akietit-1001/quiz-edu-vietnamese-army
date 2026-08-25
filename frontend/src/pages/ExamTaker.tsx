@@ -36,6 +36,7 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
   // Refs for tracking mutable states inside listeners
   const violationsRef = useRef(0);
   const isSubmittingRef = useRef(false);
+  const lastViolationAtRef = useRef(0);
 
   // 1. Fetch Quiz Data and Initialize Answers (Offline Recovery check)
   useEffect(() => {
@@ -149,26 +150,47 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({
     };
     requestFullscreen();
 
+    // Nhiều vi phạm (đổi tab, thoát fullscreen, mất focus cửa sổ) thường bắn
+    // ra gần như cùng lúc cho CÙNG 1 hành động của thí sinh (VD: Alt+Tab vừa
+    // làm mất focus cửa sổ vừa ẩn tab) — debounce để không đếm trùng thành
+    // nhiều lần vi phạm.
+    const triggerViolation = () => {
+      const now = Date.now();
+      if (now - lastViolationAtRef.current < 800) return;
+      lastViolationAtRef.current = now;
+      handleViolation();
+    };
+
     // Tab-switching detection
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        handleViolation();
+        triggerViolation();
       }
     };
 
     // Fullscreen exit detection
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        handleViolation();
+        triggerViolation();
       }
+    };
+
+    // Mất focus cửa sổ (VD: Alt+Tab / mở app khác cạnh trình duyệt, chia đôi
+    // màn hình hoặc dùng màn hình phụ) — trường hợp này visibilitychange
+    // KHÔNG kích hoạt vì tab thi vẫn đang "hiển thị" trên màn hình, chỉ là
+    // không còn focus. Đây là cách né chống gian lận phổ biến trên Edge/Chrome.
+    const handleWindowBlur = () => {
+      triggerViolation();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('blur', handleWindowBlur);
       // Exit fullscreen when finished
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(err => console.error(err));
