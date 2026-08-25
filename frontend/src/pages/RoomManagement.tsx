@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { ArrowLeft, MagnifyingGlass, Users, UserPlus, Trash, MorphIcon, EyeData, SignInData } from '../icons';
+import { ArrowLeft, MagnifyingGlass, Users, UserPlus, Trash, MorphIcon, EyeData, SignInData, Funnel } from '../icons';
 import { Select } from '../components/Select';
 import { Pagination } from '../components/Pagination';
 import { Tooltip } from '../components/Tooltip';
 import { InviteToRoomModal } from '../components/InviteToRoomModal';
+import { DatePicker } from '../components/DatePicker';
 
 interface RoomManagementProps {
   user: any;
@@ -24,8 +25,24 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'' | 'waiting' | 'active' | 'finished'>('');
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [quizFilter, setQuizFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [antiCheatFilter, setAntiCheatFilter] = useState<'' | 'true' | 'false'>('');
+  const [showResultFilter, setShowResultFilter] = useState<'' | 'true' | 'false'>('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
+
+  const advancedFilterCount = [quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter].filter(Boolean).length;
+
+  const handleClearAdvancedFilters = () => {
+    setQuizFilter('');
+    setDateFrom('');
+    setDateTo('');
+    setAntiCheatFilter('');
+    setShowResultFilter('');
+  };
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteRoomCode, setInviteRoomCode] = useState('');
@@ -48,18 +65,37 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
+
+  // Danh sách đề thi đang xuất hiện trong các phòng — dùng cho ô lọc theo đề
+  // thi, luôn khớp đúng dữ liệu hiện có thay vì gọi thêm API riêng.
+  const quizOptions = React.useMemo(() => {
+    const titles = new Set<string>();
+    rooms.forEach(r => {
+      if (r.quizId?.title) titles.add(r.quizId.title);
+    });
+    return Array.from(titles).sort((a, b) => a.localeCompare(b));
+  }, [rooms]);
 
   const filteredRooms = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    const fromDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+    const toDate = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
+
     return rooms.filter(room => {
       const matchStatus = !statusFilter || room.status === statusFilter;
       const matchTerm = term === ''
         || room.roomCode?.toLowerCase().includes(term)
         || (room.quizId?.title || '').toLowerCase().includes(term);
-      return matchStatus && matchTerm;
+      const matchQuiz = !quizFilter || room.quizId?.title === quizFilter;
+      const createdAt = room.createdAt ? new Date(room.createdAt) : null;
+      const matchDateFrom = !fromDate || (createdAt !== null && createdAt >= fromDate);
+      const matchDateTo = !toDate || (createdAt !== null && createdAt <= toDate);
+      const matchAntiCheat = !antiCheatFilter || String(!!room.settings?.antiCheatEnabled) === antiCheatFilter;
+      const matchShowResult = !showResultFilter || String(!!room.settings?.showResultImmediately) === showResultFilter;
+      return matchStatus && matchTerm && matchQuiz && matchDateFrom && matchDateTo && matchAntiCheat && matchShowResult;
     });
-  }, [rooms, searchTerm, statusFilter]);
+  }, [rooms, searchTerm, statusFilter, quizFilter, dateFrom, dateTo, antiCheatFilter, showResultFilter]);
 
   const totalPages = Math.ceil(filteredRooms.length / pageSize);
   const startIndex = (page - 1) * pageSize;
@@ -110,8 +146,8 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
 
       {/* Filter / Search Bar */}
       <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card mb-6 shadow-sm rounded-lg overflow-hidden">
-        <div className="p-4 flex flex-col gap-3 md:grid md:grid-cols-3 md:gap-4 md:items-center">
-          <div className="relative md:col-span-2">
+        <div className="p-4 flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative flex-1 min-w-0">
             <input
               type="text"
               placeholder="Tìm theo mã phòng hoặc tên đề thi..."
@@ -125,13 +161,96 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
           <Select
             value={statusFilter}
             onChange={v => setStatusFilter(v as typeof statusFilter)}
-            className="w-full text-xs p-2.5 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
+            className="w-full md:w-56 shrink-0 text-xs p-2.5 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold rounded-lg flex items-center justify-between gap-2"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="waiting">Đang chờ thi</option>
             <option value="active">Đang thi</option>
             <option value="finished">Đã kết thúc</option>
           </Select>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilter(prev => !prev)}
+            className={`shrink-0 flex items-center space-x-1.5 px-2.5 py-2 border text-xs font-bold uppercase tracking-wider transition-colors justify-center rounded-lg ${
+              showAdvancedFilter || advancedFilterCount > 0
+                ? 'bg-vpa-olive text-white border-transparent dark:bg-vpa-gold dark:text-vpa-dark'
+                : 'border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+            }`}
+          >
+            <Funnel size={14} />
+            <span>Bộ lọc nâng cao</span>
+            {advancedFilterCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-vpa-red text-white text-[9px] flex items-center justify-center font-mono">
+                {advancedFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Advanced filter panel — trượt xuống thay vì popup */}
+        <div className={`grid transition-all duration-300 ease-in-out ${showAdvancedFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+          <div className="overflow-hidden">
+            <div className="p-4 border-t border-vpa-olive-light/30 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đề thi</label>
+                <Select
+                  value={quizFilter}
+                  onChange={setQuizFilter}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
+                >
+                  <option value="">Tất cả</option>
+                  {quizOptions.map(title => (
+                    <option key={title} value={title}>{title}</option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Chống gian lận</label>
+                <Select
+                  value={antiCheatFilter}
+                  onChange={v => setAntiCheatFilter(v as typeof antiCheatFilter)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
+                >
+                  <option value="">Tất cả</option>
+                  <option value="true">Đang kích hoạt</option>
+                  <option value="false">Tắt</option>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Xem kết quả ngay</label>
+                <Select
+                  value={showResultFilter}
+                  onChange={v => setShowResultFilter(v as typeof showResultFilter)}
+                  className="w-full text-xs p-2 bg-transparent border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand focus:outline-none focus:border-vpa-gold font-mono rounded-lg flex items-center justify-between gap-2"
+                >
+                  <option value="">Tất cả</option>
+                  <option value="true">Đang kích hoạt</option>
+                  <option value="false">Tắt</option>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Từ ngày</label>
+                  <DatePicker value={dateFrom} onChange={setDateFrom} />
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Đến ngày</label>
+                  <DatePicker value={dateTo} onChange={setDateTo} />
+                </div>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleClearAdvancedFilters}
+                  disabled={advancedFilterCount === 0}
+                  className="text-[10px] uppercase tracking-wider font-bold text-vpa-red hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  Xóa bộ lọc nâng cao
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
