@@ -13,6 +13,8 @@ interface DatePickerProps {
 }
 
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+const MONTH_LABELS = ['Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'];
+const YEAR_GRID_SIZE = 12; // 4 cột x 3 hàng, cùng khung với lưới tháng
 
 const parseISO = (iso: string) => {
   if (!iso) return null;
@@ -71,6 +73,11 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const [viewMonth, setViewMonth] = useState((selected?.m ?? today.getMonth() + 1) - 1); // 0-based
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left');
   const [animKey, setAnimKey] = useState(0);
+  // 'days' = lưới ngày (mặc định) — bấm vào nhãn "Tháng X"/năm trên header
+  // chuyển sang lưới chọn nhanh tháng/năm thay vì phải bấm mũi tên từng bước.
+  const [viewMode, setViewMode] = useState<'days' | 'months' | 'years'>('days');
+  // Mốc đầu của khối 12 năm đang hiện trong lưới chọn năm.
+  const [yearRangeStart, setYearRangeStart] = useState(() => Math.floor(viewYear / YEAR_GRID_SIZE) * YEAR_GRID_SIZE);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -133,7 +140,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     if (left < 8) left = 8;
 
     setPos({ top, left });
-  }, [isOpen]); // chỉ chạy khi mở/đóng, không chạy lại khi đổi tháng
+  }, [isOpen, viewMode]); // viewMode: lưới tháng/năm cao khác lưới ngày, cần tính lại
 
   // Gắn wheel listener non-passive trực tiếp qua ref — React synthetic onWheel
   // là passive mặc định nên preventDefault() không ngăn được trang cuộn. Dùng
@@ -167,6 +174,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       setViewYear(selected.y);
       setViewMonth(selected.m - 1);
     }
+    setViewMode('days');
     const rect = inputRef.current?.getBoundingClientRect();
     if (rect) {
       inputRectRef.current = rect;
@@ -217,6 +225,26 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     onChange(toISO(viewYear, viewMonth + 1, day));
     setIsOpen(false);
   };
+
+  // Chọn nhanh tháng/năm — bấm nhãn "Tháng X" hoặc năm trên header mở lưới
+  // tương ứng thay vì phải bấm mũi tên từng bước một.
+  const openMonthPicker = () => setViewMode('months');
+  const openYearPicker = () => {
+    setYearRangeStart(Math.floor(viewYear / YEAR_GRID_SIZE) * YEAR_GRID_SIZE);
+    setViewMode('years');
+  };
+  const handlePickMonth = (monthIdx: number) => {
+    setViewMonth(monthIdx);
+    setViewMode('days');
+  };
+  const handlePickYear = (year: number) => {
+    setViewYear(year);
+    setViewMode('months');
+  };
+  const goToPrevYear = () => setViewYear(viewYear - 1);
+  const goToNextYear = () => setViewYear(viewYear + 1);
+  const goToPrevYearRange = () => setYearRangeStart(yearRangeStart - YEAR_GRID_SIZE);
+  const goToNextYearRange = () => setYearRangeStart(yearRangeStart + YEAR_GRID_SIZE);
   const handlePickToday = () => {
     onChange(toISO(today.getFullYear(), today.getMonth() + 1, today.getDate()));
     setViewYear(today.getFullYear());
@@ -277,63 +305,180 @@ export const DatePicker: React.FC<DatePickerProps> = ({
             className="fixed z-[100] w-64 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-lg rounded-lg p-3 animate-scale-up"
             style={{ top: pos.top, left: pos.left }}
           >
-            {/* Header tháng/năm */}
-            <div className="flex items-center justify-between mb-2">
-              <button
-                type="button"
-                onClick={goToPrevMonth}
-                className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
-              >
-                <CaretLeft size={12} weight="bold" />
-              </button>
-              <span className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono select-none">
-                Tháng {viewMonth + 1}, {viewYear}
-              </span>
-              <button
-                type="button"
-                onClick={goToNextMonth}
-                className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
-              >
-                <CaretRight size={12} weight="bold" />
-              </button>
-            </div>
+            {viewMode === 'days' && (
+              <>
+                {/* Header tháng/năm — bấm nhãn tháng hoặc năm để mở lưới chọn nhanh */}
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    type="button"
+                    onClick={goToPrevMonth}
+                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                  >
+                    <CaretLeft size={12} weight="bold" />
+                  </button>
+                  <span className="flex items-center gap-1 select-none">
+                    <button
+                      type="button"
+                      onClick={openMonthPicker}
+                      className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono hover:text-vpa-gold dark:hover:text-vpa-gold-bright px-1 rounded transition-colors"
+                    >
+                      Tháng {viewMonth + 1}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openYearPicker}
+                      className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono hover:text-vpa-gold dark:hover:text-vpa-gold-bright px-1 rounded transition-colors"
+                    >
+                      {viewYear}
+                    </button>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={goToNextMonth}
+                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                  >
+                    <CaretRight size={12} weight="bold" />
+                  </button>
+                </div>
 
-            {/* Tiêu đề thứ — tĩnh, không animate */}
-            <div className="grid grid-cols-7 gap-0.5 mb-1">
-              {WEEKDAYS.map(wd => (
-                <span key={wd} className="text-[9px] text-center text-gray-400 uppercase font-mono py-1 select-none">
-                  {wd}
-                </span>
-              ))}
-            </div>
+                {/* Tiêu đề thứ — tĩnh, không animate */}
+                <div className="grid grid-cols-7 gap-0.5 mb-1">
+                  {WEEKDAYS.map(wd => (
+                    <span key={wd} className="text-[9px] text-center text-gray-400 uppercase font-mono py-1 select-none">
+                      {wd}
+                    </span>
+                  ))}
+                </div>
 
-            {/* Lưới ngày — trượt theo hướng khi đổi tháng.
-                key={animKey} ép React unmount/mount lại khối này mỗi lần đổi
-                tháng, kích hoạt lại CSS animation từ đầu. */}
-            <div
-              key={animKey}
-              className={`grid grid-cols-7 gap-0.5 overflow-hidden ${slideDir === 'left' ? 'dp-slide-left' : 'dp-slide-right'}`}
-            >
-              {cells.map((day, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  disabled={day === null}
-                  onClick={() => day !== null && handlePickDay(day)}
-                  className={`text-[11px] aspect-square flex items-center justify-center transition-colors rounded-lg ${
-                    day === null
-                      ? 'invisible'
-                      : isSelected(day)
-                      ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
-                      : isToday(day)
-                      ? 'bg-vpa-gold dark:bg-vpa-gold-bright text-vpa-dark font-bold'
-                      : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
-                  }`}
+                {/* Lưới ngày — trượt theo hướng khi đổi tháng.
+                    key={animKey} ép React unmount/mount lại khối này mỗi lần đổi
+                    tháng, kích hoạt lại CSS animation từ đầu. */}
+                <div
+                  key={animKey}
+                  className={`grid grid-cols-7 gap-0.5 overflow-hidden ${slideDir === 'left' ? 'dp-slide-left' : 'dp-slide-right'}`}
                 >
-                  {day}
-                </button>
-              ))}
-            </div>
+                  {cells.map((day, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      disabled={day === null}
+                      onClick={() => day !== null && handlePickDay(day)}
+                      className={`text-[11px] aspect-square flex items-center justify-center transition-colors rounded-lg ${
+                        day === null
+                          ? 'invisible'
+                          : isSelected(day)
+                          ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
+                          : isToday(day)
+                          ? 'bg-vpa-gold dark:bg-vpa-gold-bright text-vpa-dark font-bold'
+                          : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {viewMode === 'months' && (
+              <>
+                {/* Header năm — chọn tháng cho năm đang hiện, đổi năm bằng mũi tên */}
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    type="button"
+                    onClick={goToPrevYear}
+                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                  >
+                    <CaretLeft size={12} weight="bold" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openYearPicker}
+                    className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono hover:text-vpa-gold dark:hover:text-vpa-gold-bright px-1 rounded transition-colors select-none"
+                  >
+                    {viewYear}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToNextYear}
+                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                  >
+                    <CaretRight size={12} weight="bold" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
+                  {MONTH_LABELS.map((label, idx) => {
+                    const isCurrentMonth = idx === today.getMonth() && viewYear === today.getFullYear();
+                    const isChosenMonth = idx === viewMonth;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => handlePickMonth(idx)}
+                        className={`text-[11px] py-2.5 flex items-center justify-center transition-colors rounded-lg ${
+                          isChosenMonth
+                            ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
+                            : isCurrentMonth
+                            ? 'bg-vpa-gold/30 dark:bg-vpa-gold-bright/20 text-vpa-olive dark:text-vpa-sand font-bold'
+                            : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {viewMode === 'years' && (
+              <>
+                {/* Header khối 12 năm — chọn năm rồi tự chuyển sang lưới tháng */}
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    type="button"
+                    onClick={goToPrevYearRange}
+                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                  >
+                    <CaretLeft size={12} weight="bold" />
+                  </button>
+                  <span className="text-[11px] font-bold uppercase text-vpa-olive dark:text-vpa-sand font-mono select-none">
+                    {yearRangeStart} - {yearRangeStart + YEAR_GRID_SIZE - 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={goToNextYearRange}
+                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 rounded-lg transition-colors"
+                  >
+                    <CaretRight size={12} weight="bold" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
+                  {Array.from({ length: YEAR_GRID_SIZE }, (_, i) => yearRangeStart + i).map(year => {
+                    const isCurrentYear = year === today.getFullYear();
+                    const isChosenYear = year === viewYear;
+                    return (
+                      <button
+                        key={year}
+                        type="button"
+                        onClick={() => handlePickYear(year)}
+                        className={`text-[11px] py-2.5 flex items-center justify-center transition-colors rounded-lg ${
+                          isChosenYear
+                            ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark font-bold'
+                            : isCurrentYear
+                            ? 'bg-vpa-gold/30 dark:bg-vpa-gold-bright/20 text-vpa-olive dark:text-vpa-sand font-bold'
+                            : 'text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10'
+                        }`}
+                      >
+                        {year}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             {/* Footer */}
             <div className="flex justify-between mt-3 pt-2 border-t border-vpa-olive-light/20">
