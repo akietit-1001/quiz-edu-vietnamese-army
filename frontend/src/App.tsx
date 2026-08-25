@@ -611,7 +611,7 @@ export const App: React.FC = () => {
       await window.showAlert(
         canShowResult
           ? `Nộp bài thành công! Điểm của đồng chí: ${attempt.score}/${attempt.totalQuestions} (${attempt.rank})`
-          : 'Nộp bài thành công! Giám thị đã tắt xem kết quả ngay — kết quả sẽ được thông báo sau.',
+          : 'Nộp bài thành công! Kết quả sẽ được thông báo sau.',
         'Thông báo kết quả'
       );
     }
