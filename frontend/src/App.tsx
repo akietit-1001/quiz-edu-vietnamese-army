@@ -46,6 +46,10 @@ const POSITIONS = ['Chiến sĩ', 'Tiểu đội trưởng', 'Trung đội phó'
 export const App: React.FC = () => {
   const dispatch = useAppDispatch();
   const [checkingAuth, setCheckingAuth] = useState(true);
+  // Trang "results" có thể được mở từ Dashboard (kết thúc thi trong lobby)
+  // hoặc từ trang Quản lý phòng thi (bấm "Xem kết quả" trực tiếp) — ghi nhớ
+  // để nút Back trên trang kết quả quay về đúng nơi đã mở nó.
+  const [resultsReturnView, setResultsReturnView] = useState<'dashboard' | 'room-mgmt'>('dashboard');
 
   // Select states from Redux
   const { user, token } = useAppSelector((state) => state.auth);
@@ -578,8 +582,9 @@ export const App: React.FC = () => {
 
   // Đi thẳng tới trang kết quả — dùng khi phòng đã kết thúc rồi, không cần
   // qua phòng chờ nữa (VD: bấm "Xem kết quả" từ danh sách phòng thi).
-  const handleViewResults = (roomId: string) => {
+  const handleViewResults = (roomId: string, returnView: 'dashboard' | 'room-mgmt' = 'dashboard') => {
     dispatch(startExam({ roomId, quizId: '', mode: 'exam', settings: {} }));
+    setResultsReturnView(returnView);
     dispatch(setCurrentView('results'));
   };
 
@@ -712,7 +717,7 @@ export const App: React.FC = () => {
                   user={user}
                   onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
                   onJoinRoom={handleJoinRoom}
-                  onViewResults={handleViewResults}
+                  onViewResults={(roomId) => handleViewResults(roomId, 'room-mgmt')}
                 />
               )}
               {currentView === 'my-history' && (
@@ -744,12 +749,12 @@ export const App: React.FC = () => {
                 />
               )}
               {currentView === 'results' && activeRoomId && (
-                <RoomResults 
+                <RoomResults
                   user={user}
                   roomId={activeRoomId}
                   onNavigateBack={() => {
                     dispatch(clearExam());
-                    dispatch(setCurrentView('dashboard'));
+                    dispatch(setCurrentView(resultsReturnView));
                   }}
                 />
               )}
