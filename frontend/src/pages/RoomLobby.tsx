@@ -3,6 +3,8 @@ import { io, Socket } from 'socket.io-client';
 import { Play, Users, ShieldCheck, ArrowLeftIcon, WarningIcon, Check, X, PencilSimple, Trash, UserPlus } from '../icons';
 import axios from 'axios';
 import { InviteToRoomModal } from '../components/InviteToRoomModal';
+import { NumberStepper } from '../components/NumberStepper';
+import { useSubviewBack } from '../hooks/useSubviewBack';
 
 interface RoomLobbyProps {
   user: any;
@@ -32,6 +34,12 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
   const [userRoomRole, setUserRoomRole] = useState('examinee');
   const [isEditingDuration, setIsEditingDuration] = useState(false);
   const [newDuration, setNewDuration] = useState<number | string>('');
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [editAntiCheat, setEditAntiCheat] = useState(true);
+  const [editShowResult, setEditShowResult] = useState(true);
+  const [editMaxParticipants, setEditMaxParticipants] = useState(0);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
   const userRoomRoleRef = React.useRef(userRoomRole);
   // Đảm bảo chỉ điều hướng sang màn hình làm bài đúng 1 lần — dùng chung
   // giữa sự kiện socket 'examStarted' (thi bắt đầu khi đang ở trong phòng
@@ -299,6 +307,34 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
     }
   };
 
+  const handleOpenSettings = () => {
+    setEditAntiCheat(!!roomSettings.antiCheatEnabled);
+    setEditShowResult(!!roomSettings.showResultImmediately);
+    setEditMaxParticipants(roomSettings.maxParticipants || 0);
+    setSettingsError('');
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true);
+    setSettingsError('');
+    try {
+      await axios.put(`/api/rooms/${roomId}/settings`, {
+        antiCheatEnabled: editAntiCheat,
+        showResultImmediately: editShowResult,
+        maxParticipants: editMaxParticipants
+      });
+      setShowSettingsModal(false);
+      fetchRoomDetails();
+    } catch (err: any) {
+      setSettingsError(err.response?.data?.message || 'Lỗi khi cập nhật cài đặt phòng thi.');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  useSubviewBack(showSettingsModal, () => setShowSettingsModal(false));
+
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
@@ -410,10 +446,21 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
             
             {/* Room Info */}
             <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand mb-4 pb-2 border-b border-vpa-olive-light/20">
-                Thông tin phòng thi
-              </h3>
-              
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-vpa-olive-light/20">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-vpa-olive dark:text-vpa-sand">
+                  Thông tin phòng thi
+                </h3>
+                {isHost && roomStatus === 'waiting' && (
+                  <button
+                    onClick={handleOpenSettings}
+                    className="p-1 text-vpa-olive dark:text-vpa-sand hover:text-vpa-gold border border-vpa-olive-light/30 hover:border-vpa-gold rounded-lg inline-flex items-center"
+                    title="Chỉnh sửa cài đặt phòng thi"
+                  >
+                    <PencilSimple size={12} />
+                  </button>
+                )}
+              </div>
+
               <ul className="space-y-3 text-xs text-gray-700 dark:text-gray-300">
                 <li><span className="font-semibold text-gray-500">Chỉ huy phòng:</span>  {hostDetails?.rank} {hostDetails?.fullName} </li>
                 <li><span className="font-semibold text-gray-500">Đơn vị host:</span> {hostDetails?.unitId?.name}</li>
@@ -660,6 +707,94 @@ export const RoomLobby: React.FC<RoomLobbyProps> = ({
           user={user}
           onClose={() => setShowInviteModal(false)}
         />
+      )}
+
+      {/* SETTINGS MODAL */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg relative">
+            <button
+              onClick={() => setShowSettingsModal(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center space-x-2 border-b border-vpa-olive-light pb-3 mb-4">
+              <PencilSimple size={18} className="text-vpa-olive dark:text-vpa-sand" />
+              <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand">
+                Cài đặt phòng thi {roomCode}
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="editMaxParticipants" className="block text-[9px] uppercase tracking-wider font-bold text-gray-500">
+                  Tham gia tối đa (chỉ tính thí sinh, 0 = không giới hạn)
+                </label>
+                <NumberStepper
+                  id="editMaxParticipants"
+                  value={editMaxParticipants}
+                  onChange={setEditMaxParticipants}
+                  min={0}
+                  className="flex items-stretch w-40 border border-vpa-olive-light bg-transparent focus-within:border-vpa-gold rounded-lg overflow-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <label htmlFor="editAntiCheat" className="flex items-center space-x-2 p-2 border border-vpa-olive-light/20 cursor-pointer select-none hover:border-vpa-olive-light/50 transition-colors rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="editAntiCheat"
+                    checked={editAntiCheat}
+                    onChange={e => setEditAntiCheat(e.target.checked)}
+                    className="w-4 h-4 flex-shrink-0 border-vpa-olive-light accent-vpa-olive"
+                  />
+                  <span className="text-[11px] text-vpa-olive dark:text-vpa-sand font-semibold leading-tight">
+                    Chống gian lận (khóa màn hình)
+                  </span>
+                </label>
+
+                <label htmlFor="editShowResult" className="flex items-center space-x-2 p-2 border border-vpa-olive-light/20 cursor-pointer select-none hover:border-vpa-olive-light/50 transition-colors rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="editShowResult"
+                    checked={editShowResult}
+                    onChange={e => setEditShowResult(e.target.checked)}
+                    className="w-4 h-4 flex-shrink-0 border-vpa-olive-light accent-vpa-olive"
+                  />
+                  <span className="text-[11px] text-vpa-olive dark:text-vpa-sand font-semibold leading-tight">
+                    Hiện điểm ngay khi nộp bài
+                  </span>
+                </label>
+              </div>
+
+              {settingsError && (
+                <p className="text-vpa-red text-[10px] font-bold uppercase tracking-wider bg-vpa-red/10 p-2 border border-vpa-red/20">
+                  {settingsError}
+                </p>
+              )}
+
+              <div className="flex space-x-3 pt-4 border-t border-vpa-olive-light/20">
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="w-1/2 py-2 border border-vpa-olive-light text-xs uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-sand dark:hover:text-vpa-dark transition-colors rounded-lg"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveSettings}
+                  disabled={settingsSaving}
+                  className="w-1/2 py-2 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-xs uppercase font-bold disabled:opacity-50 transition-colors rounded-lg"
+                >
+                  {settingsSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
