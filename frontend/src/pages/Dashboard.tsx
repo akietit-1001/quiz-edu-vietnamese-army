@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { getAppSocket } from '../utils/socket';
-import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, UserPlus, Check, X, Users, MorphIcon, EyeData, SignInData } from '../icons';
+import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, Check, X } from '../icons';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { NumberStepper } from '../components/NumberStepper';
 import { Tooltip } from '../components/Tooltip';
 import { AdminStatsPanel } from '../components/AdminStatsPanel';
-import { InviteToRoomModal } from '../components/InviteToRoomModal';
 
 const CATEGORIES = ['Chính trị', 'Quân sự', 'Truyền thống quân đội', 'Hậu cần - Kỹ thuật', 'Điều lệnh', 'Khác'];
 
@@ -111,6 +110,7 @@ interface DashboardProps {
   onJoinRoom: (roomCode: string) => void;
   onNavigateToQuizMgmt: () => void;
   onNavigateToUserMgmt: () => void;
+  onNavigateToRoomMgmt: () => void;
   onStartPractice: (quizId: string, mode: 'practice' | 'mock') => void;
 }
 
@@ -120,6 +120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onJoinRoom,
   onNavigateToQuizMgmt,
   onNavigateToUserMgmt,
+  onNavigateToRoomMgmt,
   onStartPractice
 }) => {
   // `quizzes`: danh sách đầy đủ (không phân trang) — chỉ tải khi mở modal
@@ -192,12 +193,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
   }, [quizzes, selectedCategoryFilter, searchQuizQuery]);
 
-  // Invitations & Rooms state
+  // Invitations state
   const [invitations, setInvitations] = useState<any[]>([]);
-  const [myRooms, setMyRooms] = useState<any[]>([]);
-  const [myRoomsTab, setMyRoomsTab] = useState<'active' | 'finished'>('active');
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteRoomCode, setInviteRoomCode] = useState('');
 
   const fetchInvitations = async () => {
     try {
@@ -208,28 +205,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const fetchMyRooms = async () => {
-    if (user?.role === 'admin' || user?.role === 'master-admin') {
-      try {
-        const response = await axios.get('/api/rooms');
-        setMyRooms(response.data);
-      } catch (err) {
-        console.error('Lỗi lấy danh sách phòng thi:', err);
-      }
-    }
-  };
-
-  // Tách phòng đã kết thúc ra khỏi danh sách chính — phòng thi tích lũy theo
-  // thời gian nên để chung sẽ nhanh chóng làm loãng những phòng đang thi/chờ
-  // thi thực sự cần theo dõi.
-  const activeMyRooms = React.useMemo(() => myRooms.filter(r => r.status !== 'finished'), [myRooms]);
-  const finishedMyRooms = React.useMemo(() => myRooms.filter(r => r.status === 'finished'), [myRooms]);
-  const visibleMyRooms = myRoomsTab === 'active' ? activeMyRooms : finishedMyRooms;
-
   useEffect(() => {
     fetchPracticeQuizzes(1);
     fetchInvitations();
-    fetchMyRooms();
   }, [user]);
 
   useEffect(() => {
@@ -315,14 +293,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     socket.emit('registerUser', user.id);
 
     const handleNewInvitation = () => fetchInvitations();
-    const handleRoomParticipantsChanged = () => fetchMyRooms();
 
     socket.on('newInvitation', handleNewInvitation);
-    socket.on('roomParticipantsChanged', handleRoomParticipantsChanged);
 
     return () => {
       socket.off('newInvitation', handleNewInvitation);
-      socket.off('roomParticipantsChanged', handleRoomParticipantsChanged);
     };
   }, [user]);
 
@@ -454,7 +429,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setSearchQuizQuery('');
       setSelectedCategoryFilter('');
       setMaxParticipants(0);
-      await fetchMyRooms();
       onJoinRoom(response.data.room.roomCode);
     } catch (err: any) {
       await window.showAlert(err.response?.data?.message || 'Lỗi tạo phòng thi.', 'Lỗi tạo phòng');
@@ -480,11 +454,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     } catch (err: any) {
       await window.showAlert(err.response?.data?.message || 'Lỗi từ chối lời mời.', 'Lỗi phản hồi');
     }
-  };
-
-  const handleOpenInvite = (roomCode: string) => {
-    setInviteRoomCode(roomCode);
-    setShowInviteModal(true);
   };
 
   // Cho phép nút Back trình duyệt đóng từng modal thay vì thoát thẳng ra
@@ -708,6 +677,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       Tạo phòng thi mới
                     </button>
                     <button
+                      onClick={onNavigateToRoomMgmt}
+                      className="w-full py-2 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand text-xs uppercase tracking-wider font-bold hover:bg-vpa-olive-light/10 transition-colors text-center"
+                    >
+                      Quản lý phòng thi
+                    </button>
+                    <button
                       onClick={onNavigateToQuizMgmt}
                       className="w-full py-2 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand text-xs uppercase tracking-wider font-bold hover:bg-vpa-olive-light/10 transition-colors text-center"
                     >
@@ -731,106 +706,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Right Side */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Created Exam Rooms (Host only) */}
-          {(user?.role === 'admin' || user?.role === 'master-admin') && (
-            <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg animate-fadeIn">
-              <div className="flex justify-between items-center mb-4 pb-2 border-b border-vpa-olive-light/30">
-                <h3 className="text-sm font-bold text-vpa-olive dark:text-vpa-sand uppercase tracking-wider flex items-center space-x-2 font-semibold">
-                  <Users size={20} className="text-vpa-olive dark:text-vpa-gold-bright" />
-                  <span>Danh sách phòng thi đã tạo</span>
-                </h3>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 border border-vpa-olive-light/40 text-gray-500">
-                  {myRooms.length} Phòng thi
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-1 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setMyRoomsTab('active')}
-                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors border-b-2 ${
-                    myRoomsTab === 'active'
-                      ? 'border-vpa-gold text-vpa-olive dark:text-vpa-sand'
-                      : 'border-transparent text-gray-400 hover:text-vpa-olive dark:hover:text-vpa-sand'
-                  }`}
-                >
-                  Đang hoạt động ({activeMyRooms.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMyRoomsTab('finished')}
-                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors border-b-2 ${
-                    myRoomsTab === 'finished'
-                      ? 'border-vpa-gold text-vpa-olive dark:text-vpa-sand'
-                      : 'border-transparent text-gray-400 hover:text-vpa-olive dark:hover:text-vpa-sand'
-                  }`}
-                >
-                  Đã kết thúc ({finishedMyRooms.length})
-                </button>
-              </div>
-
-              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                {visibleMyRooms.map(room => (
-                  <div
-                    key={room._id}
-                    className="border border-vpa-olive-light/30 bg-vpa-sand/50 dark:bg-vpa-dark/20 p-4 transition-all hover:border-vpa-gold flex flex-col md:flex-row md:items-center justify-between"
-                  >
-                    <div className="min-w-0 flex-1 mr-4">
-                      <div className="flex items-center space-x-2 mb-1.5">
-                        <span className="text-xs font-mono font-bold tracking-wider text-white bg-vpa-olive dark:bg-vpa-gold dark:text-vpa-dark px-2 py-0.5">
-                          {room.roomCode}
-                        </span>
-                        <span className={`text-[8px] font-mono px-2 py-0.5 border ${
-                          room.status === 'active' 
-                            ? 'border-yellow-500 bg-yellow-500/10 text-yellow-600'
-                            : room.status === 'finished'
-                            ? 'border-red-500 bg-red-500/10 text-red-600 font-bold'
-                            : 'border-vpa-olive-light text-gray-500 bg-vpa-olive/5'
-                        }`}>
-                          {room.status === 'waiting' ? 'ĐANG CHỜ THI' : room.status === 'active' ? 'ĐANG THI' : 'ĐÃ KẾT THÚC'}
-                        </span>
-                      </div>
-                      <Tooltip content={room.quizId?.title || 'Đề thi trắc nghiệm'} className="block">
-                        <h4 className="text-xs font-bold uppercase text-vpa-olive dark:text-vpa-sand mb-0.5 truncate">
-                          Đề: {room.quizId?.title || 'Đề thi trắc nghiệm'}
-                        </h4>
-                      </Tooltip>
-                      <p className="text-[10px] text-gray-500 font-mono">
-                        Thời gian: {room.quizId?.duration || 45} phút | Quân số tham gia: {room.participants?.filter((p: any) => p.status !== 'left').length || 0}
-                      </p>
-                    </div>
-
-                    <div className="flex space-x-2 mt-3 md:mt-0 flex-shrink-0">
-                      {room.status !== 'finished' && (
-                        <button
-                          onClick={() => handleOpenInvite(room.roomCode)}
-                          className="px-3 py-1.5 border border-vpa-olive-light/60 hover:border-vpa-gold text-vpa-olive dark:text-vpa-sand text-[10px] uppercase font-bold tracking-wider transition-colors flex items-center space-x-1 whitespace-nowrap flex-shrink-0"
-                        >
-                          <UserPlus size={12} />
-                          <span>Mời quân nhân</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onJoinRoom(room.roomCode)}
-                        className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark text-[10px] uppercase font-bold tracking-wider hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright transition-colors flex items-center space-x-1 whitespace-nowrap flex-shrink-0"
-                      >
-                        <MorphIcon icon={room.status === 'finished' ? EyeData : SignInData} size={12} />
-                        <span>{room.status === 'finished' ? 'Xem kết quả' : 'Vào phòng'}</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {visibleMyRooms.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 border border-dashed border-vpa-olive-light/25">
-                    <p className="text-xs uppercase tracking-wider font-mono">
-                      {myRoomsTab === 'active' ? 'Chưa khởi tạo phòng thi nào' : 'Chưa có phòng thi nào kết thúc'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Quiz List */}
           <div className="border border-vpa-olive-light/50 bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-md rounded-lg">
             <div className="flex justify-between items-center mb-6 pb-2 border-b border-vpa-olive-light/30">
@@ -1173,13 +1048,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       )}
-
-      <InviteToRoomModal
-        isOpen={showInviteModal}
-        roomCode={inviteRoomCode}
-        user={user}
-        onClose={() => setShowInviteModal(false)}
-      />
 
     </div>
   );

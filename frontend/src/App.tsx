@@ -23,6 +23,7 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const QuizManagement = lazy(() => import('./pages/QuizManagement'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const RoomManagement = lazy(() => import('./pages/RoomManagement'));
 const MyHistory = lazy(() => import('./pages/MyHistory'));
 const RoomLobby = lazy(() => import('./pages/RoomLobby'));
 const ExamTaker = lazy(() => import('./pages/ExamTaker'));
@@ -278,6 +279,8 @@ export const App: React.FC = () => {
               dispatch(setCurrentView('quiz-mgmt'));
             } else if (path === '/user-mgmt') {
               dispatch(setCurrentView('user-mgmt'));
+            } else if (path === '/room-mgmt') {
+              dispatch(setCurrentView('room-mgmt'));
             } else if (path === '/my-history') {
               dispatch(setCurrentView('my-history'));
             } else if (path === '/lobby') {
@@ -333,6 +336,9 @@ export const App: React.FC = () => {
       case 'user-mgmt':
         path = '/user-mgmt';
         break;
+      case 'room-mgmt':
+        path = '/room-mgmt';
+        break;
       case 'my-history':
         path = '/my-history';
         break;
@@ -358,13 +364,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
-      let view: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results' = 'dashboard';
+      let view: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'room-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results' = 'dashboard';
 
       if (path === '/login') view = 'login';
       else if (path === '/register') view = 'register';
       else if (path === '/forgot-password') view = 'forgot-password';
       else if (path === '/quiz-mgmt') view = 'quiz-mgmt';
       else if (path === '/user-mgmt') view = 'user-mgmt';
+      else if (path === '/room-mgmt') view = 'room-mgmt';
       else if (path === '/my-history') view = 'my-history';
       else if (path === '/lobby') view = 'lobby';
       else if (path === '/taker') view = 'taker';
@@ -676,6 +683,7 @@ export const App: React.FC = () => {
                   onJoinRoom={handleJoinRoom}
                   onNavigateToQuizMgmt={() => dispatch(setCurrentView('quiz-mgmt'))}
                   onNavigateToUserMgmt={() => dispatch(setCurrentView('user-mgmt'))}
+                  onNavigateToRoomMgmt={() => dispatch(setCurrentView('room-mgmt'))}
                   onStartPractice={handleStartPractice}
                 />
               )}
@@ -690,6 +698,13 @@ export const App: React.FC = () => {
                 <UserManagement
                   user={user}
                   onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
+                />
+              )}
+              {currentView === 'room-mgmt' && (
+                <RoomManagement
+                  user={user}
+                  onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
+                  onJoinRoom={handleJoinRoom}
                 />
               )}
               {currentView === 'my-history' && (
