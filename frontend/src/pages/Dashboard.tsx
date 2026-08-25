@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { getAppSocket } from '../utils/socket';
-import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, Check, X } from '../icons';
+import { Play, ClipboardText, Plus, ShieldCheck, ShieldWarning, BookOpen, Check, X, MagnifyingGlass } from '../icons';
 import { useSubviewBack } from '../hooks/useSubviewBack';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { NumberStepper } from '../components/NumberStepper';
 import { Tooltip } from '../components/Tooltip';
 import { AdminStatsPanel } from '../components/AdminStatsPanel';
@@ -138,6 +139,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [practiceTotalCount, setPracticeTotalCount] = useState(0);
   const PRACTICE_PAGE_SIZE = 6;
 
+  // Tìm/lọc riêng cho lưới "Ôn luyện" — nhiều đề thi để chung sẽ rất khó tìm
+  // nếu chỉ có nút "Xem thêm" cuộn dần; lọc thẳng trên server qua cùng API
+  // /api/quizzes đã hỗ trợ sẵn search/category thay vì chỉ lọc phía client
+  // (client chỉ đang có tối đa 1 trang đã tải, không đủ để lọc đúng).
+  const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
+  const [practiceCategoryFilter, setPracticeCategoryFilter] = useState('');
+  const debouncedPracticeSearchQuery = useDebouncedValue(practiceSearchQuery, 350);
+
   const [quizSkeletonCount] = useState(getInitialQuizSkeletonCount);
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
@@ -206,9 +215,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   useEffect(() => {
-    fetchPracticeQuizzes(1);
     fetchInvitations();
   }, [user]);
+
+  // Tải lại từ trang 1 (thay thế danh sách, không nối thêm) mỗi khi từ khoá
+  // tìm/kiếm hoặc chuyên mục lọc đổi — kể cả lần đầu mount.
+  useEffect(() => {
+    fetchPracticeQuizzes(1);
+  }, [user, debouncedPracticeSearchQuery, practiceCategoryFilter]);
 
   useEffect(() => {
     const cached = localStorage.getItem('pending-submissions');
@@ -321,13 +335,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
       // includeVariants=true: cần cả đề gốc lẫn các mã đề biến thể để nhóm lại
       // theo tab mã đề trên từng thẻ ôn luyện.
       const response = await axios.get('/api/quizzes', {
-        params: { includeVariants: 'true', page, limit: PRACTICE_PAGE_SIZE }
+        params: {
+          includeVariants: 'true',
+          page,
+          limit: PRACTICE_PAGE_SIZE,
+          search: debouncedPracticeSearchQuery || undefined,
+          category: practiceCategoryFilter || undefined
+        }
       });
       setPracticeQuizzes(prev => (page === 1 ? response.data.quizzes : [...prev, ...response.data.quizzes]));
       setPracticePage(response.data.currentPage);
       setPracticeTotalPages(response.data.totalPages);
       setPracticeTotalCount(response.data.totalCount);
-      if (response.data.totalCount > 0) {
+      // Chỉ lưu cache số skeleton khi KHÔNG lọc — nếu không, lần tìm kiếm ra
+      // kết quả ít sẽ làm sai số dòng skeleton cho lần mở trang tiếp theo.
+      if (response.data.totalCount > 0 && !debouncedPracticeSearchQuery && !practiceCategoryFilter) {
         localStorage.setItem(QUIZ_SKELETON_CACHE_KEY, String(response.data.totalCount));
       }
     } catch (err) {
@@ -718,6 +740,47 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </span>
             </div>
 
+            {/* Tìm/lọc đề thi ôn luyện */}
+            <div className="mb-4 space-y-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={practiceSearchQuery}
+                  onChange={e => setPracticeSearchQuery(e.target.value)}
+                  placeholder="Tìm theo tên đề thi hoặc mã chia sẻ..."
+                  className="w-full text-xs p-2 pl-8 bg-transparent border border-vpa-olive-light focus:outline-none focus:border-vpa-gold text-vpa-olive dark:text-vpa-sand rounded-lg"
+                />
+                <MagnifyingGlass size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
+              </div>
+              <div className="flex space-x-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                <button
+                  type="button"
+                  onClick={() => setPracticeCategoryFilter('')}
+                  className={`px-2 py-0.5 text-[9px] font-bold uppercase transition-all border whitespace-nowrap ${
+                    !practiceCategoryFilter
+                      ? 'bg-vpa-olive border-transparent text-white dark:bg-vpa-gold dark:text-vpa-dark'
+                      : 'border-vpa-olive-light/20 text-gray-500 hover:border-vpa-olive-light/50 dark:text-vpa-sand'
+                  }`}
+                >
+                  Tất cả
+                </button>
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setPracticeCategoryFilter(practiceCategoryFilter === cat ? '' : cat)}
+                    className={`px-2 py-0.5 text-[9px] font-bold uppercase transition-all whitespace-nowrap border ${
+                      practiceCategoryFilter === cat
+                        ? 'bg-vpa-olive border-transparent text-white dark:bg-vpa-gold dark:text-vpa-dark'
+                        : 'border-vpa-olive-light/20 text-gray-500 hover:border-vpa-olive-light/50 dark:text-vpa-sand'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {practiceLoading ? (
               Array.from({ length: quizSkeletonCount }).map((_, idx) => (
@@ -754,7 +817,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {!practiceLoading && rootQuizzesForPractice.length === 0 && (
               <div className="col-span-2 text-center py-12 text-gray-400">
                 <BookOpen size={48} className="mx-auto mb-2 opacity-50" />
-                <p className="text-xs uppercase tracking-wider">Chưa có đề thi được xuất bản</p>
+                <p className="text-xs uppercase tracking-wider">
+                  {practiceSearchQuery || practiceCategoryFilter ? 'Không tìm thấy đề thi phù hợp với bộ lọc' : 'Chưa có đề thi được xuất bản'}
+                </p>
               </div>
             )}
           </div>
