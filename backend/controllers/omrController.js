@@ -608,12 +608,27 @@ export const submitOmrScan = async (req, res) => {
       rank: matchedUser ? matchedUser.rank : 'Chiến sĩ'
     };
 
-    // 4. Chấm điểm bài thi OMR theo đáp án của Đề thi nhận diện được
+    // 4. Tìm đề thi con/biến thể theo examCode (nếu có hoán vị mã đề)
+    let scoringQuiz = quiz;
+    if (examCode && quiz._id) {
+      const cleanExamCode = String(examCode).trim();
+      const variant = await Quiz.findOne({
+        $or: [
+          { parentQuizId: quiz._id, examCode: cleanExamCode },
+          { _id: quiz._id, examCode: cleanExamCode }
+        ]
+      });
+      if (variant && variant.questions && variant.questions.length > 0) {
+        scoringQuiz = variant;
+      }
+    }
+
+    // 5. Chấm điểm bài thi OMR theo đáp án của Đề thi nhận diện được
     let correctCount = 0;
-    const totalQ = quiz.questions?.length || 40;
+    const totalQ = scoringQuiz.questions?.length || quiz.questions?.length || targetOmrExam?.totalQuestions || 40;
     const formattedAnswers = [];
 
-    quiz.questions?.forEach((q, idx) => {
+    scoringQuiz.questions?.forEach((q, idx) => {
       const qIndex = idx + 1;
       const detected = Array.isArray(detectedAnswers)
         ? detectedAnswers.find(a => a.questionIndex === qIndex)
@@ -649,7 +664,7 @@ export const submitOmrScan = async (req, res) => {
     const isPassed = correctCount >= Math.ceil(totalQ * 0.5);
     const rank = calculateRank(correctCount, totalQ);
 
-    // 5. Tạo bản ghi ExamAttempt liên kết chặt chẽ với OmrExam
+    // 6. Tạo bản ghi ExamAttempt liên kết chặt chẽ với OmrExam
     const attempt = new ExamAttempt({
       userId: assignedUserId,
       roomId: roomId || null,

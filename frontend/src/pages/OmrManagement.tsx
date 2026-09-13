@@ -49,6 +49,7 @@ export const OmrManagement: React.FC<OmrManagementProps> = ({
   // Form tạo phiếu mới
   const [quizzesList, setQuizzesList] = useState<any[]>([]);
   const [selectedQuizId, setSelectedQuizId] = useState('');
+  const [selectedQuizQuestionCount, setSelectedQuizQuestionCount] = useState<number>(40);
   const [examTitle, setExamTitle] = useState('');
   const [upperUnit, setUpperUnit] = useState('BỘ QUỐC PHÒNG');
   const [currentUnit, setCurrentUnit] = useState(user?.unit?.name || 'ĐƠN VỊ TỔ CHỨC THI');
@@ -88,12 +89,11 @@ export const OmrManagement: React.FC<OmrManagementProps> = ({
   // 2. Tải danh sách đề thi gốc khi mở modal tạo phiếu
   const fetchQuizzes = async () => {
     try {
-      const res = await axios.get('/api/quizzes');
+      const res = await axios.get('/api/quizzes', { params: { includeVariants: 'true' } });
       const list = Array.isArray(res.data) ? res.data : (res.data.quizzes || []);
       setQuizzesList(list);
       if (list.length > 0 && !selectedQuizId) {
-        setSelectedQuizId(list[0]._id);
-        setExamTitle(`Phiếu kiểm tra: ${list[0].title}`);
+        handleSelectQuiz(list[0]._id);
       }
     } catch (err) {
       console.error('Lỗi tải đề thi:', err);
@@ -106,12 +106,40 @@ export const OmrManagement: React.FC<OmrManagementProps> = ({
     fetchQuizzes();
   };
 
-  // Tự động cập nhật tiêu đề khi đổi đề thi
-  const handleSelectQuiz = (qId: string) => {
+  // Tự động cập nhật tiêu đề, số câu và các mã đề hoán vị khi đổi đề thi
+  const handleSelectQuiz = async (qId: string) => {
     setSelectedQuizId(qId);
     const found = quizzesList.find(q => q._id === qId);
     if (found) {
       setExamTitle(`Phiếu kiểm tra: ${found.title}`);
+      const count = found.questions?.length || found.totalQuestions || 40;
+      setSelectedQuizQuestionCount(count);
+    }
+
+    try {
+      const res = await axios.get(`/api/quizzes/${qId}`, { params: { includeVariants: 'true' } });
+      const fullQuiz = res.data;
+      if (fullQuiz) {
+        const count = fullQuiz.questions?.length || fullQuiz.totalQuestions || 40;
+        setSelectedQuizQuestionCount(count);
+
+        let codes: string[] = [];
+        if (fullQuiz.examCode) codes.push(String(fullQuiz.examCode).trim());
+        if (Array.isArray(fullQuiz.variants)) {
+          fullQuiz.variants.forEach((v: any) => {
+            if (v.examCode && !codes.includes(String(v.examCode).trim())) {
+              codes.push(String(v.examCode).trim());
+            }
+          });
+        }
+        if (codes.length > 0) {
+          setExamCodesInput(codes.join(', '));
+        } else {
+          setExamCodesInput('101');
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi tải chi tiết đề thi khi chọn:', err);
     }
   };
 
@@ -541,6 +569,20 @@ export const OmrManagement: React.FC<OmrManagementProps> = ({
                   * Mỗi đề thi chỉ được tạo 1 phiếu OMR hoạt động. Người dùng có thể in lại phiếu bất cứ lúc nào.
                 </p>
               </div>
+
+              {/* Hiển thị số lượng câu hỏi tự động khớp theo đề thi */}
+              {selectedQuizId && (
+                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded flex items-center justify-between text-emerald-900 dark:text-emerald-300">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Check size={14} weight="bold" />
+                    <span>Số câu hỏi của phiếu:</span>
+                    <span className="font-mono text-sm underline font-extrabold">{selectedQuizQuestionCount} câu</span>
+                  </div>
+                  <span className="text-[10.5px] italic text-emerald-700 dark:text-emerald-400">
+                    (Tự động khớp chính xác 100% theo đề thi)
+                  </span>
+                </div>
+              )}
 
               {/* Tên đợt thi / Tiêu đề phiếu */}
               <div>

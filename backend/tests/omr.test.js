@@ -246,6 +246,51 @@ describe('HỆ THỐNG CHẤM THI OMR (OPTICAL MARK RECOGNITION)', () => {
       expect(reCreateRes.status).toBe(201);
       expect(reCreateRes.body.success).toBe(true);
       expect(reCreateRes.body.exam.title).toBe('Tạo phiếu mới sau khi đã xóa phiếu cũ');
+      expect(reCreateRes.body.exam.totalQuestions).toBe(4); // Khớp chuẩn 4 câu của createdQuiz
+    });
+
+    it('11. POST /api/omr/submit-scan -> Khớp số câu và chấm đúng theo đáp án của mã đề biến thể', async () => {
+      const adminId = adminUser.user.id || adminUser.user._id;
+
+      // Tạo đề biến thể mã 102 với đáp án hoán vị: Câu 1=D, Câu 2=C, Câu 3=B, Câu 4=A
+      const variantQuiz = await Quiz.create({
+        title: 'Kiểm tra Điều lệnh Quản lý Bộ đội - Mã 102',
+        category: 'Điều lệnh',
+        duration: 30,
+        passingScorePercent: 50,
+        creatorId: adminId,
+        unitId: unit._id,
+        parentQuizId: createdQuiz._id,
+        examCode: '102',
+        questions: [
+          { questionType: 'multiple-choice', questionText: 'Câu 1?', options: ['A', 'B', 'C', 'D'], correctAnswers: ['D'] },
+          { questionType: 'multiple-choice', questionText: 'Câu 2?', options: ['A', 'B', 'C', 'D'], correctAnswers: ['C'] },
+          { questionType: 'multiple-choice', questionText: 'Câu 3?', options: ['A', 'B', 'C', 'D'], correctAnswers: ['B'] },
+          { questionType: 'multiple-choice', questionText: 'Câu 4?', options: ['A', 'B', 'C', 'D'], correctAnswers: ['A'] }
+        ]
+      });
+
+      // Gửi bài scan với mã đề 102 và tô: 1=D, 2=C, 3=B, 4=A -> Đạt 4/4 điểm
+      const scanRes = await request(app)
+        .post('/api/omr/submit-scan')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          quizId: createdQuiz._id,
+          examCode: '102',
+          sbd: 'sbd001',
+          detectedAnswers: [
+            { questionIndex: 1, selectedOption: 'D' },
+            { questionIndex: 2, selectedOption: 'C' },
+            { questionIndex: 3, selectedOption: 'B' },
+            { questionIndex: 4, selectedOption: 'A' }
+          ]
+        });
+
+      expect(scanRes.status).toBe(201);
+      expect(scanRes.body.success).toBe(true);
+      expect(scanRes.body.attempt.score).toBe(4);
+      expect(scanRes.body.attempt.totalQuestions).toBe(4);
+      expect(scanRes.body.attempt.rank).toBe('Xuất sắc');
     });
   });
 });
