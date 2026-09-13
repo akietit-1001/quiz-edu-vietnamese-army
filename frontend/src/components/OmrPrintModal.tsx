@@ -377,8 +377,38 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
         </div>
       </div>
 
+      {/* Explicit Print Rules: Force Portrait A4 and Exact Color reproduction */}
+      <style>{`
+        @page {
+          size: A4 portrait !important;
+          margin: 0 !important;
+        }
+        @media print {
+          html, body {
+            width: 210mm !important;
+            height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .omr-print-target {
+            display: block !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            z-index: 999999 !important;
+          }
+        }
+      `}</style>
+
       {/* Hidden container exclusively rendered during window.print() */}
-      <div className="hidden print:block print:fixed print:inset-0 print:m-0 print:p-0 print:bg-white print:z-[99999]">
+      <div className="hidden print:block omr-print-target">
         {printAllCodes && availableExamCodes.length > 1 ? (
           availableExamCodes.map((code) => (
             <OmrSheetPage key={code} data={{ ...printData, examCode: code }} />

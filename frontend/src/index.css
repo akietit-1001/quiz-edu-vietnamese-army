@@ -109,7 +109,14 @@ body {
 /* Print layout optimizations for PDF export */
 @media print {
   @page {
-    margin: 0; /* Completely removes default headers and footers (date, title, URL) */
+    size: A4 portrait !important;
+    margin: 0 !important; /* Completely removes default headers and footers (date, title, URL) */
+  }
+  /* Force exact color reproduction on all browsers */
+  *, *:before, *:after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
   /* Hide the entire React root application to remove screen layout footprint */
   #root {
@@ -133,6 +140,9 @@ body {
   body, html {
     background: white !important;
     color: black !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }
 
