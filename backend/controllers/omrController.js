@@ -292,6 +292,133 @@ export const createOmrExam = async (req, res) => {
 };
 
 /**
+ * 3.1. Đảm bảo tồn tại Phiếu kiểm tra OMR trong DB (Nếu đã có thì lấy ra, nếu chưa có thì tự động tạo mới)
+ * Phục vụ tính năng: Khi người dùng in/tải một phiếu OMR cho đề thi, hệ thống tự động sinh bản ghi OmrExam trong DB.
+ */
+export const ensureOmrExam = async (req, res) => {
+  try {
+    const {
+      quizId,
+      title,
+      upperUnit,
+      currentUnit,
+      province,
+      examCodes,
+      description,
+      roomCode,
+      totalQuestions: reqTotalQ
+    } = req.body;
+
+    if (!quizId) {
+      return res.status(400).json({ message: 'Thiếu thông tin ID đề thi.' });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({ message: 'Đề thi không tồn tại trong hệ thống.' });
+    }
+
+    // 1. Kiểm tra nếu đã có phiếu OMR đang active cho đề thi này
+    let existingExam = await OmrExam.findOne({ quizId: quiz._id, status: 'active' })
+      .populate('quizId', 'title category duration questions')
+      .populate('creatorId', 'fullName rank position')
+      .populate('unitId', 'name');
+
+    if (existingExam) {
+      let changed = false;
+      if (upperUnit && existingExam.upperUnit !== upperUnit.trim()) {
+        existingExam.upperUnit = upperUnit.trim();
+        changed = true;
+      }
+      if (currentUnit && existingExam.currentUnit !== currentUnit.trim()) {
+        existingExam.currentUnit = currentUnit.trim();
+        changed = true;
+      }
+      if (province && existingExam.province !== province.trim()) {
+        existingExam.province = province.trim();
+        changed = true;
+      }
+      if (reqTotalQ && existingExam.totalQuestions !== Number(reqTotalQ)) {
+        existingExam.totalQuestions = Number(reqTotalQ);
+        changed = true;
+      }
+      if (roomCode !== undefined && existingExam.roomCode !== roomCode.trim().toUpperCase()) {
+        existingExam.roomCode = roomCode.trim().toUpperCase();
+        changed = true;
+      }
+      if (Array.isArray(examCodes) && examCodes.length > 0) {
+        const parsed = examCodes.map(c => String(c).trim()).filter(Boolean);
+        if (JSON.stringify(existingExam.examCodes) !== JSON.stringify(parsed)) {
+          existingExam.examCodes = parsed;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await existingExam.save();
+      }
+
+      return res.json({
+        success: true,
+        exam: existingExam,
+        existed: true,
+        message: 'Đã tìm thấy phiếu OMR tương ứng trong cơ sở dữ liệu.'
+      });
+    }
+
+    // 2. Nếu chưa có -> Tự động tạo mới bản ghi OmrExam
+    let code = '';
+    let isUnique = false;
+    while (!isUnique) {
+      const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      code = `OMR-${randomSuffix}`;
+      const found = await OmrExam.findOne({ code });
+      if (!found) isUnique = true;
+    }
+
+    const creatorId = req.user?.id || req.user?._id || quiz.creatorId;
+    const unitId = req.user?.unitId?._id || req.user?.unitId || quiz.unitId || null;
+    const totalQuestions = reqTotalQ || quiz.questions?.length || 40;
+
+    const parsedExamCodes = Array.isArray(examCodes) && examCodes.length > 0
+      ? examCodes.map(c => String(c).trim()).filter(Boolean)
+      : ['101'];
+
+    const newOmrExam = new OmrExam({
+      code,
+      title: title?.trim() || `Phiếu kiểm tra: ${quiz.title}`,
+      quizId: quiz._id,
+      creatorId,
+      unitId,
+      upperUnit: upperUnit?.trim() || 'BỘ QUỐC PHÒNG',
+      currentUnit: currentUnit?.trim() || 'ĐƠN VỊ TỔ CHỨC THI',
+      province: province?.trim() || 'Đồng Tháp',
+      examCodes: parsedExamCodes,
+      totalQuestions,
+      roomCode: roomCode?.trim().toUpperCase() || '',
+      description: description?.trim() || 'Tự động khởi tạo khi in phiếu làm bài trắc nghiệm OMR',
+      status: 'active'
+    });
+
+    await newOmrExam.save();
+
+    const populatedExam = await OmrExam.findById(newOmrExam._id)
+      .populate('quizId', 'title category duration questions')
+      .populate('creatorId', 'fullName rank position')
+      .populate('unitId', 'name');
+
+    res.status(201).json({
+      success: true,
+      exam: populatedExam,
+      created: true,
+      message: 'Đã tự động khởi tạo dữ liệu phiếu OMR trong cơ sở dữ liệu!'
+    });
+  } catch (error) {
+    console.error('Lỗi đảm bảo phiếu OMR:', error);
+    res.status(500).json({ message: 'Lỗi máy chủ khi khởi tạo phiếu OMR: ' + error.message });
+  }
+};
+
+/**
  * 4. Cập nhật thông tin Phiếu kiểm tra OMR
  */
 export const updateOmrExam = async (req, res) => {

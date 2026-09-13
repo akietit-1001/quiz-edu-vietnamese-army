@@ -12,6 +12,7 @@ interface OmrPrintModalProps {
   availableQuizzes?: any[];
   defaultUnit?: string;
   defaultUpperUnit?: string;
+  onExamEnsured?: (exam: any) => void;
 }
 
 export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
@@ -21,10 +22,13 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   omrExam,
   availableQuizzes = [],
   defaultUnit = '',
-  defaultUpperUnit = ''
+  defaultUpperUnit = '',
+  onExamEnsured
 }) => {
   const [quizzesList, setQuizzesList] = useState<any[]>(availableQuizzes);
   const [selectedQuiz, setSelectedQuiz] = useState<any>(omrExam?.quizId || initialQuiz || null);
+  const [currentOmrExam, setCurrentOmrExam] = useState<any>(omrExam || null);
+  const [isEnsuringExam, setIsEnsuringExam] = useState<boolean>(false);
   const [upperUnit, setUpperUnit] = useState(omrExam?.upperUnit || defaultUpperUnit || 'BỘ QUỐC PHÒNG');
   const [currentUnit, setCurrentUnit] = useState(omrExam?.currentUnit || defaultUnit || 'ĐƠN VỊ TỔ CHỨC THI');
   const [examCode, setExamCode] = useState(omrExam?.examCodes?.[0] || '101');
@@ -35,6 +39,44 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   const [roomCode, setRoomCode] = useState(omrExam?.roomCode || '');
   const [quizQuestionCount, setQuizQuestionCount] = useState<number>(40);
   const [totalQuestions, setTotalQuestions] = useState<number>(40);
+
+  // Helper đảm bảo / tự động tạo bản ghi OmrExam trong cơ sở dữ liệu
+  const ensureExamInDb = async (
+    targetQuiz?: any,
+    targetCodes?: string[],
+    targetQCount?: number
+  ) => {
+    const quizObj = targetQuiz || selectedQuiz || initialQuiz;
+    const qId = typeof quizObj === 'string' ? quizObj : quizObj?._id;
+    if (!qId || qId === 'SAMPLE_QUIZ') return null;
+
+    try {
+      setIsEnsuringExam(true);
+      const codes = targetCodes || availableExamCodes;
+      const res = await axios.post('/api/omr/exams/ensure', {
+        quizId: qId,
+        title: quizObj.title ? `Phiếu kiểm tra: ${quizObj.title}` : undefined,
+        upperUnit,
+        currentUnit,
+        roomCode,
+        examCodes: codes.length > 0 ? codes : [examCode || '101'],
+        totalQuestions: targetQCount || totalQuestions
+      });
+
+      if (res.data?.exam) {
+        setCurrentOmrExam(res.data.exam);
+        if (onExamEnsured) {
+          onExamEnsured(res.data.exam);
+        }
+        return res.data.exam;
+      }
+    } catch (err) {
+      console.warn('Lưu ý: Không thể tự động tạo/đồng bộ bản ghi OMR trong DB:', err);
+    } finally {
+      setIsEnsuringExam(false);
+    }
+    return null;
+  };
 
   // 1. Tải danh sách đề thi nếu chưa có
   useEffect(() => {
@@ -59,6 +101,7 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   // 2. Đồng bộ khi nhận props omrExam hoặc initialQuiz
   useEffect(() => {
     if (omrExam) {
+      setCurrentOmrExam(omrExam);
       if (omrExam.quizId) setSelectedQuiz(omrExam.quizId);
       if (omrExam.upperUnit) setUpperUnit(omrExam.upperUnit);
       if (omrExam.currentUnit) setCurrentUnit(omrExam.currentUnit);
@@ -77,7 +120,7 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
     }
   }, [omrExam, initialQuiz]);
 
-  // 3. Tải chi tiết Đề thi (bao gồm số câu hỏi và tất cả mã đề biến thể) khi chọn đề thi
+  // 3. Tải chi tiết Đề thi và tự động đảm bảo có bản ghi OmrExam trong DB
   useEffect(() => {
     if (!selectedQuiz) return;
 
@@ -111,12 +154,16 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
         if (!codes.includes(examCode)) {
           setExamCode(codes[0]);
         }
+
+        // Tự động lưu/đảm bảo bản ghi OMR trong Database
+        ensureExamInDb(fullQuiz, codes, count);
       })
       .catch(err => {
         console.error('Lỗi tải chi tiết đề thi:', err);
         const fallbackCount = selectedQuiz.questions?.length || selectedQuiz.totalQuestions || 40;
         setQuizQuestionCount(fallbackCount);
         setTotalQuestions(fallbackCount);
+        ensureExamInDb(selectedQuiz, ['101'], fallbackCount);
       });
 
     if (defaultUpperUnit && !omrExam) setUpperUnit(defaultUpperUnit);
@@ -125,21 +172,27 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentQuiz = selectedQuiz || omrExam?.quizId || initialQuiz || { _id: 'SAMPLE_QUIZ', title: 'Bài kiểm tra trắc nghiệm', questions: [] };
+  const currentQuiz = selectedQuiz || currentOmrExam?.quizId || omrExam?.quizId || initialQuiz || { _id: 'SAMPLE_QUIZ', title: 'Bài kiểm tra trắc nghiệm', questions: [] };
 
   const printData: OmrPrintData = {
     upperUnit,
     currentUnit,
-    quizTitle: currentQuiz.title || omrExam?.title || 'Bài kiểm tra',
+    quizTitle: currentQuiz.title || currentOmrExam?.title || omrExam?.title || 'Bài kiểm tra',
     quizId: currentQuiz._id || '',
-    batchCode: omrExam?.code || '',
-    batchId: omrExam?._id || '',
+    batchCode: currentOmrExam?.code || omrExam?.code || '',
+    batchId: currentOmrExam?._id || omrExam?._id || '',
     totalQuestions,
     examCode,
     roomCode
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    // Đảm bảo dữ liệu OmrExam mới nhất đã được lưu trong DB trước khi in
+    const targetQuiz = selectedQuiz || initialQuiz;
+    if (targetQuiz) {
+      await ensureExamInDb(targetQuiz, availableExamCodes, totalQuestions);
+    }
+
     const originalTitle = document.title;
     const cleanTitle = (currentQuiz.title || 'Phieu_OMR').replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
     document.title = printAllCodes
@@ -200,6 +253,24 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
                 />
               )}
             </div>
+
+            {/* Trạng thái lưu trữ OMR trong Database */}
+            {isEnsuringExam ? (
+              <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded flex items-center gap-2 text-xs text-blue-800 dark:text-blue-300">
+                <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                <span className="text-[11px] font-medium">Đang đồng bộ phiếu vào cơ sở dữ liệu...</span>
+              </div>
+            ) : currentOmrExam?.code ? (
+              <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded flex items-center justify-between text-xs">
+                <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                  Mã lưu trữ OMR:
+                </span>
+                <span className="font-mono font-bold text-emerald-950 dark:text-emerald-200 bg-emerald-200/60 dark:bg-emerald-900/60 px-2 py-0.5 rounded text-[11px]">
+                  {currentOmrExam.code}
+                </span>
+              </div>
+            ) : null}
 
             {/* Số câu hỏi (Tự động khớp chính xác với số câu của đề thi) */}
             <div className="space-y-1.5 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded">

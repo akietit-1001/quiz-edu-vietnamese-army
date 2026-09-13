@@ -292,5 +292,58 @@ describe('HỆ THỐNG CHẤM THI OMR (OPTICAL MARK RECOGNITION)', () => {
       expect(scanRes.body.attempt.totalQuestions).toBe(4);
       expect(scanRes.body.attempt.rank).toBe('Xuất sắc');
     });
+
+    it('12. POST /api/omr/exams/ensure -> Tự động tạo hoặc lấy bản ghi OmrExam khi in/tải phiếu', async () => {
+      const adminId = adminUser.user.id || adminUser.user._id;
+
+      // 12.1 Đảm bảo cho đề thi đã có phiếu active (trả về existed: true)
+      const res1 = await request(app)
+        .post('/api/omr/exams/ensure')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          quizId: createdQuiz._id,
+          upperUnit: 'BỘ QUỐC PHÒNG',
+          currentUnit: 'SƯ ĐOÀN 330'
+        });
+
+      expect(res1.status).toBe(200);
+      expect(res1.body.success).toBe(true);
+      expect(res1.body.existed).toBe(true);
+      expect(res1.body.exam).toBeDefined();
+      expect(res1.body.exam.code).toBeDefined();
+
+      // 12.2 Đảm bảo cho một đề thi mới chưa có phiếu (tự động tạo mới với created: true)
+      const freshQuiz = await Quiz.create({
+        title: 'Kiểm tra Bắn súng AK bài 1',
+        category: 'Quân sự',
+        duration: 20,
+        passingScorePercent: 60,
+        creatorId: adminId,
+        unitId: unit._id,
+        questions: [
+          { questionType: 'multiple-choice', questionText: 'Cự ly bắn mục tiêu bia số 4 là bao nhiêu?', options: ['100m', '200m', '300m', '400m'], correctAnswers: ['100m'] }
+        ]
+      });
+
+      const res2 = await request(app)
+        .post('/api/omr/exams/ensure')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          quizId: freshQuiz._id,
+          title: 'Phiếu kiểm tra: Bắn súng AK bài 1',
+          upperUnit: 'QUÂN KHU 9',
+          currentUnit: 'LỮ ĐOÀN 950',
+          examCodes: ['101', '102']
+        });
+
+      expect(res2.status).toBe(201);
+      expect(res2.body.success).toBe(true);
+      expect(res2.body.created).toBe(true);
+      expect(res2.body.exam.code).toMatch(/^OMR-/);
+      expect(res2.body.exam.upperUnit).toBe('QUÂN KHU 9');
+      expect(res2.body.exam.currentUnit).toBe('LỮ ĐOÀN 950');
+      expect(res2.body.exam.totalQuestions).toBe(1); // 1 câu hỏi
+      expect(res2.body.exam.examCodes).toEqual(['101', '102']);
+    });
   });
 });

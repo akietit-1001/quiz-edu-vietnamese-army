@@ -3,6 +3,7 @@ import {
   getOmrExams,
   getOmrExamById,
   createOmrExam,
+  ensureOmrExam,
   updateOmrExam,
   deleteOmrExam,
   getOmrSession,
@@ -18,6 +19,7 @@ const router = express.Router();
 
 // 1. Quản lý danh sách và CRUD Phiếu kiểm tra OMR Offline
 router.get('/exams', authMiddleware, roleMiddleware(['master-admin', 'admin', 'sub-admin']), getOmrExams);
+router.post('/exams/ensure', authMiddleware, roleMiddleware(['master-admin', 'admin', 'sub-admin']), ensureOmrExam);
 router.get('/exams/:id', authMiddleware, roleMiddleware(['master-admin', 'admin', 'sub-admin']), getOmrExamById);
 router.post('/exams', authMiddleware, roleMiddleware(['master-admin', 'admin', 'sub-admin']), createOmrExam);
 router.put('/exams/:id', authMiddleware, roleMiddleware(['master-admin', 'admin', 'sub-admin']), updateOmrExam);
