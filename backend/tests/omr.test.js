@@ -143,4 +143,109 @@ describe('HỆ THỐNG CHẤM THI OMR (OPTICAL MARK RECOGNITION)', () => {
     expect(deleteRes.status).toBe(200);
     expect(deleteRes.body.success).toBe(true);
   });
+
+  describe('QUẢN LÝ PHIẾU KIỂM TRA OMR OFFLINE (OMR EXAM CRUD & BUSINESS RULES)', () => {
+    let createdOmrExam;
+
+    it('5. POST /api/omr/exams -> Tạo mới phiếu kiểm tra OMR Offline thành công', async () => {
+      const res = await request(app)
+        .post('/api/omr/exams')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          quizId: createdQuiz._id,
+          title: 'Đợt kiểm tra Điều lệnh năm 2026',
+          upperUnit: 'BỘ QUỐC PHÒNG',
+          currentUnit: 'TRUNG ĐOÀN 1',
+          province: 'Đồng Tháp',
+          examCodes: ['101', '102', '103', '104'],
+          description: 'Kiểm tra trên giấy trắc nghiệm chuẩn OMR'
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.exam).toBeDefined();
+      expect(res.body.exam.code).toMatch(/^OMR-[A-Z0-9]{4}$/);
+      expect(res.body.exam.title).toBe('Đợt kiểm tra Điều lệnh năm 2026');
+      expect(res.body.exam.totalQuestions).toBe(4);
+      expect(res.body.exam.examCodes).toEqual(['101', '102', '103', '104']);
+
+      createdOmrExam = res.body.exam;
+    });
+
+    it('6. POST /api/omr/exams -> CHỐNG TRÙNG LẶP: Chặn tạo phiếu mới khi đề thi đã có phiếu đang hoạt động', async () => {
+      const res = await request(app)
+        .post('/api/omr/exams')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          quizId: createdQuiz._id,
+          title: 'Tạo phiếu trùng lặp cho cùng đề thi'
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.conflict).toBe(true);
+      expect(res.body.message).toContain('đã được tạo Phiếu làm bài trước đó');
+      expect(res.body.existingExam).toBeDefined();
+      expect(res.body.existingExam._id).toBe(createdOmrExam._id);
+    });
+
+    it('7. GET /api/omr/exams -> Lấy danh sách phiếu kiểm tra OMR kèm theo thống kê', async () => {
+      const res = await request(app)
+        .get('/api/omr/exams')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.exams)).toBe(true);
+      expect(res.body.exams.length).toBeGreaterThan(0);
+      expect(res.body.summary).toBeDefined();
+      expect(res.body.summary.totalExams).toBeGreaterThan(0);
+    });
+
+    it('8. GET /api/omr/exams/:id -> Lấy chi tiết phiếu kiểm tra OMR', async () => {
+      const res = await request(app)
+        .get(`/api/omr/exams/${createdOmrExam._id}`)
+        .set('Authorization', `Bearer ${adminUser.accessToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.exam.code).toBe(createdOmrExam.code);
+    });
+
+    it('9. PUT /api/omr/exams/:id -> Cập nhật thông tin phiếu kiểm tra OMR', async () => {
+      const res = await request(app)
+        .put(`/api/omr/exams/${createdOmrExam._id}`)
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          title: 'Đợt kiểm tra Điều lệnh năm 2026 (Cập nhật)',
+          currentUnit: 'TRUNG ĐOÀN 1 - TIỂU ĐOÀN 2'
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.exam.title).toBe('Đợt kiểm tra Điều lệnh năm 2026 (Cập nhật)');
+      expect(res.body.exam.currentUnit).toBe('TRUNG ĐOÀN 1 - TIỂU ĐOÀN 2');
+    });
+
+    it('10. DELETE /api/omr/exams/:id -> Xóa phiếu OMR -> sau đó cho phép tạo phiếu mới thành công', async () => {
+      const delRes = await request(app)
+        .delete(`/api/omr/exams/${createdOmrExam._id}`)
+        .set('Authorization', `Bearer ${adminUser.accessToken}`);
+
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.success).toBe(true);
+
+      // Sau khi xóa phiếu cũ, tạo lại phiếu cho đề thi này phải thành công
+      const reCreateRes = await request(app)
+        .post('/api/omr/exams')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          quizId: createdQuiz._id,
+          title: 'Tạo phiếu mới sau khi đã xóa phiếu cũ'
+        });
+
+      expect(reCreateRes.status).toBe(201);
+      expect(reCreateRes.body.success).toBe(true);
+      expect(reCreateRes.body.exam.title).toBe('Tạo phiếu mới sau khi đã xóa phiếu cũ');
+    });
+  });
 });

@@ -77,6 +77,12 @@ const examAttemptSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  omrExamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'OmrExam',
+    default: null,
+    index: true
+  },
   examinerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

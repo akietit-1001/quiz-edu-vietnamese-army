@@ -9,6 +9,8 @@ export interface OmrRecognitionResult {
     title: string;
     total: number;
     code: string;
+    batchId?: string;
+    batchCode?: string;
     room?: string;
   };
   sbd?: string;

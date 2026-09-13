@@ -8,6 +8,7 @@ interface OmrPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   quiz?: any;
+  omrExam?: any;
   availableQuizzes?: any[];
   defaultUnit?: string;
   defaultUpperUnit?: string;
@@ -17,17 +18,20 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   isOpen,
   onClose,
   quiz: initialQuiz,
+  omrExam,
   availableQuizzes = [],
   defaultUnit = '',
   defaultUpperUnit = ''
 }) => {
   const [quizzesList, setQuizzesList] = useState<any[]>(availableQuizzes);
-  const [selectedQuiz, setSelectedQuiz] = useState<any>(initialQuiz || null);
-  const [upperUnit, setUpperUnit] = useState(defaultUpperUnit || 'BỘ QUỐC PHÒNG');
-  const [currentUnit, setCurrentUnit] = useState(defaultUnit || 'ĐƠN VỊ TỔ CHỨC THI');
-  const [examCode, setExamCode] = useState('101');
-  const [roomCode, setRoomCode] = useState('');
-  const [totalQuestions, setTotalQuestions] = useState<number>(initialQuiz?.questions?.length || 40);
+  const [selectedQuiz, setSelectedQuiz] = useState<any>(omrExam?.quizId || initialQuiz || null);
+  const [upperUnit, setUpperUnit] = useState(omrExam?.upperUnit || defaultUpperUnit || 'BỘ QUỐC PHÒNG');
+  const [currentUnit, setCurrentUnit] = useState(omrExam?.currentUnit || defaultUnit || 'ĐƠN VỊ TỔ CHỨC THI');
+  const [examCode, setExamCode] = useState(omrExam?.examCodes?.[0] || '101');
+  const [roomCode, setRoomCode] = useState(omrExam?.roomCode || '');
+  const [totalQuestions, setTotalQuestions] = useState<number>(
+    omrExam?.totalQuestions || initialQuiz?.questions?.length || 40
+  );
 
   // Tải danh sách đề thi nếu chưa có
   useEffect(() => {
@@ -50,29 +54,38 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   }, [availableQuizzes]);
 
   useEffect(() => {
-    if (initialQuiz) {
+    if (omrExam) {
+      if (omrExam.quizId) setSelectedQuiz(omrExam.quizId);
+      if (omrExam.upperUnit) setUpperUnit(omrExam.upperUnit);
+      if (omrExam.currentUnit) setCurrentUnit(omrExam.currentUnit);
+      if (omrExam.examCodes && omrExam.examCodes.length > 0) setExamCode(omrExam.examCodes[0]);
+      if (omrExam.roomCode) setRoomCode(omrExam.roomCode);
+      if (omrExam.totalQuestions) setTotalQuestions(omrExam.totalQuestions);
+    } else if (initialQuiz) {
       setSelectedQuiz(initialQuiz);
     }
-  }, [initialQuiz]);
+  }, [omrExam, initialQuiz]);
 
   useEffect(() => {
     if (selectedQuiz) {
-      const qCount = selectedQuiz.questions?.length || selectedQuiz.totalQuestions || 40;
+      const qCount = selectedQuiz.questions?.length || selectedQuiz.totalQuestions || totalQuestions || 40;
       setTotalQuestions(qCount);
     }
-    if (defaultUpperUnit) setUpperUnit(defaultUpperUnit);
-    if (defaultUnit) setCurrentUnit(defaultUnit);
-  }, [selectedQuiz, defaultUnit, defaultUpperUnit]);
+    if (defaultUpperUnit && !omrExam) setUpperUnit(defaultUpperUnit);
+    if (defaultUnit && !omrExam) setCurrentUnit(defaultUnit);
+  }, [selectedQuiz, defaultUnit, defaultUpperUnit, omrExam]);
 
   if (!isOpen) return null;
 
-  const currentQuiz = selectedQuiz || initialQuiz || { _id: 'SAMPLE_QUIZ', title: 'Bài kiểm tra trắc nghiệm', questions: [] };
+  const currentQuiz = selectedQuiz || omrExam?.quizId || initialQuiz || { _id: 'SAMPLE_QUIZ', title: 'Bài kiểm tra trắc nghiệm', questions: [] };
 
   const printData: OmrPrintData = {
     upperUnit,
     currentUnit,
-    quizTitle: currentQuiz.title || 'Bài kiểm tra',
+    quizTitle: currentQuiz.title || omrExam?.title || 'Bài kiểm tra',
     quizId: currentQuiz._id || '',
+    batchCode: omrExam?.code || '',
+    batchId: omrExam?._id || '',
     totalQuestions,
     examCode,
     roomCode

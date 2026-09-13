@@ -12,6 +12,7 @@ interface NavbarProps {
   onNavigateHome: () => void;
   onNavigateToHistory: () => void;
   onNavigateToOmrGrading?: () => void;
+  onNavigateToOmrMgmt?: () => void;
   notifications: any[];
   unreadCount: number;
   onNotificationClick: (notif: any) => void;
@@ -28,6 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateHome,
   onNavigateToHistory,
   onNavigateToOmrGrading,
+  onNavigateToOmrMgmt,
   notifications,
   unreadCount,
   onNotificationClick,
@@ -54,15 +56,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right Side Options */}
       <div className="flex items-center space-x-3 sm:space-x-4">
-        {/* Nút truy cập nhanh Chấm thi OMR Offline cho Cán bộ Quản trị */}
-        {isOfficerOrAdmin && onNavigateToOmrGrading && (
+        {/* Nút truy cập nhanh Quản lý Phiếu OMR Offline cho Cán bộ Quản trị */}
+        {isOfficerOrAdmin && (onNavigateToOmrMgmt || onNavigateToOmrGrading) && (
           <button
-            onClick={onNavigateToOmrGrading}
+            onClick={() => {
+              if (onNavigateToOmrMgmt) onNavigateToOmrMgmt();
+              else if (onNavigateToOmrGrading) onNavigateToOmrGrading();
+            }}
             className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-vpa-gold/15 dark:bg-vpa-gold/20 border border-vpa-gold/40 hover:bg-vpa-gold/30 rounded text-xs font-bold text-vpa-olive dark:text-vpa-gold transition-all"
-            title="Mở Bàn chấm thi trắc nghiệm OMR Offline"
+            title="Quản lý Phiếu kiểm tra OMR Offline"
           >
             <span className="w-2 h-2 rounded-full bg-vpa-gold animate-ping" />
-            <span>Chấm thi OMR</span>
+            <span>Phiếu OMR (Offline)</span>
           </button>
         )}
 
@@ -89,7 +94,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Dropdown Menu */}
             {showDropdown && (
-              <div className="absolute right-4 mt-2 w-52 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-2xl z-50 font-mono text-xs animate-scale-up rounded-lg overflow-hidden">
+              <div className="absolute right-4 mt-2 w-56 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-2xl z-50 font-mono text-xs animate-scale-up rounded-lg overflow-hidden">
+                {isOfficerOrAdmin && onNavigateToOmrMgmt && (
+                  <button
+                    onClick={() => {
+                      setShowDropdown(false);
+                      onNavigateToOmrMgmt();
+                    }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-vpa-gold/15 text-vpa-olive dark:text-vpa-gold font-bold border-b border-vpa-olive-light/10 flex items-center space-x-2 cursor-pointer"
+                  >
+                    <span>📋 Quản lý Phiếu OMR Offline</span>
+                  </button>
+                )}
                 {isOfficerOrAdmin && onNavigateToOmrGrading && (
                   <button
                     onClick={() => {
@@ -98,7 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="w-full text-left px-4 py-2.5 hover:bg-vpa-gold/15 text-vpa-olive dark:text-vpa-gold font-bold border-b border-vpa-olive-light/10 flex items-center space-x-2 cursor-pointer"
                   >
-                    <span>📷 Chấm thi OMR Offline</span>
+                    <span>📷 Bàn Chấm OMR Chung</span>
                   </button>
                 )}
                 <button

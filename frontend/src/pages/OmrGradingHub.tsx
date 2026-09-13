@@ -774,9 +774,11 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
         <OmrPrintModal
           isOpen={showPrintModal}
           onClose={() => setShowPrintModal(false)}
+          omrExam={sessionData?.omrExam}
           quiz={selectedAttempt?.quizId || sessionData?.quiz || (sessionData?.allQuizzes?.[0] || null)}
           availableQuizzes={sessionData?.allQuizzes || []}
-          defaultUnit={user?.unitId?.name || ''}
+          defaultUnit={sessionData?.omrExam?.currentUnit || user?.unitId?.name || ''}
+          defaultUpperUnit={sessionData?.omrExam?.upperUnit || ''}
         />
       )}
 
@@ -790,7 +792,8 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
             const params = new URLSearchParams({
               format: exportOptions.format,
               sessionCode: sessionCode || '',
-              quizId: selectedQuizFilter !== 'ALL' ? selectedQuizFilter : '',
+              omrExamId: sessionData?.omrExam?._id || '',
+              quizId: selectedQuizFilter !== 'ALL' ? selectedQuizFilter : (sessionData?.quiz?._id || ''),
               upperUnit: exportOptions.upperUnit || '',
               currentUnit: exportOptions.currentUnit || '',
               province: exportOptions.province || '',
@@ -804,7 +807,8 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
           }}
           type="results"
           previewData={filteredAttempts}
-          defaultUnit={user?.unitId?.name || ''}
+          defaultUnit={sessionData?.omrExam?.currentUnit || user?.unitId?.name || ''}
+          defaultUpperUnit={sessionData?.omrExam?.upperUnit || ''}
         />
       )}
     </div>

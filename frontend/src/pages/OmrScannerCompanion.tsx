@@ -209,7 +209,9 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
             const payload = {
               sessionCode,
               roomId: sessionInfo?.room?._id || null,
-              quizId: result.qrPayload?.qId || sessionInfo?.quiz?._id,
+              quizId: result.qrPayload?.qId || sessionInfo?.quiz?._id || sessionInfo?.omrExam?.quizId?._id || sessionInfo?.omrExam?.quizId,
+              omrExamId: result.qrPayload?.batchId || sessionInfo?.omrExam?._id,
+              batchCode: result.qrPayload?.batchCode || sessionInfo?.omrExam?.code,
               sbd: result.sbd || '',
               examCode: result.examCode || result.qrPayload?.code || '101',
               detectedAnswers: result.detectedAnswers,
@@ -262,7 +264,9 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
             const payload = {
               sessionCode,
               roomId: sessionInfo?.room?._id || null,
-              quizId: result.qrPayload?.qId || sessionInfo?.quiz?._id,
+              quizId: result.qrPayload?.qId || sessionInfo?.quiz?._id || sessionInfo?.omrExam?.quizId?._id || sessionInfo?.omrExam?.quizId,
+              omrExamId: result.qrPayload?.batchId || sessionInfo?.omrExam?._id,
+              batchCode: result.qrPayload?.batchCode || sessionInfo?.omrExam?.code,
               sbd: result.sbd || '',
               examCode: result.examCode || result.qrPayload?.code || '101',
               detectedAnswers: result.detectedAnswers,

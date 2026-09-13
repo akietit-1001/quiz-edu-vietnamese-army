@@ -113,6 +113,7 @@ interface DashboardProps {
   onNavigateToUserMgmt: () => void;
   onNavigateToRoomMgmt: () => void;
   onNavigateToOmrGrading?: () => void;
+  onNavigateToOmrMgmt?: () => void;
   onStartPractice: (quizId: string, mode: 'practice' | 'mock') => void;
 }
 
@@ -124,6 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToUserMgmt,
   onNavigateToRoomMgmt,
   onNavigateToOmrGrading,
+  onNavigateToOmrMgmt,
   onStartPractice
 }) => {
   // `quizzes`: danh sách đầy đủ (không phân trang) — chỉ tải khi mở modal
@@ -692,10 +694,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </h3>
 
               <div className="space-y-3">
-                {onNavigateToOmrGrading && (
+                {onNavigateToOmrMgmt && (
+                  <button
+                    onClick={onNavigateToOmrMgmt}
+                    className="w-full py-2.5 bg-gradient-to-r from-vpa-olive to-emerald-900 dark:from-vpa-gold/20 dark:to-yellow-600/20 border border-vpa-gold text-white dark:text-vpa-gold text-xs uppercase tracking-wider font-extrabold hover:opacity-90 transition-all text-center flex items-center justify-center space-x-2 rounded shadow cursor-pointer"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-vpa-gold animate-ping" />
+                    <span>Quản lý Phiếu OMR (Thi Giấy)</span>
+                  </button>
+                )}
+
+                {onNavigateToOmrGrading && !onNavigateToOmrMgmt && (
                   <button
                     onClick={onNavigateToOmrGrading}
-                    className="w-full py-2.5 bg-gradient-to-r from-vpa-olive to-emerald-900 dark:from-vpa-gold/20 dark:to-yellow-600/20 border border-vpa-gold text-white dark:text-vpa-gold text-xs uppercase tracking-wider font-extrabold hover:opacity-90 transition-all text-center flex items-center justify-center space-x-2 rounded shadow"
+                    className="w-full py-2.5 bg-gradient-to-r from-vpa-olive to-emerald-900 dark:from-vpa-gold/20 dark:to-yellow-600/20 border border-vpa-gold text-white dark:text-vpa-gold text-xs uppercase tracking-wider font-extrabold hover:opacity-90 transition-all text-center flex items-center justify-center space-x-2 rounded shadow cursor-pointer"
                   >
                     <span className="w-2 h-2 rounded-full bg-vpa-gold animate-ping" />
                     <span>Chấm thi OMR Offline (Camera)</span>

@@ -30,6 +30,7 @@ const ExamTaker = lazy(() => import('./pages/ExamTaker'));
 const RoomResults = lazy(() => import('./pages/RoomResults'));
 const OmrScannerCompanion = lazy(() => import('./pages/OmrScannerCompanion'));
 const OmrGradingHub = lazy(() => import('./pages/OmrGradingHub'));
+const OmrManagement = lazy(() => import('./pages/OmrManagement'));
 import { ArrowUp } from './icons';
 import { useSubviewBack } from './hooks/useSubviewBack';
 import { DatePicker } from './components/DatePicker';
@@ -292,6 +293,8 @@ export const App: React.FC = () => {
               dispatch(setCurrentView('user-mgmt'));
             } else if (path === '/room-mgmt') {
               dispatch(setCurrentView('room-mgmt'));
+            } else if (path === '/omr-mgmt') {
+              dispatch(setCurrentView('omr-mgmt'));
             } else if (path === '/my-history') {
               dispatch(setCurrentView('my-history'));
             } else if (path === '/lobby') {
@@ -369,6 +372,9 @@ export const App: React.FC = () => {
       case 'results':
         path = '/results';
         break;
+      case 'omr-mgmt':
+        path = '/omr-mgmt';
+        break;
       case 'omr-scanner':
         path = '/omr-scanner';
         break;
@@ -388,7 +394,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
-      let view: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'room-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results' | 'omr-scanner' | 'omr-grading' = 'dashboard';
+      let view: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'room-mgmt' | 'omr-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results' | 'omr-scanner' | 'omr-grading' = 'dashboard';
 
       if (path === '/login') view = 'login';
       else if (path === '/register') view = 'register';
@@ -396,6 +402,7 @@ export const App: React.FC = () => {
       else if (path === '/quiz-mgmt') view = 'quiz-mgmt';
       else if (path === '/user-mgmt') view = 'user-mgmt';
       else if (path === '/room-mgmt') view = 'room-mgmt';
+      else if (path === '/omr-mgmt') view = 'omr-mgmt';
       else if (path === '/my-history') view = 'my-history';
       else if (path === '/lobby') view = 'lobby';
       else if (path === '/taker') view = 'taker';
@@ -720,6 +727,7 @@ export const App: React.FC = () => {
             onNavigateHome={() => dispatch(setCurrentView('dashboard'))}
             onNavigateToHistory={() => dispatch(setCurrentView('my-history'))}
             onNavigateToOmrGrading={() => handleOpenOmrGrading()}
+            onNavigateToOmrMgmt={() => dispatch(setCurrentView('omr-mgmt'))}
             notifications={notifications}
             unreadCount={unreadCount}
             onNotificationClick={handleNotificationClick}
@@ -741,6 +749,7 @@ export const App: React.FC = () => {
                   onNavigateToUserMgmt={() => dispatch(setCurrentView('user-mgmt'))}
                   onNavigateToRoomMgmt={() => dispatch(setCurrentView('room-mgmt'))}
                   onNavigateToOmrGrading={() => handleOpenOmrGrading()}
+                  onNavigateToOmrMgmt={() => dispatch(setCurrentView('omr-mgmt'))}
                   onStartPractice={handleStartPractice}
                 />
               )}
@@ -763,6 +772,13 @@ export const App: React.FC = () => {
                   onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
                   onJoinRoom={handleJoinRoom}
                   onViewResults={(roomId) => handleViewResults(roomId, 'room-mgmt')}
+                  onOpenOmrGrading={handleOpenOmrGrading}
+                />
+              )}
+              {currentView === 'omr-mgmt' && (
+                <OmrManagement
+                  user={user}
+                  onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
                   onOpenOmrGrading={handleOpenOmrGrading}
                 />
               )}

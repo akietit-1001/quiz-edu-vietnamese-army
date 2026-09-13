@@ -8,6 +8,8 @@ export interface OmrPrintData {
   quizId: string;
   totalQuestions: number;
   examCode?: string;
+  batchCode?: string;
+  batchId?: string;
   roomCode?: string;
   province?: string;
   fontSize?: 'normal' | 'compact';
@@ -25,6 +27,8 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
     const qrPayload = JSON.stringify({
       type: 'OMR_QUIZ',
       qId: data.quizId || '',
+      batchCode: data.batchCode || '',
+      batchId: data.batchId || '',
       title: data.quizTitle || 'Bài kiểm tra',
       total: totalQ,
       code: data.examCode || '101',
@@ -42,7 +46,7 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
     })
       .then(url => setQrDataUrl(url))
       .catch(err => console.error('Lỗi tạo QR code OMR:', err));
-  }, [data.quizId, data.quizTitle, totalQ, data.examCode, data.roomCode]);
+  }, [data.quizId, data.batchCode, data.batchId, data.quizTitle, totalQ, data.examCode, data.roomCode]);
 
   // Chia câu hỏi thành các cột (mỗi cột 20 hoặc 25 câu)
   const getColumns = () => {
@@ -170,7 +174,9 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
           ) : (
             <div className="w-[56px] h-[56px] bg-gray-200 animate-pulse border border-black" />
           )}
-          <span className="text-[8px] font-mono font-bold tracking-tighter mt-0.5">MÃ ĐỀ: {data.examCode || '101'}</span>
+          <span className="text-[8px] font-mono font-bold tracking-tighter mt-0.5 text-center">
+            {data.batchCode ? `${data.batchCode} • ` : ''}MÃ ĐỀ: {data.examCode || '101'}
+          </span>
         </div>
       </div>
 
