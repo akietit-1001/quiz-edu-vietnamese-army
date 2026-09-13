@@ -1615,6 +1615,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                     >
                                       Xuất bản
                                     </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setActiveDropdownQuizId(null); setOmrPrintQuiz(quiz); }}
+                                      className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-gold hover:bg-vpa-gold/15 transition-colors border-b border-vpa-olive-light/10 flex items-center justify-between"
+                                    >
+                                      <span>In Phiếu OMR</span>
+                                      <span className="text-[9px] font-mono text-gray-400">A4</span>
+                                    </button>
                                     {perm.canShare && (
                                       <button
                                         type="button"
@@ -1764,6 +1772,14 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                                 className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors border-b border-vpa-olive-light/10"
                               >
                                 Xuất bản
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setActiveDropdownQuizId(null); setOmrPrintQuiz(quiz); }}
+                                className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase text-vpa-olive dark:text-vpa-gold hover:bg-vpa-gold/15 transition-colors border-b border-vpa-olive-light/10 flex items-center justify-between"
+                              >
+                                <span>In Phiếu OMR</span>
+                                <span className="text-[9px] font-mono text-gray-400">A4</span>
                               </button>
                               {perm.canShare && (
                                 <button
@@ -3334,6 +3350,11 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         previewData={selectedQuizForExport}
         onCancel={() => { setShowExportPopup(false); setSelectedQuizForExport(null); }}
         onConfirm={handleExportConfirm}
+        onPrintOmr={(quiz) => {
+          setShowExportPopup(false);
+          setSelectedQuizForExport(null);
+          setOmrPrintQuiz(quiz);
+        }}
       />
 
       {/* Tạo phòng thi ngay từ kho đề thi, đề đã được chọn sẵn */}

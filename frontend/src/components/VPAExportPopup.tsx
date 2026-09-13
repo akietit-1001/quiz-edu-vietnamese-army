@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { X } from '../icons';
+import { X, Printer } from '../icons';
 import { NumberStepper } from './NumberStepper';
 import { Select } from './Select';
 import {
@@ -96,6 +96,7 @@ interface VPAExportPopupProps {
   defaultName?: string;
   type: 'quiz' | 'results';
   previewData?: any; // Quiz object or attempts list
+  onPrintOmr?: (quiz: any) => void;
 }
 
 export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
@@ -108,7 +109,8 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
   defaultRank = 'Đại tá',
   defaultName = 'Nguyễn Văn A',
   type,
-  previewData
+  previewData,
+  onPrintOmr
 }) => {
   const [upperUnit, setUpperUnit] = useState(defaultUpperUnit || 'BỘ QUỐC PHÒNG');
   const [currentUnit, setCurrentUnit] = useState(defaultUnit || '');
@@ -435,6 +437,29 @@ export const VPAExportPopup: React.FC<VPAExportPopupProps> = ({
                 Cấu hình
               </h3>
             </div>
+
+            {/* Quick action: In Phiếu Trả Lời Trắc Nghiệm OMR */}
+            {type === 'quiz' && onPrintOmr && currentQuizToShow && (
+              <div className="mb-4 p-3 bg-vpa-gold/10 border border-vpa-gold/40 rounded-lg flex items-center justify-between gap-3 shadow-sm">
+                <div>
+                  <span className="block text-xs font-bold text-vpa-olive dark:text-vpa-gold uppercase tracking-wide flex items-center gap-1.5">
+                    <Printer size={15} weight="bold" />
+                    <span>Phiếu OMR Làm Bài (A4)</span>
+                  </span>
+                  <p className="text-[10px] text-gray-600 dark:text-gray-300 mt-0.5">
+                    In tờ phiếu làm bài
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onPrintOmr(currentQuizToShow)}
+                  className="px-3 py-1.5 bg-vpa-olive hover:bg-vpa-olive-light dark:bg-vpa-gold dark:hover:bg-vpa-gold-bright text-white dark:text-vpa-dark rounded-lg text-xs font-bold shrink-0 transition-colors flex items-center gap-1.5 shadow"
+                >
+                  <Printer size={14} weight="bold" />
+                  <span>In Phiếu OMR</span>
+                </button>
+              </div>
+            )}
 
             {/* Export Format Selectors */}
             <div className="mb-5">
