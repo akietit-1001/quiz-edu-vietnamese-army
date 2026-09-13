@@ -12,6 +12,7 @@ interface RoomManagementProps {
   onNavigateBack: () => void;
   onJoinRoom: (roomCode: string) => void;
   onViewResults: (roomId: string) => void;
+  onOpenOmrGrading?: (roomId: string, quizId: string, roomCode: string) => void;
 }
 
 type RoomStatus = 'waiting' | 'active' | 'finished';
@@ -28,7 +29,7 @@ const STATUS_TAG_OPTIONS: { value: RoomStatus; label: string; activeClass: strin
   { value: 'finished', label: 'Đã kết thúc', activeClass: 'bg-vpa-red text-white border-vpa-red' }
 ];
 
-export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigateBack, onJoinRoom, onViewResults }) => {
+export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigateBack, onJoinRoom, onViewResults, onOpenOmrGrading }) => {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -329,6 +330,15 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({ user, onNavigate
                         >
                           <UserPlus size={12} />
                           <span>Mời</span>
+                        </button>
+                      )}
+                      {onOpenOmrGrading && (
+                        <button
+                          onClick={() => onOpenOmrGrading(room._id, room.quizId?._id || '', room.roomCode)}
+                          title="Mở bàn chấm bài thi OMR bằng camera điện thoại"
+                          className="px-2.5 py-1.5 border border-vpa-gold text-vpa-olive dark:text-vpa-gold hover:bg-vpa-gold/15 text-[10px] uppercase font-bold tracking-wider transition-colors flex items-center space-x-1 whitespace-nowrap"
+                        >
+                          <span>📱 Chấm OMR</span>
                         </button>
                       )}
                       <button

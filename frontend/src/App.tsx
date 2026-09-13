@@ -28,6 +28,8 @@ const MyHistory = lazy(() => import('./pages/MyHistory'));
 const RoomLobby = lazy(() => import('./pages/RoomLobby'));
 const ExamTaker = lazy(() => import('./pages/ExamTaker'));
 const RoomResults = lazy(() => import('./pages/RoomResults'));
+const OmrScannerCompanion = lazy(() => import('./pages/OmrScannerCompanion'));
+const OmrGradingHub = lazy(() => import('./pages/OmrGradingHub'));
 import { ArrowUp } from './icons';
 import { useSubviewBack } from './hooks/useSubviewBack';
 import { DatePicker } from './components/DatePicker';
@@ -61,6 +63,11 @@ export const App: React.FC = () => {
     activeExamMode,
     activeRoomSettings,
   } = useAppSelector((state) => state.exam);
+
+  // OMR Scanner & Grading Hub States
+  const [omrSessionCode, setOmrSessionCode] = useState('');
+  const [omrRoomId, setOmrRoomId] = useState('');
+  const [omrQuizId, setOmrQuizId] = useState('');
 
   // Icon chuông thông báo (chỉ hiện với Cán bộ — xem Navbar) — quản lý ở
   // App vì cần dispatch điều hướng view khi bấm vào 1 thông báo. unreadCount
@@ -293,6 +300,10 @@ export const App: React.FC = () => {
               dispatch(setCurrentView('taker'));
             } else if (path === '/results') {
               dispatch(setCurrentView('results'));
+            } else if (path === '/omr-scanner') {
+              dispatch(setCurrentView('omr-scanner'));
+            } else if (path === '/omr-grading') {
+              dispatch(setCurrentView('omr-grading'));
             } else {
               dispatch(setCurrentView('dashboard'));
             }
@@ -307,6 +318,9 @@ export const App: React.FC = () => {
           dispatch(setCurrentView('register'));
         } else if (path === '/forgot-password') {
           dispatch(setCurrentView('forgot-password'));
+        } else if (path === '/omr-scanner') {
+          // Cho phép mở trang máy quét trực tiếp trên điện thoại
+          dispatch(setCurrentView('omr-scanner'));
         } else {
           dispatch(setCurrentView('login'));
         }
@@ -355,6 +369,12 @@ export const App: React.FC = () => {
       case 'results':
         path = '/results';
         break;
+      case 'omr-scanner':
+        path = '/omr-scanner';
+        break;
+      case 'omr-grading':
+        path = '/omr-grading';
+        break;
       default:
         path = '/';
     }
@@ -368,7 +388,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname;
-      let view: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'room-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results' = 'dashboard';
+      let view: 'login' | 'register' | 'forgot-password' | 'dashboard' | 'quiz-mgmt' | 'user-mgmt' | 'room-mgmt' | 'my-history' | 'lobby' | 'taker' | 'results' | 'omr-scanner' | 'omr-grading' = 'dashboard';
 
       if (path === '/login') view = 'login';
       else if (path === '/register') view = 'register';
@@ -380,6 +400,8 @@ export const App: React.FC = () => {
       else if (path === '/lobby') view = 'lobby';
       else if (path === '/taker') view = 'taker';
       else if (path === '/results') view = 'results';
+      else if (path === '/omr-scanner') view = 'omr-scanner';
+      else if (path === '/omr-grading') view = 'omr-grading';
       
       dispatch(setCurrentView(view));
     };
@@ -588,6 +610,14 @@ export const App: React.FC = () => {
     dispatch(setCurrentView('results'));
   };
 
+  // Mở Bàn chấm thi OMR trên Máy tính
+  const handleOpenOmrGrading = (roomId?: string, quizId?: string, roomCode?: string) => {
+    setOmrRoomId(roomId || '');
+    setOmrQuizId(quizId || '');
+    setOmrSessionCode(roomCode || roomId || quizId || 'OMR-SESSION');
+    dispatch(setCurrentView('omr-grading'));
+  };
+
   const handleStartExam = (roomId: string, quizId: string, settings: any) => {
     dispatch(startExam({ roomId, quizId, mode: 'exam', settings }));
     dispatch(setCurrentView('taker'));
@@ -664,6 +694,11 @@ export const App: React.FC = () => {
             <ForgotPassword
               onNavigateToLogin={() => dispatch(setCurrentView('login'))}
             />
+          ) : currentView === 'omr-scanner' ? (
+            <OmrScannerCompanion
+              sessionCode={omrSessionCode}
+              onNavigateBack={() => dispatch(setCurrentView('login'))}
+            />
           ) : (
             <Login
               onLoginSuccess={handleLoginSuccess}
@@ -726,6 +761,7 @@ export const App: React.FC = () => {
                   onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
                   onJoinRoom={handleJoinRoom}
                   onViewResults={(roomId) => handleViewResults(roomId, 'room-mgmt')}
+                  onOpenOmrGrading={handleOpenOmrGrading}
                 />
               )}
               {currentView === 'my-history' && (
@@ -764,6 +800,22 @@ export const App: React.FC = () => {
                     dispatch(clearExam());
                     dispatch(setCurrentView(resultsReturnView));
                   }}
+                  onOpenOmrGrading={handleOpenOmrGrading}
+                />
+              )}
+              {currentView === 'omr-scanner' && (
+                <OmrScannerCompanion
+                  sessionCode={omrSessionCode}
+                  onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
+                />
+              )}
+              {currentView === 'omr-grading' && (
+                <OmrGradingHub
+                  user={user}
+                  roomId={omrRoomId}
+                  quizId={omrQuizId}
+                  roomCode={omrSessionCode}
+                  onNavigateBack={() => dispatch(setCurrentView('dashboard'))}
                 />
               )}
             </Suspense>

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, CheckCircle, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X } from '../icons';
+import { Plus, Trash, UploadSimple, ArrowLeft, PlusCircle, Check, CheckCircle, Shuffle, Database, MagnifyingGlass, Funnel, PlusIcon, UploadSimpleIcon, ShuffleIcon, PencilSimple, Brain, MagnifyingGlassIcon, BrainIcon, X, Printer } from '../icons';
 import { VPAExportPopup } from '../components/VPAExportPopup';
+import { OmrPrintModal } from '../components/OmrPrintModal';
 import { type QuizPrintData, type PageNumberPosition, type PaperSize, QuizPrintPortalContent, sanitizeFilenamePart } from '../utils/quizPrintTemplate';
 import { useSubviewBack } from '../hooks/useSubviewBack';
 import { DatePicker } from '../components/DatePicker';
@@ -54,6 +55,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
   const [selectedQuizForExport, setSelectedQuizForExport] = useState<any>(null);
   const [printData, setPrintData] = useState<QuizPrintData | null>(null);
   const [defaultUpperUnit, setDefaultUpperUnit] = useState('');
+  const [omrPrintQuiz, setOmrPrintQuiz] = useState<any | null>(null);
 
   useEffect(() => {
     axios.get('/api/units/my-parent')
@@ -3200,6 +3202,15 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                 <div className="flex items-end space-x-2">
                   <button
                     type="button"
+                    onClick={() => setOmrPrintQuiz(currentQuizToShow)}
+                    title="In Phiếu Trả Lời Trắc Nghiệm OMR (Chuẩn A4 Máy Quét)"
+                    className="px-3 py-1.5 border border-vpa-gold text-vpa-olive dark:text-vpa-gold hover:bg-vpa-gold/15 text-xs font-bold transition-colors rounded-lg flex items-center space-x-1"
+                  >
+                    <Printer size={16} />
+                    <span>In Phiếu OMR</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { setViewingQuiz(null); handleEditQuiz(currentQuizToShow); }}
                     title="Sửa mã đề này"
                     className="p-2 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
@@ -3339,6 +3350,17 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         <ShareQuizModal
           quiz={shareQuizTarget}
           onClose={() => setShareQuizTarget(null)}
+        />
+      )}
+
+      {/* Modal in Phiếu Trả Lời Trắc Nghiệm OMR */}
+      {omrPrintQuiz && (
+        <OmrPrintModal
+          isOpen={!!omrPrintQuiz}
+          onClose={() => setOmrPrintQuiz(null)}
+          quiz={omrPrintQuiz}
+          defaultUnit={user?.unit?.name || ''}
+          defaultUpperUnit={defaultUpperUnit}
         />
       )}
 

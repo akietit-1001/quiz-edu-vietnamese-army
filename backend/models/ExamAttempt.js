@@ -18,7 +18,7 @@ const examAttemptSchema = new mongoose.Schema({
   },
   mode: {
     type: String,
-    enum: ['exam', 'practice', 'mock'],
+    enum: ['exam', 'practice', 'mock', 'omr_scan'],
     required: true
   },
   answers: [
@@ -53,6 +53,34 @@ const examAttemptSchema = new mongoose.Schema({
   antiCheatViolations: {
     type: Number,
     default: 0
+  },
+  // Các trường phục vụ chấm thi OMR
+  scannedImageUrl: {
+    type: String,
+    default: ''
+  },
+  examCode: {
+    type: String,
+    default: '101'
+  },
+  candidateInfo: {
+    sbd: { type: String, default: '' },
+    fullName: { type: String, default: '' },
+    unitName: { type: String, default: '' },
+    rank: { type: String, default: '' }
+  },
+  rawOmrAnswers: {
+    type: Array,
+    default: []
+  },
+  isManualEdited: {
+    type: Boolean,
+    default: false
+  },
+  examinerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
   completedAt: {
     type: Date,

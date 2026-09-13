@@ -58,6 +58,10 @@ import {
   IdCard as IdentificationCardData,
   Building as BuildingOfficeData,
   Download as DownloadSimpleData,
+  Camera as CameraData,
+  Zap as ZapData,
+  Smartphone as SmartphoneData,
+  AlertCircle as WarningCircleData,
 } from 'lucide';
 
 /** Phosphor-style weight, mapped to a morphicons strokeWidth. */
@@ -154,6 +158,11 @@ export const UserIcon = createIcon(UserData);
 export const IdentificationCardIcon = createIcon(IdentificationCardData);
 export const BuildingOfficeIcon = createIcon(BuildingOfficeData);
 export const DownloadSimpleIcon = createIcon(DownloadSimpleData);
+export const FileArrowDown = DownloadSimpleIcon;
+export const Camera = createIcon(CameraData);
+export const Lightning = createIcon(ZapData);
+export const DeviceMobile = createIcon(SmartphoneData);
+export const WarningCircle = createIcon(WarningCircleData);
 
 // Raw icon data + MorphIcon, for call sites that toggle between two shapes
 // and want a real morph animation instead of an unmount/remount swap.

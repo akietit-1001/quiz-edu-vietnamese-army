@@ -70,6 +70,25 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Tham gia / rời phiên chấm OMR realtime (kết nối Điện thoại máy quét <-> Máy tính)
+  socket.on('joinOmrSession', ({ sessionCode }) => {
+    if (sessionCode) {
+      const channel = `omr_${sessionCode.toUpperCase()}`;
+      socket.join(channel);
+      socket.omrSession = channel;
+      console.log(`Socket ${socket.id} joined OMR session: ${channel}`);
+      socket.to(channel).emit('omrScannerConnected', { socketId: socket.id, timestamp: new Date() });
+    }
+  });
+
+  socket.on('leaveOmrSession', ({ sessionCode }) => {
+    if (sessionCode) {
+      const channel = `omr_${sessionCode.toUpperCase()}`;
+      socket.leave(channel);
+      console.log(`Socket ${socket.id} left OMR session: ${channel}`);
+    }
+  });
+
   // 1. Join room (user or host)
   socket.on('joinRoom', async ({ roomCode, userId, role }) => {
     try {

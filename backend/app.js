@@ -15,6 +15,7 @@ import bankRoutes from './routes/bankRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import unitRoutes from './routes/unitRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import omrRoutes from './routes/omrRoutes.js';
 
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
@@ -26,7 +27,7 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
@@ -37,6 +38,7 @@ app.use('/api/bank', bankRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/units', unitRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/omr', omrRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date() });

@@ -12,9 +12,10 @@ interface RoomResultsProps {
   user: any;
   roomId: string;
   onNavigateBack: () => void;
+  onOpenOmrGrading?: (roomId: string, quizId: string, roomCode: string) => void;
 }
 
-export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNavigateBack }) => {
+export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNavigateBack, onOpenOmrGrading }) => {
   const [room, setRoom] = useState<any>(null);
   const [attempts, setAttempts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -341,16 +342,18 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
 
         {/* Export buttons */}
         <div className="flex space-x-3">
-          {/* <button
-            onClick={() => setShowExportPopup(true)}
-            className="px-3 py-1.5 border border-vpa-olive-light text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive-light/10 text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
-          >
-            <DownloadSimple size={16} />
-            <span>Xuất Excel</span>
-          </button> */}
+          {onOpenOmrGrading && (
+            <button
+              onClick={() => onOpenOmrGrading(room?._id, room?.quizId?._id || '', room?.roomCode || '')}
+              title="Mở bàn chấm thi OMR bằng camera điện thoại"
+              className="px-3 py-1.5 border border-vpa-gold text-vpa-olive dark:text-vpa-gold hover:bg-vpa-gold/15 text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded shadow-sm transition-all"
+            >
+              <span>📱 Bàn Chấm OMR</span>
+            </button>
+          )}
           <button
             onClick={() => setShowExportPopup(true)}
-            className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2"
+            className="px-3 py-1.5 bg-vpa-olive dark:bg-vpa-gold text-white dark:text-vpa-dark hover:bg-vpa-olive-light dark:hover:bg-vpa-gold-bright text-xs font-bold uppercase tracking-wider flex items-center space-x-2 rounded shadow"
           >
             <DownloadSimpleIcon size={16} />
             <span>Xuất báo cáo</span>
