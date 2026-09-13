@@ -78,7 +78,7 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
         minHeight: '297mm',
         height: '297mm',
         maxHeight: '297mm',
-        padding: '7mm 11mm 5mm 11mm',
+        padding: '6mm 20mm 6mm 20mm',
         margin: '0 auto',
         backgroundColor: '#ffffff',
         color: '#000000',
@@ -93,16 +93,16 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
       }}
     >
       {/* ========================================================================= */}
-      {/* 4 CORNER FIDUCIAL MARKERS (Mỗi marker vuông 13x13mm dùng SVG đen 100%)     */}
+      {/* 4 CORNER FIDUCIAL MARKERS (Mỗi marker vuông 10x10mm dùng SVG đen 100%)     */}
       {/* ========================================================================= */}
       {/* Top - Left */}
       <div
         className="omr-marker top-left absolute"
         style={{
-          top: '5mm',
-          left: '5mm',
-          width: '13mm',
-          height: '13mm',
+          top: '6mm',
+          left: '6mm',
+          width: '10mm',
+          height: '10mm',
           backgroundColor: '#000000',
           WebkitPrintColorAdjust: 'exact',
           printColorAdjust: 'exact'
@@ -117,10 +117,10 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
       <div
         className="omr-marker top-right absolute"
         style={{
-          top: '5mm',
-          right: '5mm',
-          width: '13mm',
-          height: '13mm',
+          top: '6mm',
+          right: '6mm',
+          width: '10mm',
+          height: '10mm',
           backgroundColor: '#000000',
           WebkitPrintColorAdjust: 'exact',
           printColorAdjust: 'exact'
@@ -135,10 +135,10 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
       <div
         className="omr-marker bottom-left absolute"
         style={{
-          bottom: '5mm',
-          left: '5mm',
-          width: '13mm',
-          height: '13mm',
+          bottom: '6mm',
+          left: '6mm',
+          width: '10mm',
+          height: '10mm',
           backgroundColor: '#000000',
           WebkitPrintColorAdjust: 'exact',
           printColorAdjust: 'exact'
@@ -153,10 +153,10 @@ export const OmrSheetPage: React.FC<{ data: OmrPrintData }> = ({ data }) => {
       <div
         className="omr-marker bottom-right absolute"
         style={{
-          bottom: '5mm',
-          right: '5mm',
-          width: '13mm',
-          height: '13mm',
+          bottom: '6mm',
+          right: '6mm',
+          width: '10mm',
+          height: '10mm',
           backgroundColor: '#000000',
           WebkitPrintColorAdjust: 'exact',
           printColorAdjust: 'exact'
