@@ -40,7 +40,27 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   const [quizQuestionCount, setQuizQuestionCount] = useState<number>(40);
   const [totalQuestions, setTotalQuestions] = useState<number>(40);
 
-  // Helper đảm bảo / tự động tạo bản ghi OmrExam trong cơ sở dữ liệu
+  // Helper kiểm tra xem đề thi này đã có bản ghi OmrExam trong DB chưa (CHỈ ĐỌC, KHÔNG TỰ TẠO)
+  const checkExistingExamInDb = async (targetQuizId: string) => {
+    if (!targetQuizId || targetQuizId === 'SAMPLE_QUIZ') return null;
+    try {
+      const res = await axios.post('/api/omr/exams/ensure', {
+        quizId: targetQuizId,
+        checkOnly: true
+      });
+      if (res.data?.exam) {
+        setCurrentOmrExam(res.data.exam);
+        return res.data.exam;
+      } else {
+        setCurrentOmrExam(null);
+      }
+    } catch (err) {
+      console.warn('Không thể kiểm tra phiếu OMR trong DB:', err);
+    }
+    return null;
+  };
+
+  // Helper tạo/lưu bản ghi OmrExam trong cơ sở dữ liệu (CHỈ GỌI KHI NGƯỜI DÙNG BẤM XÁC NHẬN IN)
   const ensureExamInDb = async (
     targetQuiz?: any,
     targetCodes?: string[],
@@ -60,7 +80,8 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
         currentUnit,
         roomCode,
         examCodes: codes.length > 0 ? codes : [examCode || '101'],
-        totalQuestions: targetQCount || totalQuestions
+        totalQuestions: targetQCount || totalQuestions,
+        checkOnly: false
       });
 
       if (res.data?.exam) {
@@ -120,7 +141,7 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
     }
   }, [omrExam, initialQuiz]);
 
-  // 3. Tải chi tiết Đề thi và tự động đảm bảo có bản ghi OmrExam trong DB
+  // 3. Tải chi tiết Đề thi và kiểm tra trạng thái phiếu đã có trong DB hay chưa (KHÔNG TỰ TẠO TRƯỚC)
   useEffect(() => {
     if (!selectedQuiz) return;
 
@@ -155,15 +176,19 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
           setExamCode(codes[0]);
         }
 
-        // Tự động lưu/đảm bảo bản ghi OMR trong Database
-        ensureExamInDb(fullQuiz, codes, count);
+        // Chỉ kiểm tra xem đã có phiếu trong DB hay chưa, KHÔNG tạo mới khi chỉ xem/preview
+        if (!omrExam) {
+          checkExistingExamInDb(quizId);
+        }
       })
       .catch(err => {
         console.error('Lỗi tải chi tiết đề thi:', err);
         const fallbackCount = selectedQuiz.questions?.length || selectedQuiz.totalQuestions || 40;
         setQuizQuestionCount(fallbackCount);
         setTotalQuestions(fallbackCount);
-        ensureExamInDb(selectedQuiz, ['101'], fallbackCount);
+        if (!omrExam) {
+          checkExistingExamInDb(quizId);
+        }
       });
 
     if (defaultUpperUnit && !omrExam) setUpperUnit(defaultUpperUnit);
@@ -187,7 +212,7 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   };
 
   const handlePrint = async () => {
-    // Đảm bảo dữ liệu OmrExam mới nhất đã được lưu trong DB trước khi in
+    // CHỈ TẠO/LƯU BẢN GHI OMR VÀO CƠ SỞ DỮ LIỆU KHI NGƯỜI DÙNG XÁC NHẬN BẤM IN
     const targetQuiz = selectedQuiz || initialQuiz;
     if (targetQuiz) {
       await ensureExamInDb(targetQuiz, availableExamCodes, totalQuestions);
@@ -261,7 +286,7 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
             {isEnsuringExam ? (
               <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded flex items-center gap-2 text-xs text-blue-800 dark:text-blue-300">
                 <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                <span className="text-[11px] font-medium">Đang đồng bộ phiếu vào cơ sở dữ liệu...</span>
+                <span className="text-[11px] font-medium">Đang lưu dữ liệu phiếu vào hệ thống...</span>
               </div>
             ) : currentOmrExam?.code ? (
               <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded flex items-center justify-between text-xs">
@@ -273,7 +298,15 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
                   {currentOmrExam.code}
                 </span>
               </div>
-            ) : null}
+            ) : (
+              <div className="p-2 bg-gray-500/10 border border-gray-500/20 rounded flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span className="text-[11px] font-medium flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
+                  Chưa lưu phiếu vào DB
+                </span>
+                <span className="text-[10px] font-mono italic text-gray-500">(Lưu khi nhấn In)</span>
+              </div>
+            )}
 
             {/* Số câu hỏi (Tự động khớp chính xác với số câu của đề thi) */}
             <div className="space-y-1.5 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded">

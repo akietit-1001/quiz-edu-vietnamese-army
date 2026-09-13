@@ -306,7 +306,8 @@ export const ensureOmrExam = async (req, res) => {
       examCodes,
       description,
       roomCode,
-      totalQuestions: reqTotalQ
+      totalQuestions: reqTotalQ,
+      checkOnly = false
     } = req.body;
 
     if (!quizId) {
@@ -325,36 +326,38 @@ export const ensureOmrExam = async (req, res) => {
       .populate('unitId', 'name');
 
     if (existingExam) {
-      let changed = false;
-      if (upperUnit && existingExam.upperUnit !== upperUnit.trim()) {
-        existingExam.upperUnit = upperUnit.trim();
-        changed = true;
-      }
-      if (currentUnit && existingExam.currentUnit !== currentUnit.trim()) {
-        existingExam.currentUnit = currentUnit.trim();
-        changed = true;
-      }
-      if (province && existingExam.province !== province.trim()) {
-        existingExam.province = province.trim();
-        changed = true;
-      }
-      if (reqTotalQ && existingExam.totalQuestions !== Number(reqTotalQ)) {
-        existingExam.totalQuestions = Number(reqTotalQ);
-        changed = true;
-      }
-      if (roomCode !== undefined && existingExam.roomCode !== roomCode.trim().toUpperCase()) {
-        existingExam.roomCode = roomCode.trim().toUpperCase();
-        changed = true;
-      }
-      if (Array.isArray(examCodes) && examCodes.length > 0) {
-        const parsed = examCodes.map(c => String(c).trim()).filter(Boolean);
-        if (JSON.stringify(existingExam.examCodes) !== JSON.stringify(parsed)) {
-          existingExam.examCodes = parsed;
+      if (!checkOnly) {
+        let changed = false;
+        if (upperUnit && existingExam.upperUnit !== upperUnit.trim()) {
+          existingExam.upperUnit = upperUnit.trim();
           changed = true;
         }
-      }
-      if (changed) {
-        await existingExam.save();
+        if (currentUnit && existingExam.currentUnit !== currentUnit.trim()) {
+          existingExam.currentUnit = currentUnit.trim();
+          changed = true;
+        }
+        if (province && existingExam.province !== province.trim()) {
+          existingExam.province = province.trim();
+          changed = true;
+        }
+        if (reqTotalQ && existingExam.totalQuestions !== Number(reqTotalQ)) {
+          existingExam.totalQuestions = Number(reqTotalQ);
+          changed = true;
+        }
+        if (roomCode !== undefined && existingExam.roomCode !== roomCode.trim().toUpperCase()) {
+          existingExam.roomCode = roomCode.trim().toUpperCase();
+          changed = true;
+        }
+        if (Array.isArray(examCodes) && examCodes.length > 0) {
+          const parsed = examCodes.map(c => String(c).trim()).filter(Boolean);
+          if (JSON.stringify(existingExam.examCodes) !== JSON.stringify(parsed)) {
+            existingExam.examCodes = parsed;
+            changed = true;
+          }
+        }
+        if (changed) {
+          await existingExam.save();
+        }
       }
 
       return res.json({
@@ -365,7 +368,17 @@ export const ensureOmrExam = async (req, res) => {
       });
     }
 
-    // 2. Nếu chưa có -> Tự động tạo mới bản ghi OmrExam
+    // Nếu chỉ kiểm tra (chưa xác nhận in) và chưa có phiếu -> trả về rỗng, KHÔNG tạo bản ghi mới
+    if (checkOnly) {
+      return res.json({
+        success: true,
+        exam: null,
+        existed: false,
+        message: 'Chưa có phiếu OMR nào được tạo cho đề thi này.'
+      });
+    }
+
+    // 2. Nếu chưa có và người dùng xác nhận in -> Tự động tạo mới bản ghi OmrExam
     let code = '';
     let isUnique = false;
     while (!isUnique) {

@@ -312,7 +312,7 @@ describe('HỆ THỐNG CHẤM THI OMR (OPTICAL MARK RECOGNITION)', () => {
       expect(res1.body.exam).toBeDefined();
       expect(res1.body.exam.code).toBeDefined();
 
-      // 12.2 Đảm bảo cho một đề thi mới chưa có phiếu (tự động tạo mới với created: true)
+      // 12.2 Kiểm tra với checkOnly: true (chỉ xem, chưa xác nhận in -> KHÔNG tạo bản ghi trong DB)
       const freshQuiz = await Quiz.create({
         title: 'Kiểm tra Bắn súng AK bài 1',
         category: 'Quân sự',
@@ -325,6 +325,20 @@ describe('HỆ THỐNG CHẤM THI OMR (OPTICAL MARK RECOGNITION)', () => {
         ]
       });
 
+      const checkRes = await request(app)
+        .post('/api/omr/exams/ensure')
+        .set('Authorization', `Bearer ${adminUser.accessToken}`)
+        .send({
+          quizId: freshQuiz._id,
+          checkOnly: true
+        });
+
+      expect(checkRes.status).toBe(200);
+      expect(checkRes.body.success).toBe(true);
+      expect(checkRes.body.existed).toBe(false);
+      expect(checkRes.body.exam).toBeNull();
+
+      // 12.3 Khi người dùng bấm xác nhận in (checkOnly: false -> Tạo mới bản ghi vào DB)
       const res2 = await request(app)
         .post('/api/omr/exams/ensure')
         .set('Authorization', `Bearer ${adminUser.accessToken}`)
@@ -333,7 +347,8 @@ describe('HỆ THỐNG CHẤM THI OMR (OPTICAL MARK RECOGNITION)', () => {
           title: 'Phiếu kiểm tra: Bắn súng AK bài 1',
           upperUnit: 'QUÂN KHU 9',
           currentUnit: 'LỮ ĐOÀN 950',
-          examCodes: ['101', '102']
+          examCodes: ['101', '102'],
+          checkOnly: false
         });
 
       expect(res2.status).toBe(201);
