@@ -755,49 +755,63 @@ export const updateOmrAttempt = async (req, res) => {
 
     if (sbd !== undefined) attempt.candidateInfo.sbd = sbd;
     if (fullName !== undefined) attempt.candidateInfo.fullName = fullName;
-    if (examCode !== undefined) attempt.examCode = examCode;
+    if (examCode !== undefined) attempt.examCode = String(examCode).trim();
 
-    // Nếu có cập nhật lại câu trả lời -> tính lại điểm
-    if (Array.isArray(answers)) {
-      let newScore = 0;
-      const totalQ = quiz.questions.length;
-      const updatedFormattedAnswers = [];
-
-      quiz.questions.forEach((q, idx) => {
-        const qIndex = idx + 1;
-        const updatedAns = answers.find(a => a.questionIndex === qIndex);
-        const selectedOption = updatedAns
-          ? (Array.isArray(updatedAns.selectedAnswers) ? updatedAns.selectedAnswers[0] : updatedAns.selectedOption)
-          : null;
-
-        let isCorrect = false;
-        if (selectedOption && q.correctAnswers && q.correctAnswers.length > 0) {
-          const correctSet = q.correctAnswers.map(ans => String(ans).trim().toUpperCase());
-          const letterToIndex = { 'A': '0', 'B': '1', 'C': '2', 'D': '3' };
-          const chosenIndex = letterToIndex[String(selectedOption).toUpperCase()];
-
-          if (
-            correctSet.includes(String(selectedOption).toUpperCase()) ||
-            (chosenIndex && correctSet.includes(chosenIndex))
-          ) {
-            isCorrect = true;
-          }
-        }
-
-        if (isCorrect) newScore++;
-
-        updatedFormattedAnswers.push({
-          questionIndex: qIndex,
-          selectedAnswers: selectedOption ? [selectedOption] : []
-        });
+    // 1. Tìm đề thi hoặc biến thể tương ứng với mã đề
+    let scoringQuiz = quiz;
+    const targetExamCode = examCode !== undefined ? String(examCode).trim() : attempt.examCode;
+    if (targetExamCode && quiz._id) {
+      const variant = await Quiz.findOne({
+        $or: [
+          { parentQuizId: quiz._id, examCode: targetExamCode },
+          { _id: quiz._id, examCode: targetExamCode }
+        ]
       });
-
-      attempt.answers = updatedFormattedAnswers;
-      attempt.score = newScore;
-      attempt.isPassed = newScore >= Math.ceil(totalQ * 0.5);
-      attempt.rank = calculateRank(newScore, totalQ);
+      if (variant && variant.questions && variant.questions.length > 0) {
+        scoringQuiz = variant;
+      }
     }
 
+    // 2. Tính lại điểm theo đáp án của scoringQuiz
+    const currentAnswers = Array.isArray(answers) ? answers : (attempt.answers || []);
+    let newScore = 0;
+    const totalQ = scoringQuiz.questions?.length || quiz.questions.length;
+    const updatedFormattedAnswers = [];
+
+    scoringQuiz.questions.forEach((q, idx) => {
+      const qIndex = idx + 1;
+      const updatedAns = currentAnswers.find(a => a.questionIndex === qIndex);
+      const selectedOption = updatedAns
+        ? (Array.isArray(updatedAns.selectedAnswers) ? updatedAns.selectedAnswers[0] : (updatedAns.selectedOption || null))
+        : null;
+
+      let isCorrect = false;
+      if (selectedOption && q.correctAnswers && q.correctAnswers.length > 0) {
+        const correctSet = q.correctAnswers.map(ans => String(ans).trim().toUpperCase());
+        const letterToIndex = { 'A': '0', 'B': '1', 'C': '2', 'D': '3' };
+        const chosenIndex = letterToIndex[String(selectedOption).toUpperCase()];
+
+        if (
+          correctSet.includes(String(selectedOption).toUpperCase()) ||
+          (chosenIndex && correctSet.includes(chosenIndex))
+        ) {
+          isCorrect = true;
+        }
+      }
+
+      if (isCorrect) newScore++;
+
+      updatedFormattedAnswers.push({
+        questionIndex: qIndex,
+        selectedAnswers: selectedOption ? [selectedOption] : []
+      });
+    });
+
+    attempt.answers = updatedFormattedAnswers;
+    attempt.score = newScore;
+    attempt.totalQuestions = totalQ;
+    attempt.isPassed = newScore >= Math.ceil(totalQ * 0.5);
+    attempt.rank = calculateRank(newScore, totalQ);
     attempt.isManualEdited = true;
     await attempt.save();
 

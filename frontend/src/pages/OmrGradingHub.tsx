@@ -685,7 +685,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
             </div>
 
             <div className="p-4 overflow-y-auto space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="font-bold block mb-1">Số báo danh (SBD)</label>
                   <input
@@ -696,10 +696,11 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                       candidateInfo: { ...editingAttempt.candidateInfo, sbd: e.target.value }
                     })}
                     className="w-full px-3 py-1.5 border border-gray-300 rounded dark:bg-vpa-dark font-mono font-bold"
+                    placeholder="001"
                   />
                 </div>
                 <div>
-                  <label className="font-bold block mb-1">Họ và tên</label>
+                  <label className="font-bold block mb-1">Họ và tên thí sinh</label>
                   <input
                     type="text"
                     value={editingAttempt.candidateInfo?.fullName || ''}
@@ -708,6 +709,21 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                       candidateInfo: { ...editingAttempt.candidateInfo, fullName: e.target.value }
                     })}
                     className="w-full px-3 py-1.5 border border-gray-300 rounded dark:bg-vpa-dark"
+                    placeholder="Nguyễn Văn A"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold block mb-1 text-vpa-olive dark:text-vpa-gold">Mã đề thi</label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={editingAttempt.examCode || ''}
+                    onChange={(e) => setEditingAttempt({
+                      ...editingAttempt,
+                      examCode: e.target.value
+                    })}
+                    className="w-full px-3 py-1.5 border border-vpa-gold/60 rounded dark:bg-vpa-dark font-mono font-bold text-center bg-yellow-50/50"
+                    placeholder="101"
                   />
                 </div>
               </div>
