@@ -12,16 +12,22 @@ const connection = new IORedis({
   port: parseInt(process.env.REDIS_PORT) || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: null, // Required for BullMQ workers
+  retryStrategy: (times) => Math.min(times * 1000, 10000),
 });
 
 // Dùng chung để cache tạm văn bản tài liệu gốc (phục vụ regenerate-question)
 export const redisConnection = connection;
 
+let hasLoggedRedisError = false;
 connection.on('connect', () => {
+  hasLoggedRedisError = false;
   console.log('=== [Redis] Kết nối thành công tới Redis Server ===');
 });
 connection.on('error', (err) => {
-  console.error('=== [Redis] Lỗi kết nối Redis:', err.message, '===');
+  if (!hasLoggedRedisError) {
+    console.warn(`=== [Redis] Chưa kết nối được Redis cục bộ (${err.message}). Tính năng hàng đợi AI nền sẽ đợi Redis sẵn sàng. ===`);
+    hasLoggedRedisError = true;
+  }
 });
 
 // Define Queues
