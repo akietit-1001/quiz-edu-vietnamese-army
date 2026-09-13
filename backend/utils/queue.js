@@ -34,6 +34,10 @@ connection.on('error', (err) => {
 export const quizGenQueue = new Queue('quizGen', { connection });
 export const examSubmitQueue = new Queue('examSubmit', { connection });
 
+// Bắt lỗi kết nối trên Queues để không quăng unhandled error khi chạy offline/local
+quizGenQueue.on('error', () => {});
+examSubmitQueue.on('error', () => {});
+
 export const quizGenWorker = new Worker('quizGen', async (job) => {
   const { markdownText, count, category, fileHash, fileListNames, firstFileName, filesCount } = job.data;
   const apiKey = process.env.GEMINI_API_KEY;
@@ -185,6 +189,10 @@ export const examSubmitWorker = new Worker(
   async (job) => processExamSubmission(job.data),
   { connection }
 );
+
+// Bắt lỗi kết nối trên Workers để không crash tiến trình khi không có Redis cục bộ
+quizGenWorker.on('error', () => {});
+examSubmitWorker.on('error', () => {});
 
 // Log workers status
 quizGenWorker.on('completed', (job) => {
