@@ -83,21 +83,60 @@ io.on('connection', (socket) => {
   });
 
   // Tham gia / rời phiên chấm OMR realtime (kết nối Điện thoại máy quét <-> Máy tính)
-  socket.on('joinOmrSession', ({ sessionCode }) => {
+  socket.on('joinOmrSession', async ({ sessionCode, role }) => {
     if (sessionCode) {
       const channel = `omr_${sessionCode.toUpperCase()}`;
       socket.join(channel);
       socket.omrSession = channel;
-      console.log(`Socket ${socket.id} joined OMR session: ${channel}`);
-      socket.to(channel).emit('omrScannerConnected', { socketId: socket.id, timestamp: new Date() });
+      socket.omrRole = role || 'scanner'; // 'hub' (máy tính) hoặc 'scanner' (điện thoại)
+      console.log(`Socket ${socket.id} joined OMR session: ${channel} (role: ${socket.omrRole})`);
+
+      try {
+        const activeSockets = await io.in(channel).fetchSockets();
+        const activeScanners = activeSockets.filter(s => s.omrRole === 'scanner');
+
+        if (socket.omrRole === 'scanner') {
+          io.to(channel).emit('omrScannerConnected', {
+            socketId: socket.id,
+            scannerCount: activeScanners.length,
+            timestamp: new Date()
+          });
+        } else if (socket.omrRole === 'hub') {
+          socket.emit('omrScannerStatus', {
+            isConnected: activeScanners.length > 0,
+            scannerCount: activeScanners.length
+          });
+        }
+      } catch (err) {
+        console.error('Lỗi tính toán OMR socket status:', err.message);
+      }
     }
   });
 
-  socket.on('leaveOmrSession', ({ sessionCode }) => {
+  socket.on('leaveOmrSession', async ({ sessionCode }) => {
     if (sessionCode) {
       const channel = `omr_${sessionCode.toUpperCase()}`;
+      const wasScanner = socket.omrRole === 'scanner';
       socket.leave(channel);
       console.log(`Socket ${socket.id} left OMR session: ${channel}`);
+
+      if (wasScanner) {
+        try {
+          const activeSockets = await io.in(channel).fetchSockets();
+          const remainingScanners = activeSockets.filter(s => s.id !== socket.id && s.omrRole === 'scanner');
+          if (remainingScanners.length === 0) {
+            io.to(channel).emit('omrScannerDisconnected', {
+              socketId: socket.id,
+              scannerCount: 0,
+              timestamp: new Date()
+            });
+          }
+        } catch (err) {
+          console.error('Lỗi tính toán OMR leave socket:', err.message);
+        }
+      }
+      delete socket.omrSession;
+      delete socket.omrRole;
     }
   });
 
@@ -409,6 +448,26 @@ io.on('connection', (socket) => {
   // 6. Disconnection handler
   socket.on('disconnect', async () => {
     console.log(`Socket disconnected: ${socket.id}`);
+
+    // Xử lý khi điện thoại máy quét OMR đóng tab / tắt trình duyệt / mất kết nối
+    if (socket.omrSession && socket.omrRole === 'scanner') {
+      try {
+        const channel = socket.omrSession;
+        const activeSockets = await io.in(channel).fetchSockets();
+        const remainingScanners = activeSockets.filter(s => s.id !== socket.id && s.omrRole === 'scanner');
+        if (remainingScanners.length === 0) {
+          io.to(channel).emit('omrScannerDisconnected', {
+            socketId: socket.id,
+            scannerCount: 0,
+            timestamp: new Date()
+          });
+          console.log(`All OMR scanners disconnected for session: ${channel}`);
+        }
+      } catch (err) {
+        console.error('Lỗi OMR scanner disconnect handler:', err.message);
+      }
+    }
+
     if (socket.roomCode && socket.userId) {
       try {
         // Check if there are other active socket connections for the same user in this room

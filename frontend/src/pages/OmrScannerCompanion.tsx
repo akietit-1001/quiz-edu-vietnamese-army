@@ -68,10 +68,10 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
       setSessionCode(codeToJoin.trim().toUpperCase());
       setScanCount(res.data.existingAttempts?.length || 0);
 
-      // Kết nối socket vào kênh OMR
+      // Kết nối socket vào kênh OMR với role là scanner
       const socket = getAppSocket();
       socket.connect();
-      socket.emit('joinOmrSession', { sessionCode: codeToJoin.trim().toUpperCase() });
+      socket.emit('joinOmrSession', { sessionCode: codeToJoin.trim().toUpperCase(), role: 'scanner' });
 
       startCamera();
     } catch (err: any) {
@@ -94,6 +94,18 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
       setSessionCode(paramCode);
       joinSession(paramCode);
     }
+
+    return () => {
+      // Dọn dẹp dừng camera và báo rời phiên OMR khi thoát khỏi trang / đóng component
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      const socket = getAppSocket();
+      const codeToLeave = paramCode || initialSessionCode;
+      if (codeToLeave) {
+        socket.emit('leaveOmrSession', { sessionCode: codeToLeave.trim().toUpperCase() });
+      }
+    };
   }, []);
 
   // 2. Khởi động Camera điện thoại
@@ -338,6 +350,10 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
             <button
               onClick={() => {
                 if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+                const socket = getAppSocket();
+                if (sessionCode) {
+                  socket.emit('leaveOmrSession', { sessionCode: sessionCode.toUpperCase() });
+                }
                 setIsJoined(false);
               }}
               className="p-2 bg-black/60 backdrop-blur rounded-full text-white active:scale-90"

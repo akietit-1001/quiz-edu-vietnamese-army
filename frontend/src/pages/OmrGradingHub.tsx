@@ -125,11 +125,21 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
     socket.connect();
 
     const channelCode = sessionCode.toUpperCase();
-    socket.emit('joinOmrSession', { sessionCode: channelCode });
+    socket.emit('joinOmrSession', { sessionCode: channelCode, role: 'hub' });
 
     // Khi điện thoại kết nối vào
     const handleScannerConnected = () => {
       setScannerConnected(true);
+    };
+
+    // Khi điện thoại thoát trình duyệt / ngắt kết nối
+    const handleScannerDisconnected = () => {
+      setScannerConnected(false);
+    };
+
+    // Nhận trạng thái máy quét ban đầu từ server
+    const handleScannerStatus = ({ isConnected }: { isConnected: boolean }) => {
+      setScannerConnected(isConnected);
     };
 
     // Khi có bài thi mới vừa được điện thoại quét xong!
@@ -160,12 +170,16 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
     };
 
     socket.on('omrScannerConnected', handleScannerConnected);
+    socket.on('omrScannerDisconnected', handleScannerDisconnected);
+    socket.on('omrScannerStatus', handleScannerStatus);
     socket.on('omrNewScan', handleNewScan);
     socket.on('omrScanUpdated', handleScanUpdated);
     socket.on('omrScanDeleted', handleScanDeleted);
 
     return () => {
       socket.off('omrScannerConnected', handleScannerConnected);
+      socket.off('omrScannerDisconnected', handleScannerDisconnected);
+      socket.off('omrScannerStatus', handleScannerStatus);
       socket.off('omrNewScan', handleNewScan);
       socket.off('omrScanUpdated', handleScanUpdated);
       socket.off('omrScanDeleted', handleScanDeleted);
