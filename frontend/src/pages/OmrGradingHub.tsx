@@ -56,19 +56,23 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
   const [showExportPopup, setShowExportPopup] = useState(false);
   const [editingAttempt, setEditingAttempt] = useState<any | null>(null);
 
-  // Tính URL máy quét kèm auth token (hỗ trợ cả IP LAN và Tunnel URL công khai https://...)
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Tính URL máy quét: Trên Domain chính thức dùng thẳng domain, trên localhost hỗ trợ IP LAN
   const getCompanionUrl = () => {
-    const rawInput = lanIp.trim();
     let host = window.location.origin;
 
-    if (rawInput.startsWith('http://') || rawInput.startsWith('https://')) {
-      // Người dùng nhập link Tunnel / Cloudflare / Ngrok công khai
-      host = rawInput.replace(/\/+$/, '');
-    } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      const port = window.location.port ? `:${window.location.port}` : '';
-      const selectedIp = rawInput || '192.168.1.2';
-      host = `http://${selectedIp}${port}`;
+    if (isLocalhost) {
+      const rawInput = lanIp.trim();
+      if (rawInput.startsWith('http://') || rawInput.startsWith('https://')) {
+        host = rawInput.replace(/\/+$/, '');
+      } else {
+        const port = window.location.port ? `:${window.location.port}` : '';
+        const selectedIp = rawInput || '192.168.1.2';
+        host = `http://${selectedIp}${port}`;
+      }
     }
+
     const token = localStorage.getItem('token') || '';
     return `${host}/omr-scanner?session=${sessionCode}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
   };
@@ -303,9 +307,18 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
               {/* Hướng dẫn và thao tác */}
               <div className="text-[11px] text-gray-600 dark:text-gray-300 space-y-2 flex-1">
                 <div className="leading-snug space-y-1">
-                  <p>1. Kết nối điện thoại và máy tính <strong>cùng mạng Wi-Fi</strong>.</p>
-                  <p>2. Dùng <strong>Camera điện thoại</strong> quét mã QR bên cạnh.</p>
-                  <p>3. Lia camera qua bài thi $\rightarrow$ điểm số <strong>nhảy realtime</strong> lên máy tính!</p>
+                  {isLocalhost ? (
+                    <>
+                      <p>1. Kết nối điện thoại và máy tính <strong>cùng mạng Wi-Fi</strong>.</p>
+                      <p>2. Dùng <strong>Camera điện thoại</strong> quét mã QR bên cạnh.</p>
+                      <p>3. Lia camera qua bài thi $\rightarrow$ điểm số <strong>nhảy realtime</strong> lên máy tính!</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>1. Dùng <strong>Camera điện thoại</strong> (4G/5G/Wi-Fi) quét mã QR bên cạnh.</p>
+                      <p>2. Lia camera qua từng bài thi $\rightarrow$ kết quả chấm <strong>nhảy realtime</strong> lên máy tính!</p>
+                    </>
+                  )}
                 </div>
 
                 {/* Các nút tiện ích */}
@@ -323,19 +336,21 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                     <span>{copiedLink ? 'Đã sao chép!' : 'Sao chép liên kết'}</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowIpSettings(!showIpSettings)}
-                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-vpa-dark dark:hover:bg-black/40 border border-gray-300 dark:border-gray-600 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 transition-colors"
-                  >
-                    {showIpSettings ? '▲ Đóng cấu hình IP' : '⚙️ Đổi IP LAN'}
-                  </button>
+                  {isLocalhost && (
+                    <button
+                      type="button"
+                      onClick={() => setShowIpSettings(!showIpSettings)}
+                      className="px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-vpa-dark dark:hover:bg-black/40 border border-gray-300 dark:border-gray-600 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 transition-colors"
+                    >
+                      {showIpSettings ? '▲ Đóng cấu hình IP' : '⚙️ Đổi IP LAN'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Bảng tùy chỉnh IP LAN khi mở cấu hình */}
-            {showIpSettings && (
+            {/* Bảng tùy chỉnh IP LAN khi mở cấu hình (chỉ ở localhost) */}
+            {isLocalhost && showIpSettings && (
               <div className="mt-2 p-2.5 bg-gray-50 dark:bg-vpa-dark/80 border border-vpa-olive-light/20 rounded-md text-[11px] space-y-2">
                 <div className="font-bold text-vpa-olive dark:text-vpa-gold flex items-center justify-between">
                   <span>CẤU HÌNH ĐỊA CHỈ IP MÁY TÍNH (MẠNG LAN)</span>
