@@ -28,16 +28,28 @@ import('./utils/queue.js').then(() => {
 
 const server = http.createServer(app);
 
-// Allowed frontend origins (comma-separated in CORS_ORIGIN), needed for
-// cross-site cookies (refresh token) once frontend/backend are on different domains
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['http://localhost:5173'];
+const corsOriginChecker = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (process.env.CORS_ORIGIN) {
+    const origins = process.env.CORS_ORIGIN.split(',').map(o => o.trim());
+    if (origins.includes(origin)) return callback(null, true);
+  }
+  if (
+    origin.startsWith('http://localhost') ||
+    origin.startsWith('http://127.0.0.1') ||
+    origin.startsWith('http://192.168.') ||
+    origin.startsWith('http://10.') ||
+    origin.startsWith('http://172.')
+  ) {
+    return callback(null, true);
+  }
+  callback(null, true);
+};
 
 // Socket.io initialization with CORS
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: corsOriginChecker,
     methods: ['GET', 'POST'],
     credentials: true
   }

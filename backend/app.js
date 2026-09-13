@@ -17,14 +17,29 @@ import unitRoutes from './routes/unitRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import omrRoutes from './routes/omrRoutes.js';
 
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['http://localhost:5173'];
+const corsOriginChecker = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (process.env.CORS_ORIGIN) {
+    const origins = process.env.CORS_ORIGIN.split(',').map(o => o.trim());
+    if (origins.includes(origin)) return callback(null, true);
+  }
+  // Cho phép localhost và toàn bộ dải mạng LAN nội bộ (192.168.x, 10.x, 172.x)
+  if (
+    origin.startsWith('http://localhost') ||
+    origin.startsWith('http://127.0.0.1') ||
+    origin.startsWith('http://192.168.') ||
+    origin.startsWith('http://10.') ||
+    origin.startsWith('http://172.')
+  ) {
+    return callback(null, true);
+  }
+  callback(null, true);
+};
 
 const app = express();
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: corsOriginChecker,
   credentials: true
 }));
 app.use(express.json({ limit: '15mb' }));

@@ -1,7 +1,22 @@
+import os from 'os';
 import ExamAttempt from '../models/ExamAttempt.js';
 import ExamRoom from '../models/ExamRoom.js';
 import Quiz from '../models/Quiz.js';
 import User from '../models/User.js';
+
+// Helper lấy danh sách IP mạng nội bộ (LAN) của máy chủ
+export const getLocalNetworkIps = () => {
+  const interfaces = os.networkInterfaces();
+  const ips = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        ips.push(iface.address);
+      }
+    }
+  }
+  return ips;
+};
 
 // Helper tính xếp loại quân sự
 const calculateRank = (score, total) => {
@@ -49,6 +64,7 @@ export const getOmrSession = async (req, res) => {
     res.json({
       success: true,
       sessionCode: cleanCode,
+      serverIps: getLocalNetworkIps(),
       room: room ? {
         _id: room._id,
         roomCode: room.roomCode,
@@ -113,7 +129,8 @@ export const submitOmrScan = async (req, res) => {
     }
 
     // Nếu không tìm thấy, fallback gán cho chính tài khoản đang chấm (Examiner) kèm candidateInfo
-    const assignedUserId = matchedUser ? matchedUser._id : req.user.id;
+    const examinerId = req.user ? req.user.id : null;
+    const assignedUserId = matchedUser ? matchedUser._id : (examinerId || null);
     const candidateInfo = {
       sbd: cleanSbd,
       fullName: matchedUser ? matchedUser.fullName : (candidateFullName || `Thí sinh SBD ${cleanSbd || 'Chưa rõ'}`),
@@ -179,7 +196,7 @@ export const submitOmrScan = async (req, res) => {
       examCode: examCode || '101',
       candidateInfo,
       rawOmrAnswers: detectedAnswers || [],
-      examinerId: req.user.id,
+      examinerId: examinerId || undefined,
       completedAt: new Date()
     });
 

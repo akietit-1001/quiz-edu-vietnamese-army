@@ -31,3 +31,30 @@ export const authMiddleware = async (req, res, next) => {
     return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
   }
 };
+
+export const optionalAuthMiddleware = async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id)
+      .select('-password')
+      .populate('unitId', 'name level parentId');
+    if (user && (decoded.v || 0) === (user.tokenVersion || 0)) {
+      req.user = user;
+    }
+  } catch (error) {
+    // Bỏ qua lỗi token đối với middleware xác thực tùy chọn
+  }
+  next();
+};
+

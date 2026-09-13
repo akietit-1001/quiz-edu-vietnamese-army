@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    host: true, // Lắng nghe trên tất cả địa chỉ mạng LAN (0.0.0.0) để điện thoại cùng Wi-Fi truy cập được
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

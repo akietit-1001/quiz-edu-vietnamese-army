@@ -38,6 +38,15 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
   const [, setLoading] = useState(true);
   const [scannerConnected, setScannerConnected] = useState(false);
   const [qrPairingUrl, setQrPairingUrl] = useState<string>('');
+  const [availableIps, setAvailableIps] = useState<string[]>([]);
+  const [lanIp, setLanIp] = useState<string>(() => {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return '192.168.1.2';
+    }
+    return window.location.hostname;
+  });
+  const [showIpSettings, setShowIpSettings] = useState<boolean>(false);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
   
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,12 +56,35 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
   const [showExportPopup, setShowExportPopup] = useState(false);
   const [editingAttempt, setEditingAttempt] = useState<any | null>(null);
 
+  // Tính URL máy quét kèm auth token (hỗ trợ cả IP LAN và Tunnel URL công khai https://...)
+  const getCompanionUrl = () => {
+    const rawInput = lanIp.trim();
+    let host = window.location.origin;
+
+    if (rawInput.startsWith('http://') || rawInput.startsWith('https://')) {
+      // Người dùng nhập link Tunnel / Cloudflare / Ngrok công khai
+      host = rawInput.replace(/\/+$/, '');
+    } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      const port = window.location.port ? `:${window.location.port}` : '';
+      const selectedIp = rawInput || '192.168.1.2';
+      host = `http://${selectedIp}${port}`;
+    }
+    const token = localStorage.getItem('token') || '';
+    return `${host}/omr-scanner?session=${sessionCode}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+  };
+
   // 1. Tải thông tin phiên chấm
   const fetchSessionData = async () => {
     try {
       const code = sessionCode;
       const res = await axios.get(`/api/omr/session/${code}`);
       setSessionData(res.data);
+      if (res.data.serverIps && Array.isArray(res.data.serverIps) && res.data.serverIps.length > 0) {
+        setAvailableIps(res.data.serverIps);
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          setLanIp(res.data.serverIps[0]);
+        }
+      }
       setAttempts(res.data.existingAttempts || []);
       if (res.data.existingAttempts?.length > 0 && !selectedAttempt) {
         setSelectedAttempt(res.data.existingAttempts[0]);
@@ -71,19 +103,17 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
   // 2. Sinh QR Code ghép đôi với điện thoại
   useEffect(() => {
     if (sessionCode) {
-      // URL để mở thẳng trang quét trên điện thoại
-      const host = window.location.origin;
-      const companionUrl = `${host}/omr-scanner?session=${sessionCode}`;
+      const companionUrl = getCompanionUrl();
 
       QRCode.toDataURL(companionUrl, {
         margin: 1,
-        width: 180,
+        width: 220,
         color: { dark: '#000000', light: '#ffffff' }
       })
         .then(url => setQrPairingUrl(url))
         .catch(err => console.error('Lỗi sinh QR ghép đôi:', err));
     }
-  }, [sessionCode]);
+  }, [sessionCode, lanIp]);
 
   // 3. Lắng nghe Socket.io Realtime từ Điện thoại
   useEffect(() => {
@@ -241,8 +271,8 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
         {/* CỘT TRÁI: QR KẾT NỐI & DANH SÁCH BÀI THI QUÉT ĐƯỢC */}
         <div className="w-full lg:w-96 flex flex-col gap-3">
           {/* Card Ghép Đôi Điện Thoại (Pairing Card) */}
-          <div className="bg-white dark:bg-vpa-dark-card border border-vpa-olive-light/30 rounded-lg p-3.5 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
+          <div className="bg-white dark:bg-vpa-dark-card border border-vpa-olive-light/30 rounded-lg p-3.5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wide text-vpa-olive dark:text-vpa-gold flex items-center gap-1.5">
                 <DeviceMobile size={16} weight="bold" />
                 <span>KẾT NỐI ĐIỆN THOẠI QUÉT</span>
@@ -259,22 +289,105 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
               {/* QR Code */}
-              <div className="bg-white p-1 rounded border border-gray-300 shadow-sm shrink-0">
+              <div className="bg-white p-1.5 rounded-lg border border-gray-300 shadow-sm shrink-0 flex flex-col items-center">
                 {qrPairingUrl ? (
-                  <img src={qrPairingUrl} alt="QR Ghép đôi máy quét" className="w-24 h-24 object-contain" />
+                  <img src={qrPairingUrl} alt="QR Ghép đôi máy quét" className="w-28 h-28 object-contain" />
                 ) : (
-                  <div className="w-24 h-24 bg-gray-100 animate-pulse" />
+                  <div className="w-28 h-28 bg-gray-100 animate-pulse rounded" />
                 )}
+                <span className="text-[9px] font-mono text-gray-500 mt-1 font-semibold">QR Quét bài OMR</span>
               </div>
 
-              {/* Hướng dẫn quét */}
-              <div className="text-[11px] text-gray-600 dark:text-gray-300 leading-snug space-y-1">
-                <p>1. Dùng <strong>Camera điện thoại</strong> quét mã QR bên cạnh để mở máy quét.</p>
-                <p>2. Lia camera qua từng bài thi $\rightarrow$ kết quả sẽ <strong>nhảy realtime</strong> ngay bên dưới!</p>
+              {/* Hướng dẫn và thao tác */}
+              <div className="text-[11px] text-gray-600 dark:text-gray-300 space-y-2 flex-1">
+                <div className="leading-snug space-y-1">
+                  <p>1. Kết nối điện thoại và máy tính <strong>cùng mạng Wi-Fi</strong>.</p>
+                  <p>2. Dùng <strong>Camera điện thoại</strong> quét mã QR bên cạnh.</p>
+                  <p>3. Lia camera qua bài thi $\rightarrow$ điểm số <strong>nhảy realtime</strong> lên máy tính!</p>
+                </div>
+
+                {/* Các nút tiện ích */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(getCompanionUrl());
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2000);
+                    }}
+                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-vpa-dark dark:hover:bg-black/40 border border-gray-300 dark:border-gray-600 rounded text-[10px] font-bold text-vpa-olive dark:text-vpa-gold transition-colors flex items-center gap-1"
+                  >
+                    {copiedLink ? <Check size={12} weight="bold" className="text-green-600" /> : null}
+                    <span>{copiedLink ? 'Đã sao chép!' : 'Sao chép liên kết'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowIpSettings(!showIpSettings)}
+                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-vpa-dark dark:hover:bg-black/40 border border-gray-300 dark:border-gray-600 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 transition-colors"
+                  >
+                    {showIpSettings ? '▲ Đóng cấu hình IP' : '⚙️ Đổi IP LAN'}
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Bảng tùy chỉnh IP LAN khi mở cấu hình */}
+            {showIpSettings && (
+              <div className="mt-2 p-2.5 bg-gray-50 dark:bg-vpa-dark/80 border border-vpa-olive-light/20 rounded-md text-[11px] space-y-2">
+                <div className="font-bold text-vpa-olive dark:text-vpa-gold flex items-center justify-between">
+                  <span>CẤU HÌNH ĐỊA CHỈ IP MÁY TÍNH (MẠNG LAN)</span>
+                </div>
+                
+                {availableIps.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-gray-500">IP phát hiện được trên máy chủ:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {availableIps.map(ip => (
+                        <button
+                          key={ip}
+                          type="button"
+                          onClick={() => setLanIp(ip)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors ${
+                            lanIp === ip
+                              ? 'bg-vpa-olive text-white dark:bg-vpa-gold dark:text-vpa-dark border-transparent shadow-xs'
+                              : 'bg-white dark:bg-vpa-dark border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-vpa-gold'
+                          }`}
+                        >
+                          {ip} {lanIp === ip ? '✓' : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-gray-500 block">Địa chỉ IP hoặc Hostname tùy chỉnh:</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={lanIp}
+                      onChange={(e) => setLanIp(e.target.value)}
+                      placeholder="Ví dụ: 192.168.1.2"
+                      className="flex-1 px-2 py-1 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-vpa-dark text-vpa-dark dark:text-vpa-sand"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLanIp(window.location.hostname === 'localhost' ? (availableIps[0] || '192.168.1.2') : window.location.hostname)}
+                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-bold"
+                    >
+                      Mặc định
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-gray-500 italic">
+                  💡 Gợi ý: Nếu máy tính đổi mạng Wi-Fi, hãy chọn đúng IP Wi-Fi mới để mã QR cập nhật.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Danh sách bài thi đã quét */}

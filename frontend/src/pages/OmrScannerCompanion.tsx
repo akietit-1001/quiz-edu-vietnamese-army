@@ -84,6 +84,11 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
   useEffect(() => {
     // Nếu có sessionCode truyền qua props hoặc URL params -> tự join
     const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    if (urlToken) {
+      localStorage.setItem('token', urlToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${urlToken}`;
+    }
     const paramCode = urlParams.get('session') || initialSessionCode;
     if (paramCode) {
       setSessionCode(paramCode);
