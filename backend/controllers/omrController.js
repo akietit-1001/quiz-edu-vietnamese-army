@@ -1,8 +1,12 @@
 import os from 'os';
+import xlsx from 'xlsx';
+import { Packer } from 'docx';
 import ExamAttempt from '../models/ExamAttempt.js';
 import ExamRoom from '../models/ExamRoom.js';
 import Quiz from '../models/Quiz.js';
 import User from '../models/User.js';
+import Unit from '../models/Unit.js';
+import { generateOmrResultsDOCX, generateOmrResultsXLSX } from '../utils/documentTemplates.js';
 
 // Helper lấy danh sách IP mạng nội bộ (LAN) của máy chủ
 export const getLocalNetworkIps = () => {
@@ -31,39 +35,60 @@ const calculateRank = (score, total) => {
 
 /**
  * 1. Khởi tạo / Lấy thông tin phiên quét OMR
+ * Hỗ trợ cả 3 chế độ:
+ * - Theo Mã phòng thi (roomCode)
+ * - Theo Mã đề thi (quizId)
+ * - Chế độ Độc lập Offline (Standalone Session) tự nhận diện đề từ phiếu làm bài
  */
 export const getOmrSession = async (req, res) => {
   try {
     const { sessionCode } = req.params;
     const cleanCode = String(sessionCode || '').trim().toUpperCase();
 
-    // Tìm phòng thi theo roomCode trước
-    let room = await ExamRoom.findOne({ roomCode: cleanCode })
-      .populate('quizId')
-      .populate('participants.userId', 'fullName rank position unitId username');
-
+    let room = null;
     let quiz = null;
+
+    // 1. Kiểm tra phòng thi theo roomCode
+    if (cleanCode.length >= 3) {
+      room = await ExamRoom.findOne({ roomCode: cleanCode })
+        .populate('quizId')
+        .populate('participants.userId', 'fullName rank position unitId username');
+    }
+
     if (room && room.quizId) {
       quiz = room.quizId;
-    } else {
-      // Nếu sessionCode là Quiz ID
+    } else if (cleanCode.length === 24 && /^[0-9a-fA-F]{24}$/.test(cleanCode)) {
+      // 2. Nếu sessionCode là Quiz ID
       quiz = await Quiz.findById(cleanCode);
     }
 
-    if (!quiz) {
-      return res.status(404).json({ message: 'Không tìm thấy thông tin đề thi hoặc phòng thi tương ứng.' });
-    }
+    // Lấy danh sách toàn bộ đề thi gốc để hỗ trợ chọn / lọc đề trên giao diện
+    const allQuizzes = await Quiz.find({ parentQuizId: null })
+      .select('title category duration questions')
+      .sort({ createdAt: -1 });
 
     // Lấy danh sách các bài đã chấm trong phiên này
-    const query = room ? { roomId: room._id } : { quizId: quiz._id, mode: 'omr_scan' };
+    let query = {};
+    if (room) {
+      query = { roomId: room._id };
+    } else if (quiz) {
+      query = { quizId: quiz._id, mode: 'omr_scan' };
+    } else {
+      // Phiên độc lập offline: lấy toàn bộ bài OMR gần nhất
+      query = { mode: 'omr_scan' };
+    }
+
     const existingAttempts = await ExamAttempt.find(query)
-      .populate('userId', 'fullName rank position username')
+      .populate('userId', 'fullName rank position username unitId')
+      .populate('quizId', 'title questions')
       .populate('examinerId', 'fullName')
-      .sort({ completedAt: -1 });
+      .sort({ completedAt: -1 })
+      .limit(300);
 
     res.json({
       success: true,
       sessionCode: cleanCode,
+      isStandalone: !room && !quiz,
       serverIps: getLocalNetworkIps(),
       room: room ? {
         _id: room._id,
@@ -71,7 +96,7 @@ export const getOmrSession = async (req, res) => {
         status: room.status,
         participants: room.participants
       } : null,
-      quiz: {
+      quiz: quiz ? {
         _id: quiz._id,
         title: quiz.title,
         totalQuestions: quiz.questions?.length || 0,
@@ -82,17 +107,24 @@ export const getOmrSession = async (req, res) => {
           options: q.options,
           correctAnswers: q.correctAnswers
         }))
-      },
+      } : null,
+      allQuizzes: allQuizzes.map(q => ({
+        _id: q._id,
+        title: q.title,
+        category: q.category,
+        totalQuestions: q.questions?.length || 0
+      })),
       existingAttempts
     });
   } catch (error) {
     console.error('Lỗi lấy thông tin phiên OMR:', error.message);
-    res.status(500).json({ message: 'Lỗi máy chủ khi tải phiên chấm OMR' });
+    res.status(500).json({ message: 'Lỗi máy chủ khi tải phiên chấm OMR: ' + error.message });
   }
 };
 
 /**
  * 2. Gửi và chấm điểm bài thi OMR (từ Điện thoại hoặc Desktop)
+ * Tự động tìm đúng Đề thi từ thông tin QR trên tờ phiếu giấy (quizId)
  */
 export const submitOmrScan = async (req, res) => {
   try {
@@ -108,12 +140,35 @@ export const submitOmrScan = async (req, res) => {
       candidateUnit
     } = req.body;
 
-    const quiz = await Quiz.findById(quizId);
-    if (!quiz) {
-      return res.status(404).json({ message: 'Đề thi không tồn tại' });
+    let targetQuizId = quizId;
+    let quiz = null;
+
+    // 1. Tìm đề thi: Trước hết theo quizId đọc từ QR trên tờ phiếu làm bài
+    if (targetQuizId && String(targetQuizId).length === 24 && /^[0-9a-fA-F]{24}$/.test(String(targetQuizId))) {
+      quiz = await Quiz.findById(targetQuizId);
     }
 
-    // 1. Tìm hoặc gán thí sinh (User)
+    // Nếu chưa tìm thấy, thử tìm qua sessionCode nếu là Quiz ID hoặc Room
+    if (!quiz && sessionCode) {
+      const cleanCode = String(sessionCode).trim().toUpperCase();
+      const room = await ExamRoom.findOne({ roomCode: cleanCode }).populate('quizId');
+      if (room?.quizId) {
+        quiz = room.quizId;
+      } else if (cleanCode.length === 24 && /^[0-9a-fA-F]{24}$/.test(cleanCode)) {
+        quiz = await Quiz.findById(cleanCode);
+      }
+    }
+
+    // Nếu vẫn chưa có quiz, fallback lấy đề thi gần nhất
+    if (!quiz) {
+      quiz = await Quiz.findOne().sort({ createdAt: -1 });
+    }
+
+    if (!quiz) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi phù hợp trong hệ thống để chấm điểm.' });
+    }
+
+    // 2. Tìm hoặc gán thí sinh (User)
     let matchedUser = null;
     const cleanSbd = String(sbd || '').trim();
 
@@ -125,25 +180,25 @@ export const submitOmrScan = async (req, res) => {
           { username: `sbd_${cleanSbd}` },
           { fullName: { $regex: cleanSbd, $options: 'i' } }
         ]
-      });
+      }).populate('unitId', 'name');
     }
 
     // Nếu không tìm thấy, fallback gán cho chính tài khoản đang chấm (Examiner) kèm candidateInfo
     const examinerId = req.user ? req.user.id : null;
     const assignedUserId = matchedUser ? matchedUser._id : (examinerId || null);
     const candidateInfo = {
-      sbd: cleanSbd,
-      fullName: matchedUser ? matchedUser.fullName : (candidateFullName || `Thí sinh SBD ${cleanSbd || 'Chưa rõ'}`),
+      sbd: cleanSbd || '---',
+      fullName: matchedUser ? matchedUser.fullName : (candidateFullName || (cleanSbd ? `Thí sinh SBD ${cleanSbd}` : 'Thí sinh Chưa rõ')),
       unitName: matchedUser ? (matchedUser.unitId?.name || '') : (candidateUnit || ''),
       rank: matchedUser ? matchedUser.rank : 'Chiến sĩ'
     };
 
-    // 2. Chấm điểm bài thi
+    // 3. Chấm điểm bài thi OMR theo đáp án của Đề thi nhận diện được
     let correctCount = 0;
-    const totalQ = quiz.questions.length;
+    const totalQ = quiz.questions?.length || 40;
     const formattedAnswers = [];
 
-    quiz.questions.forEach((q, idx) => {
+    quiz.questions?.forEach((q, idx) => {
       const qIndex = idx + 1;
       const detected = Array.isArray(detectedAnswers)
         ? detectedAnswers.find(a => a.questionIndex === qIndex)
@@ -152,16 +207,15 @@ export const submitOmrScan = async (req, res) => {
       const chosenOption = detected ? detected.selectedOption : null;
       const selectedAnswers = chosenOption ? [chosenOption] : [];
 
-      // So khớp đáp án:
-      // Đáp án trong hệ thống có thể lưu là '0', '1', '2', '3' (index) hoặc 'A', 'B', 'C', 'D' hoặc text
+      // So khớp đáp án
       let isCorrect = false;
       if (chosenOption && q.correctAnswers && q.correctAnswers.length > 0) {
         const correctSet = q.correctAnswers.map(ans => String(ans).trim().toUpperCase());
         const letterToIndex = { 'A': '0', 'B': '1', 'C': '2', 'D': '3' };
-        const chosenIndex = letterToIndex[chosenOption.toUpperCase()];
+        const chosenIndex = letterToIndex[String(chosenOption).toUpperCase()];
 
         if (
-          correctSet.includes(chosenOption.toUpperCase()) ||
+          correctSet.includes(String(chosenOption).toUpperCase()) ||
           (chosenIndex && correctSet.includes(chosenIndex))
         ) {
           isCorrect = true;
@@ -181,7 +235,7 @@ export const submitOmrScan = async (req, res) => {
     const isPassed = correctCount >= Math.ceil(totalQ * 0.5);
     const rank = calculateRank(correctCount, totalQ);
 
-    // 3. Tạo bản ghi ExamAttempt
+    // 4. Tạo bản ghi ExamAttempt
     const attempt = new ExamAttempt({
       userId: assignedUserId,
       roomId: roomId || null,
@@ -202,11 +256,11 @@ export const submitOmrScan = async (req, res) => {
 
     await attempt.save();
 
-    // 4. Nếu có roomId, cập nhật trạng thái trong ExamRoom
+    // 5. Nếu có roomId, cập nhật trạng thái trong ExamRoom
     if (roomId) {
       const room = await ExamRoom.findById(roomId);
       if (room) {
-        const pIndex = room.participants.findIndex(p => p.userId.toString() === assignedUserId.toString());
+        const pIndex = room.participants.findIndex(p => p.userId?.toString() === assignedUserId?.toString());
         if (pIndex !== -1) {
           room.participants[pIndex].status = 'finished';
           room.participants[pIndex].attemptId = attempt._id;
@@ -224,15 +278,17 @@ export const submitOmrScan = async (req, res) => {
 
     const populatedAttempt = await ExamAttempt.findById(attempt._id)
       .populate('userId', 'fullName rank position username unitId')
+      .populate('quizId', 'title questions')
       .populate('examinerId', 'fullName');
 
-    // 5. Bắn thông báo Realtime qua Socket.io về Màn hình Máy tính
+    // 6. Bắn thông báo Realtime qua Socket.io về Bàn chấm thi trên Máy tính
     const io = req.app?.get('socketio');
     if (io) {
       const channel = sessionCode ? `omr_${sessionCode.toUpperCase()}` : (roomId ? `omr_${roomId}` : null);
       if (channel) {
         io.to(channel).emit('omrNewScan', populatedAttempt);
       }
+      io.emit('omrNewScan', populatedAttempt);
     }
 
     res.status(201).json({
@@ -314,6 +370,7 @@ export const updateOmrAttempt = async (req, res) => {
 
     const populatedAttempt = await ExamAttempt.findById(attempt._id)
       .populate('userId', 'fullName rank position username unitId')
+      .populate('quizId', 'title questions')
       .populate('examinerId', 'fullName');
 
     // Bắn realtime update qua Socket
@@ -357,3 +414,129 @@ export const deleteOmrAttempt = async (req, res) => {
     res.status(500).json({ message: 'Lỗi máy chủ khi xóa bài thi' });
   }
 };
+
+/**
+ * 5. Xuất báo cáo kết quả chấm thi OMR Offline (.xlsx, .docx, .csv)
+ */
+export const exportOmrResults = async (req, res) => {
+  try {
+    const {
+      format = 'xlsx',
+      quizId,
+      sessionCode,
+      upperUnit,
+      currentUnit,
+      province,
+      position,
+      showSignature,
+      signerRank,
+      signerName,
+      marginTop,
+      marginBottom,
+      marginLeft,
+      marginRight,
+      orientation
+    } = req.query;
+
+    let query = { mode: 'omr_scan' };
+    if (quizId && quizId !== 'ALL' && quizId !== 'all') {
+      query.quizId = quizId;
+    }
+
+    const attempts = await ExamAttempt.find(query)
+      .populate({
+        path: 'userId',
+        select: 'fullName rank position unitId email username',
+        populate: { path: 'unitId', select: 'name' }
+      })
+      .populate('quizId', 'title')
+      .populate('examinerId', 'fullName')
+      .sort({ completedAt: -1 });
+
+    let defaultUpperUnit = 'BỘ QUỐC PHÒNG';
+    if (req.user?.unitId?.parentId) {
+      const parentUnit = await Unit.findById(req.user.unitId.parentId).select('name');
+      if (parentUnit) defaultUpperUnit = parentUnit.name;
+    }
+
+    if (format === 'csv') {
+      const data = attempts.map((att, idx) => {
+        const correctRatio = att.totalQuestions ? Math.round((att.score / att.totalQuestions) * 100) : 0;
+        return {
+          'STT': idx + 1,
+          'Số báo danh': att.candidateInfo?.sbd || att.userId?.username || '---',
+          'Họ và tên': att.candidateInfo?.fullName || att.userId?.fullName || 'Thí sinh',
+          'Cấp bậc': att.candidateInfo?.rank || att.userId?.rank || 'Chiến sĩ',
+          'Đơn vị': att.candidateInfo?.unitName || att.userId?.unitId?.name || '',
+          'Đề thi': att.quizId?.title || 'Bài thi trắc nghiệm',
+          'Mã đề': att.examCode || '101',
+          'Số câu đúng': `${att.score}/${att.totalQuestions}`,
+          'Tỷ lệ (%)': correctRatio,
+          'Kết quả': att.isPassed ? 'ĐẠT' : 'KHÔNG ĐẠT',
+          'Xếp loại': att.rank,
+          'Thời gian nộp': att.completedAt ? new Date(att.completedAt).toLocaleString('vi-VN') : ''
+        };
+      });
+
+      const ws = xlsx.utils.json_to_sheet(data);
+      const wb = xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(wb, ws, 'Ket_qua_OMR');
+
+      const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'csv' });
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=Bao_cao_OMR_${sessionCode || 'Offline'}.csv`);
+      const bom = Buffer.from([0xEF, 0xBB, 0xBF]); // UTF-8 BOM
+      return res.send(Buffer.concat([bom, buffer]));
+    }
+
+    if (format === 'xlsx') {
+      const workbook = await generateOmrResultsXLSX(
+        attempts,
+        req.user,
+        upperUnit || defaultUpperUnit,
+        currentUnit || req.user?.unitId?.name || 'ĐƠN VỊ THI',
+        province || 'Đồng Tháp',
+        position,
+        showSignature !== 'false',
+        signerRank,
+        signerName
+      );
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=Bao_cao_OMR_${sessionCode || 'Offline'}.xlsx`);
+      return res.send(buffer);
+    }
+
+    if (format === 'docx') {
+      const doc = generateOmrResultsDOCX(
+        attempts,
+        req.user,
+        upperUnit || defaultUpperUnit,
+        currentUnit || req.user?.unitId?.name || 'ĐƠN VỊ THI',
+        province || 'Đồng Tháp',
+        position,
+        showSignature !== 'false',
+        signerRank,
+        signerName,
+        'BÁO CÁO KẾT QUẢ CHẤM THI TRẮC NGHIỆM (PHIẾU OMR)',
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        orientation
+      );
+
+      const buffer = await Packer.toBuffer(doc);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename=Bao_cao_OMR_${sessionCode || 'Offline'}.docx`);
+      return res.send(buffer);
+    }
+
+    return res.status(400).json({ message: 'Định dạng xuất file không được hỗ trợ' });
+  } catch (error) {
+    console.error('Lỗi xuất báo cáo OMR:', error);
+    res.status(500).json({ message: 'Lỗi máy chủ khi xuất báo cáo OMR: ' + error.message });
+  }
+};
+

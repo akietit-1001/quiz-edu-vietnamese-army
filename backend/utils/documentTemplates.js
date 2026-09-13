@@ -589,3 +589,247 @@ export const generateResultsXLSX = async (room, results, adminUser, upperUnit, c
 
   return workbook;
 };
+
+/**
+ * Xuất báo cáo kết quả chấm thi trắc nghiệm OMR (Offline) dạng DOCX (Word)
+ */
+export const generateOmrResultsDOCX = (
+  attempts,
+  adminUser,
+  upperUnit,
+  currentUnit,
+  province,
+  position,
+  showSignature = true,
+  signerRank,
+  signerName,
+  title = 'BÁO CÁO KẾT QUẢ CHẤM THI TRẮC NGHIỆM (PHIẾU OMR)',
+  marginTop = 2.5,
+  marginBottom = 2.0,
+  marginLeft = 3.0,
+  marginRight = 1.5,
+  orientation = 'landscape'
+) => {
+  const finalPosition = position || adminUser?.position || 'TRƯỞNG PHÒNG ĐÀO TẠO';
+  const finalRank = signerRank || adminUser?.rank || 'Đại tá';
+  const finalName = signerName || adminUser?.fullName || 'Nguyễn Văn A';
+
+  const tableHeaderRow = new TableRow({
+    children: [
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "STT", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "SBD", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Họ và tên thí sinh", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Cấp bậc", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Đơn vị", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Đề thi", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Mã đề", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Số câu đúng", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Tỷ lệ (%)", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Kết quả", bold: true, font: 'Times New Roman' })] })] }),
+      new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Xếp loại", bold: true, font: 'Times New Roman' })] })] })
+    ]
+  });
+
+  const tableRows = [tableHeaderRow];
+
+  attempts.forEach((att, idx) => {
+    const sbd = att.candidateInfo?.sbd || att.userId?.username || '---';
+    const name = att.candidateInfo?.fullName || att.userId?.fullName || 'Thí sinh';
+    const rank = att.candidateInfo?.rank || att.userId?.rank || 'Chiến sĩ';
+    const unit = att.candidateInfo?.unitName || att.userId?.unitId?.name || '';
+    const quizName = att.quizId?.title || 'Bài thi trắc nghiệm';
+    const code = att.examCode || '101';
+    const correctRatio = att.totalQuestions ? Math.round((att.score / att.totalQuestions) * 100) : 0;
+
+    tableRows.push(
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(idx + 1), font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: sbd, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: name, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rank, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: unit, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: quizName, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: code, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${att.score}/${att.totalQuestions}`, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${correctRatio}%`, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: att.isPassed ? "ĐẠT" : "KHÔNG ĐẠT", bold: true, font: 'Times New Roman' })] })] }),
+          new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: att.rank || '', font: 'Times New Roman' })] })] })
+        ]
+      })
+    );
+  });
+
+  const resultsTable = new Table({
+    width: {
+      size: 100,
+      type: WidthType.PERCENTAGE
+    },
+    rows: tableRows
+  });
+
+  const paragraphs = [
+    createVPAHeader(upperUnit, currentUnit, province),
+    new Paragraph({ children: [] }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({ text: title, bold: true, size: 28, font: 'Times New Roman' }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({ text: `HÌNH THỨC: CHẤM PHIẾU TRẮC NGHIỆM TRÊN GIẤY • TỔNG SỐ BÀI: ${attempts.length}`, bold: true, size: 20, font: 'Times New Roman' }),
+      ],
+    }),
+    new Paragraph({ children: [] }),
+    resultsTable,
+    new Paragraph({ children: [] }),
+    new Paragraph({ children: [] }),
+  ];
+
+  if (showSignature) {
+    paragraphs.push(createVPASignature(finalPosition, finalRank, finalName));
+  }
+
+  const marginPreset = {
+    top: Math.round(parseFloat(marginTop) * 567),
+    bottom: Math.round(parseFloat(marginBottom) * 567),
+    left: Math.round(parseFloat(marginLeft) * 567),
+    right: Math.round(parseFloat(marginRight) * 567)
+  };
+  const pageSize = orientation === 'landscape'
+    ? { width: 16838, height: 11906, orientation: PageOrientation.LANDSCAPE }
+    : { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT };
+
+  return new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: marginPreset,
+            size: pageSize,
+          },
+        },
+        children: paragraphs,
+      },
+    ],
+  });
+};
+
+/**
+ * Xuất báo cáo kết quả chấm thi trắc nghiệm OMR (Offline) dạng XLSX (Excel)
+ */
+export const generateOmrResultsXLSX = async (
+  attempts,
+  adminUser,
+  upperUnit,
+  currentUnit,
+  province,
+  position,
+  showSignature = true,
+  signerRank,
+  signerName
+) => {
+  const finalPosition = (position || adminUser?.position || 'TRƯỞNG PHÒNG ĐÀO TẠO').toUpperCase();
+  const finalRank = signerRank || adminUser?.rank || 'Đại tá';
+  const finalName = signerName || adminUser?.fullName || 'Nguyễn Văn A';
+  const dateStr = `${province || 'Đồng Tháp'}, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}`;
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Ket_qua_OMR', {
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+  });
+
+  const COLS = 11;
+  sheet.columns = [
+    { width: 8 },  // STT
+    { width: 14 }, // SBD
+    { width: 26 }, // Họ và tên
+    { width: 14 }, // Cấp bậc
+    { width: 22 }, // Đơn vị
+    { width: 28 }, // Đề thi
+    { width: 10 }, // Mã đề
+    { width: 14 }, // Số câu đúng
+    { width: 12 }, // Tỷ lệ (%)
+    { width: 14 }, // Kết quả
+    { width: 12 }  // Xếp loại
+  ];
+
+  const mergeText = (rowIdx, startCol, endCol, text, { bold = false, italic = false, size = 12 } = {}) => {
+    sheet.mergeCells(rowIdx, startCol, rowIdx, endCol);
+    const cell = sheet.getCell(rowIdx, startCol);
+    cell.value = text;
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.font = { name: 'Times New Roman', size, bold, italic };
+    return cell;
+  };
+
+  let r = 1;
+  mergeText(r, 1, 4, (upperUnit || 'BỘ QUỐC PHÒNG').toUpperCase());
+  mergeText(r, 5, COLS, 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', { bold: true });
+  r++;
+  mergeText(r, 1, 4, (currentUnit || 'ĐƠN VỊ THI').toUpperCase(), { bold: true });
+  mergeText(r, 5, COLS, 'Độc lập - Tự do - Hạnh phúc', { bold: true });
+  r++;
+  mergeText(r, 1, 4, '-------');
+  mergeText(r, 5, COLS, '-----------------------');
+  r++;
+  mergeText(r, 5, COLS, dateStr, { italic: true });
+  r += 2;
+
+  mergeText(r, 1, COLS, 'BÁO CÁO KẾT QUẢ CHẤM THI TRẮC NGHIỆM (PHIẾU OMR)', { bold: true, size: 16 });
+  r++;
+  mergeText(r, 1, COLS, `HÌNH THỨC: QUÉT PHIẾU GIẤY TỰ ĐỘNG • TỔNG SỐ BÀI ĐÃ CHẤM: ${attempts.length}`, { bold: true, italic: true });
+  r += 2;
+
+  const headers = ['STT', 'SBD', 'Họ và tên thí sinh', 'Cấp bậc', 'Đơn vị', 'Tên đề thi', 'Mã đề', 'Số câu đúng', 'Tỷ lệ (%)', 'Kết quả', 'Xếp loại'];
+  headers.forEach((h, idx) => {
+    const cell = sheet.getCell(r, idx + 1);
+    cell.value = h;
+    cell.font = { name: 'Times New Roman', bold: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = XLSX_THIN_BORDER;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E2E2' } };
+  });
+  r++;
+
+  attempts.forEach((att, idx) => {
+    const correctRatio = att.totalQuestions ? Math.round((att.score / att.totalQuestions) * 100) : 0;
+    const rowValues = [
+      idx + 1,
+      att.candidateInfo?.sbd || att.userId?.username || '---',
+      att.candidateInfo?.fullName || att.userId?.fullName || 'Thí sinh',
+      att.candidateInfo?.rank || att.userId?.rank || 'Chiến sĩ',
+      att.candidateInfo?.unitName || att.userId?.unitId?.name || '',
+      att.quizId?.title || 'Bài thi trắc nghiệm',
+      att.examCode || '101',
+      `${att.score}/${att.totalQuestions}`,
+      correctRatio,
+      att.isPassed ? 'ĐẠT' : 'KHÔNG ĐẠT',
+      att.rank || ''
+    ];
+    rowValues.forEach((val, cIdx) => {
+      const cell = sheet.getCell(r, cIdx + 1);
+      cell.value = val;
+      cell.font = { name: 'Times New Roman' };
+      cell.alignment = { horizontal: cIdx === 2 || cIdx === 4 || cIdx === 5 ? 'left' : 'center', vertical: 'middle' };
+      cell.border = XLSX_THIN_BORDER;
+    });
+    r++;
+  });
+
+  r += 2;
+
+  if (showSignature) {
+    mergeText(r, 7, COLS, finalPosition, { bold: true });
+    r++;
+    mergeText(r, 7, COLS, '(Ký, ghi rõ họ tên)', { italic: true });
+    r += 4;
+    mergeText(r, 7, COLS, `${finalRank} ${finalName}`, { bold: true });
+  }
+
+  return workbook;
+};
+

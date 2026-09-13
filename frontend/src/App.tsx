@@ -719,6 +719,7 @@ export const App: React.FC = () => {
             onOpenChangePassword={handleOpenChangePassword}
             onNavigateHome={() => dispatch(setCurrentView('dashboard'))}
             onNavigateToHistory={() => dispatch(setCurrentView('my-history'))}
+            onNavigateToOmrGrading={() => handleOpenOmrGrading()}
             notifications={notifications}
             unreadCount={unreadCount}
             onNotificationClick={handleNotificationClick}
@@ -739,6 +740,7 @@ export const App: React.FC = () => {
                   onNavigateToQuizMgmt={() => dispatch(setCurrentView('quiz-mgmt'))}
                   onNavigateToUserMgmt={() => dispatch(setCurrentView('user-mgmt'))}
                   onNavigateToRoomMgmt={() => dispatch(setCurrentView('room-mgmt'))}
+                  onNavigateToOmrGrading={() => handleOpenOmrGrading()}
                   onStartPractice={handleStartPractice}
                 />
               )}

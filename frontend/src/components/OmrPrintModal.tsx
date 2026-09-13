@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import axios from 'axios';
 import { X, Printer } from '../icons';
 import { OmrSheetPage, type OmrPrintData } from './OmrSheetTemplate';
 
 interface OmrPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
-  quiz: any;
+  quiz?: any;
+  availableQuizzes?: any[];
   defaultUnit?: string;
   defaultUpperUnit?: string;
 }
@@ -14,31 +16,63 @@ interface OmrPrintModalProps {
 export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
   isOpen,
   onClose,
-  quiz,
+  quiz: initialQuiz,
+  availableQuizzes = [],
   defaultUnit = '',
   defaultUpperUnit = ''
 }) => {
+  const [quizzesList, setQuizzesList] = useState<any[]>(availableQuizzes);
+  const [selectedQuiz, setSelectedQuiz] = useState<any>(initialQuiz || null);
   const [upperUnit, setUpperUnit] = useState(defaultUpperUnit || 'BỘ QUỐC PHÒNG');
   const [currentUnit, setCurrentUnit] = useState(defaultUnit || 'ĐƠN VỊ TỔ CHỨC THI');
   const [examCode, setExamCode] = useState('101');
   const [roomCode, setRoomCode] = useState('');
-  const [totalQuestions, setTotalQuestions] = useState<number>(quiz?.questions?.length || 40);
+  const [totalQuestions, setTotalQuestions] = useState<number>(initialQuiz?.questions?.length || 40);
+
+  // Tải danh sách đề thi nếu chưa có
+  useEffect(() => {
+    if (availableQuizzes && availableQuizzes.length > 0) {
+      setQuizzesList(availableQuizzes);
+      if (!selectedQuiz && availableQuizzes.length > 0) {
+        setSelectedQuiz(availableQuizzes[0]);
+      }
+    } else {
+      axios.get('/api/quizzes')
+        .then(res => {
+          const list = Array.isArray(res.data) ? res.data : (res.data.quizzes || []);
+          setQuizzesList(list);
+          if (!selectedQuiz && list.length > 0) {
+            setSelectedQuiz(list[0]);
+          }
+        })
+        .catch(err => console.error('Lỗi tải danh sách đề thi:', err));
+    }
+  }, [availableQuizzes]);
 
   useEffect(() => {
-    if (quiz) {
-      setTotalQuestions(quiz.questions?.length || 40);
-      if (defaultUpperUnit) setUpperUnit(defaultUpperUnit);
-      if (defaultUnit) setCurrentUnit(defaultUnit);
+    if (initialQuiz) {
+      setSelectedQuiz(initialQuiz);
     }
-  }, [quiz, defaultUnit, defaultUpperUnit]);
+  }, [initialQuiz]);
 
-  if (!isOpen || !quiz) return null;
+  useEffect(() => {
+    if (selectedQuiz) {
+      const qCount = selectedQuiz.questions?.length || selectedQuiz.totalQuestions || 40;
+      setTotalQuestions(qCount);
+    }
+    if (defaultUpperUnit) setUpperUnit(defaultUpperUnit);
+    if (defaultUnit) setCurrentUnit(defaultUnit);
+  }, [selectedQuiz, defaultUnit, defaultUpperUnit]);
+
+  if (!isOpen) return null;
+
+  const currentQuiz = selectedQuiz || initialQuiz || { _id: 'SAMPLE_QUIZ', title: 'Bài kiểm tra trắc nghiệm', questions: [] };
 
   const printData: OmrPrintData = {
     upperUnit,
     currentUnit,
-    quizTitle: quiz.title || 'Bài kiểm tra',
-    quizId: quiz._id,
+    quizTitle: currentQuiz.title || 'Bài kiểm tra',
+    quizId: currentQuiz._id || '',
     totalQuestions,
     examCode,
     roomCode
@@ -46,7 +80,7 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
 
   const handlePrint = () => {
     const originalTitle = document.title;
-    const cleanTitle = (quiz.title || 'Phieu_OMR').replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
+    const cleanTitle = (currentQuiz.title || 'Phieu_OMR').replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
     document.title = `Phieu_tra_loi_OMR_${cleanTitle}_MaDe_${examCode}`;
 
     window.print();
@@ -76,6 +110,34 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Settings Sidebar */}
           <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-vpa-olive-light/20 p-4 overflow-y-auto space-y-4 bg-vpa-sand/50 dark:bg-vpa-dark/50 text-xs">
+            {/* Chọn Đề Thi */}
+            <div className="space-y-1">
+              <label className="font-bold text-gray-700 dark:text-gray-300 block">Chọn Đề thi cần in phiếu</label>
+              {quizzesList.length > 0 ? (
+                <select
+                  value={selectedQuiz?._id || ''}
+                  onChange={(e) => {
+                    const found = quizzesList.find(q => q._id === e.target.value);
+                    if (found) setSelectedQuiz(found);
+                  }}
+                  className="w-full px-2.5 py-1.5 border border-vpa-olive-light/40 rounded bg-white dark:bg-vpa-dark-card text-vpa-dark dark:text-vpa-sand font-bold"
+                >
+                  {quizzesList.map(q => (
+                    <option key={q._id} value={q._id}>
+                      {q.title} ({q.questions?.length || q.totalQuestions || 40} câu)
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={currentQuiz.title || ''}
+                  disabled
+                  className="w-full px-2.5 py-1.5 border border-vpa-olive-light/40 rounded bg-gray-100 dark:bg-vpa-dark text-gray-600"
+                />
+              )}
+            </div>
+
             <div className="space-y-1">
               <label className="font-bold text-gray-700 dark:text-gray-300 block">Đơn vị cấp trên</label>
               <input

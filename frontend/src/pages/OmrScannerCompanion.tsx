@@ -209,9 +209,9 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
             const payload = {
               sessionCode,
               roomId: sessionInfo?.room?._id || null,
-              quizId: sessionInfo?.quiz?._id || result.qrPayload?.qId,
+              quizId: result.qrPayload?.qId || sessionInfo?.quiz?._id,
               sbd: result.sbd || '',
-              examCode: result.examCode || '101',
+              examCode: result.examCode || result.qrPayload?.code || '101',
               detectedAnswers: result.detectedAnswers,
               scannedImageUrl: result.warpedImageBase64
             };
@@ -262,9 +262,9 @@ export const OmrScannerCompanion: React.FC<OmrScannerCompanionProps> = ({
             const payload = {
               sessionCode,
               roomId: sessionInfo?.room?._id || null,
-              quizId: sessionInfo?.quiz?._id || result.qrPayload?.qId,
+              quizId: result.qrPayload?.qId || sessionInfo?.quiz?._id,
               sbd: result.sbd || '',
-              examCode: result.examCode || '101',
+              examCode: result.examCode || result.qrPayload?.code || '101',
               detectedAnswers: result.detectedAnswers,
               scannedImageUrl: result.warpedImageBase64
             };

@@ -50,6 +50,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
   
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedQuizFilter, setSelectedQuizFilter] = useState<string>('ALL');
   
   // Modal states
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -57,6 +58,20 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
   const [editingAttempt, setEditingAttempt] = useState<any | null>(null);
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Lấy danh sách các đề thi duy nhất xuất hiện trong danh sách bài chấm
+  const uniqueQuizzes = React.useMemo(() => {
+    const map = new Map<string, { id: string; title: string; count: number }>();
+    attempts.forEach(a => {
+      const qId = a.quizId?._id || a.quizId || 'UNKNOWN';
+      const title = a.quizId?.title || 'Đề thi trắc nghiệm';
+      if (!map.has(qId)) {
+        map.set(qId, { id: qId, title, count: 0 });
+      }
+      map.get(qId)!.count++;
+    });
+    return Array.from(map.values());
+  }, [attempts]);
 
   // Tính URL máy quét: Trên Domain chính thức dùng thẳng domain, trên localhost hỗ trợ IP LAN
   const getCompanionUrl = () => {
@@ -218,11 +233,15 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
     }
   };
 
-  // Lọc danh sách bài thi
+  // Lọc danh sách bài thi theo từ khóa tìm kiếm và đề thi đã chọn
   const filteredAttempts = attempts.filter(a => {
     const sbd = a.candidateInfo?.sbd || '';
     const name = a.candidateInfo?.fullName || a.userId?.fullName || '';
-    return sbd.toLowerCase().includes(searchTerm.toLowerCase()) || name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = sbd.toLowerCase().includes(searchTerm.toLowerCase()) || name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (selectedQuizFilter === 'ALL') return matchesSearch;
+    const qId = a.quizId?._id || a.quizId;
+    return matchesSearch && qId === selectedQuizFilter;
   });
 
   // Thống kê nhanh
@@ -232,6 +251,9 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
     : '0';
   const passedCount = attempts.filter(a => a.isPassed).length;
   const passRate = totalScanned > 0 ? Math.round((passedCount / totalScanned) * 100) : 0;
+
+  // Lấy danh sách câu hỏi của bài thi đang được chọn để đối soát
+  const activeQuestions = selectedAttempt?.quizId?.questions || sessionData?.quiz?.questions || [];
 
   return (
     <div className="min-h-screen bg-vpa-sand dark:bg-vpa-dark text-vpa-dark dark:text-vpa-sand font-sans flex flex-col">
@@ -252,11 +274,15 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-vpa-gold animate-pulse" />
               <h1 className="text-sm font-black uppercase tracking-wider text-vpa-olive dark:text-vpa-gold">
-                BÀN CHẤM THI OMR & ĐỒNG BỘ REALTIME
+                BÀN CHẤM THI OMR OFFLINE & ĐỒNG BỘ REALTIME
               </h1>
             </div>
             <p className="text-[11px] text-gray-500 font-mono">
-              Phòng: <span className="font-bold text-black dark:text-white">{sessionCode}</span> • Đề: {sessionData?.quiz?.title || 'Đang tải...'} ({sessionData?.quiz?.totalQuestions || 0} câu)
+              {sessionData?.room ? (
+                <>Phòng thi: <span className="font-bold text-black dark:text-white">{sessionData.room.roomCode}</span> • Đề: {sessionData?.quiz?.title || 'Đang tải...'} ({sessionData?.quiz?.totalQuestions || 0} câu)</>
+              ) : (
+                <>Phiên làm việc: <span className="font-bold text-black dark:text-white">{sessionCode}</span> • Đã chấm: <strong className="text-vpa-olive dark:text-vpa-gold">{attempts.length} bài</strong> • Tự nhận diện đề qua mã QR trên phiếu</>
+              )}
             </p>
           </div>
         </div>
@@ -323,14 +349,14 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                 <div className="leading-snug space-y-1">
                   {isLocalhost ? (
                     <>
-                      <p>1. Kết nối điện thoại và máy tính <strong>cùng mạng Wi-Fi</strong>.</p>
+                      <p>1. Điện thoại & máy tính vào <strong>cùng Wi-Fi</strong>.</p>
                       <p>2. Dùng <strong>Camera điện thoại</strong> quét mã QR bên cạnh.</p>
-                      <p>3. Lia camera qua bài thi $\rightarrow$ điểm số <strong>nhảy realtime</strong> lên máy tính!</p>
+                      <p>3. Lia camera qua từng bài thi $\rightarrow$ điểm số <strong>tự động nhận diện đề</strong> và nhảy realtime!</p>
                     </>
                   ) : (
                     <>
-                      <p>1. Dùng <strong>Camera điện thoại</strong> (4G/5G/Wi-Fi) quét mã QR bên cạnh.</p>
-                      <p>2. Lia camera qua từng bài thi $\rightarrow$ kết quả chấm <strong>nhảy realtime</strong> lên máy tính!</p>
+                      <p>1. Dùng <strong>Camera điện thoại</strong> (4G/Wi-Fi) quét mã QR bên cạnh.</p>
+                      <p>2. Lia camera qua từng bài thi $\rightarrow$ kết quả chấm <strong>tự động nhận diện đề</strong> và nhảy realtime!</p>
                     </>
                   )}
                 </div>
@@ -347,7 +373,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                     className="px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-vpa-dark dark:hover:bg-black/40 border border-gray-300 dark:border-gray-600 rounded text-[10px] font-bold text-vpa-olive dark:text-vpa-gold transition-colors flex items-center gap-1"
                   >
                     {copiedLink ? <Check size={12} weight="bold" className="text-green-600" /> : null}
-                    <span>{copiedLink ? 'Đã sao chép!' : 'Sao chép liên kết'}</span>
+                    <span>{copiedLink ? 'Đã sao chép!' : 'Sao chép link'}</span>
                   </button>
 
                   {isLocalhost && (
@@ -356,7 +382,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                       onClick={() => setShowIpSettings(!showIpSettings)}
                       className="px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-vpa-dark dark:hover:bg-black/40 border border-gray-300 dark:border-gray-600 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 transition-colors"
                     >
-                      {showIpSettings ? '▲ Đóng cấu hình IP' : '⚙️ Đổi IP LAN'}
+                      {showIpSettings ? '▲ Đóng' : '⚙️ Đổi IP'}
                     </button>
                   )}
                 </div>
@@ -372,7 +398,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                 
                 {availableIps.length > 0 && (
                   <div className="space-y-1">
-                    <span className="text-[10px] text-gray-500">IP phát hiện được trên máy chủ:</span>
+                    <span className="text-[10px] text-gray-500">IP phát hiện được:</span>
                     <div className="flex flex-wrap gap-1">
                       {availableIps.map(ip => (
                         <button
@@ -411,43 +437,60 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                     </button>
                   </div>
                 </div>
-
-                <p className="text-[10px] text-gray-500 italic">
-                  💡 Gợi ý: Nếu máy tính đổi mạng Wi-Fi, hãy chọn đúng IP Wi-Fi mới để mã QR cập nhật.
-                </p>
               </div>
             )}
           </div>
 
           {/* Danh sách bài thi đã quét */}
           <div className="bg-white dark:bg-vpa-dark-card border border-vpa-olive-light/30 rounded-lg flex-1 flex flex-col overflow-hidden shadow-sm">
-            <div className="p-3 border-b border-vpa-olive-light/20 flex items-center justify-between bg-gray-50/50 dark:bg-black/20">
-              <span className="text-xs font-bold uppercase tracking-wide">
-                ĐÃ QUÉT ({filteredAttempts.length}/{attempts.length})
-              </span>
-              <div className="relative w-40">
-                <MagnifyingGlass size={14} className="absolute left-2.5 top-2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tìm SBD / Họ tên..."
-                  className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-vpa-dark text-vpa-dark dark:text-vpa-sand"
-                />
+            <div className="p-3 border-b border-vpa-olive-light/20 flex flex-col gap-2 bg-gray-50/50 dark:bg-black/20">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wide">
+                  ĐÃ QUÉT ({filteredAttempts.length}/{attempts.length})
+                </span>
+                <div className="relative w-36 sm:w-44">
+                  <MagnifyingGlass size={14} className="absolute left-2.5 top-2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Tìm SBD / Họ tên..."
+                    className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-vpa-dark text-vpa-dark dark:text-vpa-sand"
+                  />
+                </div>
               </div>
+
+              {/* Bộ lọc theo Đề thi nếu trong phiên có nhiều đề khác nhau */}
+              {uniqueQuizzes.length > 1 && (
+                <div className="pt-1">
+                  <select
+                    value={selectedQuizFilter}
+                    onChange={(e) => setSelectedQuizFilter(e.target.value)}
+                    className="w-full px-2 py-1 text-[11px] font-bold border border-vpa-olive-light/30 rounded bg-white dark:bg-vpa-dark text-vpa-olive dark:text-vpa-gold"
+                  >
+                    <option value="ALL">📋 Tất cả đề thi ({attempts.length} bài)</option>
+                    {uniqueQuizzes.map(q => (
+                      <option key={q.id} value={q.id}>
+                        {q.title} ({q.count} bài)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-800">
               {filteredAttempts.length === 0 ? (
                 <div className="p-8 text-center text-xs text-gray-400">
                   <p>Chưa có bài thi nào được quét.</p>
-                  <p className="mt-1 text-[11px]">Hãy dùng điện thoại quét mã QR ở trên để bắt đầu chấm bài!</p>
+                  <p className="mt-1 text-[11px]">Hãy dùng camera điện thoại quét các phiếu làm bài để tự động nhận diện!</p>
                 </div>
               ) : (
                 filteredAttempts.map((attempt) => {
                   const isSelected = selectedAttempt?._id === attempt._id;
                   const sbd = attempt.candidateInfo?.sbd || '---';
                   const name = attempt.candidateInfo?.fullName || attempt.userId?.fullName || 'Thí sinh';
+                  const quizName = attempt.quizId?.title || 'Đề thi trắc nghiệm';
 
                   return (
                     <div
@@ -459,19 +502,22 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                           : 'hover:bg-gray-50 dark:hover:bg-white/5'
                       }`}
                     >
-                      <div>
+                      <div className="min-w-0 flex-1 mr-2">
                         <div className="flex items-center space-x-2">
                           <span className="font-mono font-bold text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-vpa-olive dark:text-vpa-gold">
                             SBD: {sbd}
                           </span>
-                          <span className="text-xs font-bold line-clamp-1">{name}</span>
+                          <span className="text-xs font-bold truncate">{name}</span>
                         </div>
-                        <div className="text-[10px] text-gray-400 mt-1 flex items-center space-x-2">
+                        <div className="text-[10px] text-vpa-olive dark:text-vpa-gold font-bold truncate mt-0.5">
+                          {quizName}
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-0.5 flex items-center space-x-2">
                           <span>Mã đề: {attempt.examCode || '101'}</span>
                           <span>•</span>
                           <span>{new Date(attempt.completedAt).toLocaleTimeString('vi-VN')}</span>
                           {attempt.isManualEdited && (
-                            <span className="text-amber-500 font-bold">• Đã chỉnh sửa</span>
+                            <span className="text-amber-500 font-bold">• Đã sửa</span>
                           )}
                         </div>
                       </div>
@@ -502,7 +548,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400">
               <DeviceMobile size={48} className="text-gray-300 dark:text-gray-600 mb-2" />
               <h3 className="font-bold text-sm">Chưa chọn bài thi nào</h3>
-              <p className="text-xs mt-1">Chọn một bài thi trong danh sách bên trái hoặc dùng điện thoại quét bài mới.</p>
+              <p className="text-xs mt-1">Chọn một bài thi trong danh sách bên trái hoặc dùng camera điện thoại quét bài mới.</p>
             </div>
           ) : (
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -519,7 +565,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                       {selectedAttempt.candidateInfo?.fullName || selectedAttempt.userId?.fullName || 'Thí sinh'}
                     </h2>
                     <p className="text-xs text-gray-500 font-mono">
-                      SBD: <strong className="text-black dark:text-white">{selectedAttempt.candidateInfo?.sbd || '---'}</strong> • Mã đề: {selectedAttempt.examCode} • Xếp loại: <strong>{selectedAttempt.rank}</strong>
+                      SBD: <strong className="text-black dark:text-white">{selectedAttempt.candidateInfo?.sbd || '---'}</strong> • Đề: <strong className="text-vpa-olive dark:text-vpa-gold">{selectedAttempt.quizId?.title || sessionData?.quiz?.title || 'Đề thi'}</strong> • Mã đề: {selectedAttempt.examCode} • Xếp loại: <strong>{selectedAttempt.rank}</strong>
                     </p>
                   </div>
                 </div>
@@ -567,7 +613,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
                   </h3>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {sessionData?.quiz?.questions?.map((q: any, idx: number) => {
+                    {activeQuestions.map((q: any, idx: number) => {
                       const qNum = idx + 1;
                       const attemptAns = selectedAttempt.answers?.find((a: any) => a.questionIndex === qNum);
                       const chosenOpt = attemptAns?.selectedAnswers?.[0] || '---';
@@ -621,7 +667,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
           <span>Tỷ lệ đạt: <strong className="text-green-600 font-mono">{passRate}%</strong></span>
         </div>
         <div className="text-[11px] text-gray-400 font-mono">
-          HỆ THỐNG TRẮC NGHIỆM QUÂN SỰ VPA • CHẤM TỰ ĐỘNG REALTIME
+          HỆ THỐNG TRẮC NGHIỆM QUÂN SỰ VPA • PHÂN HỆ CHẤM OMR TỰ ĐỘNG
         </div>
       </footer>
 
@@ -669,7 +715,7 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
               <div>
                 <label className="font-bold block mb-1">Chỉnh sửa đáp án từng câu</label>
                 <div className="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 bg-gray-50 dark:bg-black/20 rounded border">
-                  {sessionData?.quiz?.questions?.map((_q: any, idx: number) => {
+                  {(editingAttempt.quizId?.questions || sessionData?.quiz?.questions)?.map((_q: any, idx: number) => {
                     const qNum = idx + 1;
                     const ansObj = editingAttempt.answers?.find((a: any) => a.questionIndex === qNum);
                     const currentOpt = ansObj?.selectedAnswers?.[0] || '';
@@ -724,11 +770,12 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
       )}
 
       {/* MODAL IN PHIẾU OMR */}
-      {showPrintModal && sessionData?.quiz && (
+      {showPrintModal && (
         <OmrPrintModal
           isOpen={showPrintModal}
           onClose={() => setShowPrintModal(false)}
-          quiz={sessionData.quiz}
+          quiz={selectedAttempt?.quizId || sessionData?.quiz || (sessionData?.allQuizzes?.[0] || null)}
+          availableQuizzes={sessionData?.allQuizzes || []}
           defaultUnit={user?.unitId?.name || ''}
         />
       )}
@@ -739,12 +786,24 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
           isOpen={showExportPopup}
           onCancel={() => setShowExportPopup(false)}
           onConfirm={(exportOptions) => {
-            // Xử lý xuất báo cáo kết quả
             setShowExportPopup(false);
-            window.location.href = `/api/rooms/${roomId || sessionCode}/results/export?format=${exportOptions.format}`;
+            const params = new URLSearchParams({
+              format: exportOptions.format,
+              sessionCode: sessionCode || '',
+              quizId: selectedQuizFilter !== 'ALL' ? selectedQuizFilter : '',
+              upperUnit: exportOptions.upperUnit || '',
+              currentUnit: exportOptions.currentUnit || '',
+              province: exportOptions.province || '',
+              position: exportOptions.position || '',
+              signerRank: exportOptions.signerRank || '',
+              signerName: exportOptions.signerName || '',
+              showSignature: String(exportOptions.showSignature),
+              orientation: exportOptions.orientation || 'landscape'
+            });
+            window.location.href = `/api/omr/export/results?${params.toString()}`;
           }}
           type="results"
-          previewData={attempts}
+          previewData={filteredAttempts}
           defaultUnit={user?.unitId?.name || ''}
         />
       )}
@@ -753,3 +812,4 @@ export const OmrGradingHub: React.FC<OmrGradingHubProps> = ({
 };
 
 export default OmrGradingHub;
+

@@ -11,6 +11,7 @@ interface NavbarProps {
   onOpenChangePassword: () => void;
   onNavigateHome: () => void;
   onNavigateToHistory: () => void;
+  onNavigateToOmrGrading?: () => void;
   notifications: any[];
   unreadCount: number;
   onNotificationClick: (notif: any) => void;
@@ -26,12 +27,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenChangePassword,
   onNavigateHome,
   onNavigateToHistory,
+  onNavigateToOmrGrading,
   notifications,
   unreadCount,
   onNotificationClick,
   onMarkAllNotificationsRead
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+
+  const isOfficerOrAdmin = user && (user.role === 'admin' || user.role === 'master-admin' || user.role === 'sub-admin');
 
   return (
     <nav className="sticky top-0 z-40 w-full h-20 border-b border-vpa-olive-light/50 bg-vpa-sand-light/95 dark:bg-vpa-dark/95 backdrop-blur-md transition-colors px-6 flex items-center justify-between">
@@ -49,7 +53,19 @@ export const Navbar: React.FC<NavbarProps> = ({
       </button>
 
       {/* Right Side Options */}
-      <div className="flex items-center space-x-5">
+      <div className="flex items-center space-x-3 sm:space-x-4">
+        {/* Nút truy cập nhanh Chấm thi OMR Offline cho Cán bộ Quản trị */}
+        {isOfficerOrAdmin && onNavigateToOmrGrading && (
+          <button
+            onClick={onNavigateToOmrGrading}
+            className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-vpa-gold/15 dark:bg-vpa-gold/20 border border-vpa-gold/40 hover:bg-vpa-gold/30 rounded text-xs font-bold text-vpa-olive dark:text-vpa-gold transition-all"
+            title="Mở Bàn chấm thi trắc nghiệm OMR Offline"
+          >
+            <span className="w-2 h-2 rounded-full bg-vpa-gold animate-ping" />
+            <span>Chấm thi OMR</span>
+          </button>
+        )}
+
         {/* User Card with Dropdown */}
         {user && (
           <div className="relative">
@@ -73,7 +89,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Dropdown Menu */}
             {showDropdown && (
-              <div className="absolute right-4 mt-2 w-48 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-2xl z-50 font-mono text-xs animate-scale-up rounded-lg overflow-hidden">
+              <div className="absolute right-4 mt-2 w-52 border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card shadow-2xl z-50 font-mono text-xs animate-scale-up rounded-lg overflow-hidden">
+                {isOfficerOrAdmin && onNavigateToOmrGrading && (
+                  <button
+                    onClick={() => {
+                      setShowDropdown(false);
+                      onNavigateToOmrGrading();
+                    }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-vpa-gold/15 text-vpa-olive dark:text-vpa-gold font-bold border-b border-vpa-olive-light/10 flex items-center space-x-2 cursor-pointer"
+                  >
+                    <span>📷 Chấm thi OMR Offline</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowDropdown(false);
@@ -119,8 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         )}
 
-        {/* Icon chuông thông báo — chỉ Cán bộ mới cần (Chiến sĩ đã có bảng
-            lời mời phòng thi riêng trên Dashboard) */}
+        {/* Icon chuông thông báo — chỉ Cán bộ mới cần */}
         {user?.personnelType === 'officer' && (
           <NotificationBell
             notifications={notifications}
@@ -143,3 +169,4 @@ export const Navbar: React.FC<NavbarProps> = ({
   );
 };
 export default Navbar;
+
