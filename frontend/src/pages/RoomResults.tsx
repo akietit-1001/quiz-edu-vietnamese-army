@@ -60,10 +60,10 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
   useEffect(() => {
     if (printData) {
       const originalTitle = document.title;
-      const cleanRoomCode = (printData.room?.roomCode || 'Phong_thi')
-        .replace(/[^a-zA-Z0-9\s-_]/g, '')
+      const cleanRoomCode = (printData.room?.roomCode || 'Phòng thi')
+        .replace(/[\\/:*?"<>|]/g, '')
         .trim();
-      document.title = `Bao_cao_ket_qua_${cleanRoomCode}`;
+      document.title = `Báo cáo kết quả - Phòng ${cleanRoomCode}`;
 
       const timer = setTimeout(() => {
         window.print();
@@ -160,7 +160,7 @@ export const RoomResults: React.FC<RoomResultsProps> = ({ user, roomId, onNaviga
       url += `&orientation=${vpaData.orientation}`;
     }
 
-    triggerBlobDownload(url, `Bao_cao_ket_qua_${room?.roomCode}.${vpaData.format}`);
+    triggerBlobDownload(url, `Báo cáo kết quả - Phòng ${room?.roomCode}.${vpaData.format}`);
   };
 
   const triggerBlobDownload = async (url: string, filename: string) => {

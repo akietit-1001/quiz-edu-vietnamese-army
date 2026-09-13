@@ -634,20 +634,13 @@ export const getQuizShares = async (req, res) => {
   }
 };
 
-// Tên file tải về nên khớp với tên đề thi thật (thay vì shareCode/examCode
-// khó đọc) — bỏ dấu tiếng Việt vì header Content-Disposition ASCII an toàn
-// hơn trên mọi trình duyệt/hệ điều hành.
+// Tên file tải về chuẩn tiếng Việt có dấu, có khoảng trắng, chỉ loại bỏ các ký tự cấm của hệ điều hành (\ / : * ? " < > |)
 const sanitizeFilenamePart = (text) => {
-  const noDiacritics = String(text || '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D');
-  const cleaned = noDiacritics
-    .replace(/[^a-zA-Z0-9\s-_]/g, '')
+  const cleaned = String(text || '')
+    .replace(/[\\/:*?"<>|]/g, '')
     .trim()
-    .replace(/\s+/g, '_');
-  return cleaned || 'De_thi';
+    .replace(/\s+/g, ' ');
+  return cleaned || 'Đề thi';
 };
 
 // 6. EXPORT QUIZ TO DOCX (WORD)
@@ -689,10 +682,11 @@ export const exportQuizDocx = async (req, res) => {
     });
 
     const buffer = await Packer.toBuffer(doc);
-    const fileName = `De_thi_${sanitizeFilenamePart(quiz.title)}${includeAnswers === 'true' ? '_DapAn' : ''}.docx`;
+    const fileName = `Đề thi - ${sanitizeFilenamePart(quiz.title)}${includeAnswers === 'true' ? ' - Đáp án' : ''}.docx`;
+    const encodedFileName = encodeURIComponent(fileName);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`);
     res.send(buffer);
   } catch (error) {
     console.error('Lỗi xuất đề thi ra Word:', error.message);
@@ -720,9 +714,11 @@ export const exportQuizDocxBulk = async (req, res) => {
       if (parentUnit) defaultUpperUnit = parentUnit.name;
     }
 
-    const zipName = quizzes.length === 1 ? sanitizeFilenamePart(quizzes[0].title) : 'bo_de';
+    const zipName = quizzes.length === 1 ? sanitizeFilenamePart(quizzes[0].title) : 'Bộ đề';
+    const zipFileName = `Đề thi - ${zipName}.zip`;
+    const encodedZipName = encodeURIComponent(zipFileName);
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename=De_thi_${zipName}.zip`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedZipName}"; filename*=UTF-8''${encodedZipName}`);
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (err) => {

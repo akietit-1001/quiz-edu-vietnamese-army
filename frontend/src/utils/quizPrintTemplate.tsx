@@ -35,23 +35,13 @@ export const PAPER_SIZE_DIMENSIONS_CM: Record<PaperSize, { width: number; height
 // cm nên tỉ lệ tương đối giữa chúng luôn đúng bất kể zoom).
 const CM_TO_PX = 96 / 2.54;
 
-// Tên file/tiêu đề tải về nên khớp với tên đề thi thật — bỏ dấu tiếng Việt
-// bằng NFD normalize rồi xoá riêng các dấu kết hợp (KHÔNG được chỉ lọc theo
-// [a-zA-Z0-9]: chữ tiếng Việt có dấu ở dạng precomposed (VD "ề", "Đ") không
-// nằm trong tập đó nên bị xoá NGUYÊN CẢ CHỮ CÁI GỐC, tạo ra tên file kiểu
-// "bộ xương phụ âm" đọc không ra chữ gì, VD "tìm hiểu" -> "tm_hiu" thay vì
-// "tim_hieu").
+// Tên file/tiêu đề tải về chuẩn tiếng Việt có dấu, có khoảng trắng, chỉ loại bỏ các ký tự cấm của hệ điều hành (\ / : * ? " < > |)
 export const sanitizeFilenamePart = (text: string) => {
-  const noDiacritics = String(text || '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D');
-  const cleaned = noDiacritics
-    .replace(/[^a-zA-Z0-9\s-_]/g, '')
+  const cleaned = String(text || '')
+    .replace(/[\\/:*?"<>|]/g, '')
     .trim()
-    .replace(/\s+/g, '_');
-  return cleaned || 'De_thi';
+    .replace(/\s+/g, ' ');
+  return cleaned || 'Đề thi';
 };
 
 export type QuizPrintData = {

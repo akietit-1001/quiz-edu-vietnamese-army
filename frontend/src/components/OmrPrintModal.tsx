@@ -194,10 +194,13 @@ export const OmrPrintModal: React.FC<OmrPrintModalProps> = ({
     }
 
     const originalTitle = document.title;
-    const cleanTitle = (currentQuiz.title || 'Phieu_OMR').replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
+    const cleanTitle = (currentQuiz.title || 'Phiếu OMR')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .trim()
+      .replace(/\s+/g, ' ');
     document.title = printAllCodes
-      ? `Phieu_tra_loi_OMR_${cleanTitle}_TatCaMaDe`
-      : `Phieu_tra_loi_OMR_${cleanTitle}_MaDe_${examCode}`;
+      ? `Phiếu trả lời OMR - ${cleanTitle} - Tất cả mã đề`
+      : `Phiếu trả lời OMR - ${cleanTitle} - Mã đề ${examCode}`;
 
     window.print();
     document.title = originalTitle;

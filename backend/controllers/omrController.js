@@ -1060,8 +1060,10 @@ export const exportOmrResults = async (req, res) => {
       xlsx.utils.book_append_sheet(wb, ws, 'Ket_qua_OMR');
 
       const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'csv' });
+      const fileNameCsv = `Báo cáo kết quả OMR - ${sessionCode || 'Offline'}.csv`;
+      const encodedCsv = encodeURIComponent(fileNameCsv);
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=Bao_cao_OMR_${sessionCode || 'Offline'}.csv`);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedCsv}"; filename*=UTF-8''${encodedCsv}`);
       const bom = Buffer.from([0xEF, 0xBB, 0xBF]); // UTF-8 BOM
       return res.send(Buffer.concat([bom, buffer]));
     }
@@ -1080,8 +1082,10 @@ export const exportOmrResults = async (req, res) => {
       );
 
       const buffer = await workbook.xlsx.writeBuffer();
+      const fileNameXlsx = `Báo cáo kết quả OMR - ${sessionCode || 'Offline'}.xlsx`;
+      const encodedXlsx = encodeURIComponent(fileNameXlsx);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=Bao_cao_OMR_${sessionCode || 'Offline'}.xlsx`);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedXlsx}"; filename*=UTF-8''${encodedXlsx}`);
       return res.send(buffer);
     }
 
@@ -1105,8 +1109,10 @@ export const exportOmrResults = async (req, res) => {
       );
 
       const buffer = await Packer.toBuffer(doc);
+      const fileNameDocx = `Báo cáo kết quả OMR - ${sessionCode || 'Offline'}.docx`;
+      const encodedDocx = encodeURIComponent(fileNameDocx);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename=Bao_cao_OMR_${sessionCode || 'Offline'}.docx`);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedDocx}"; filename*=UTF-8''${encodedDocx}`);
       return res.send(buffer);
     }
 

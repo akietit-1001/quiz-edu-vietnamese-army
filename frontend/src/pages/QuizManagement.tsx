@@ -73,7 +73,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
     if (printData) {
       printOriginalTitleRef.current = document.title;
       const firstQuiz = printData.quizzes && printData.quizzes.length > 0 ? printData.quizzes[0] : null;
-      document.title = `De_thi_${sanitizeFilenamePart(firstQuiz?.title)}`;
+      document.title = `Đề thi - ${sanitizeFilenamePart(firstQuiz?.title)}`;
       return () => {
         document.title = printOriginalTitleRef.current;
       };
@@ -730,11 +730,11 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
           ...exportParams
         }, { responseType: 'blob' });
 
-        const zipName = quizListToExport.length === 1 ? sanitizeFilenamePart(quizListToExport[0].title) : 'bo_de';
+        const zipName = quizListToExport.length === 1 ? sanitizeFilenamePart(quizListToExport[0].title) : 'Bộ đề';
         const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.setAttribute('download', `De_thi_${zipName}.zip`);
+        link.setAttribute('download', `Đề thi - ${zipName}.zip`);
         document.body.appendChild(link);
         link.click();
         link.parentNode?.removeChild(link);
@@ -748,7 +748,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
         const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.setAttribute('download', `De_thi_${sanitizeFilenamePart(currentQuiz.title)}${vpaData.includeAnswers ? '_DapAn' : ''}.docx`);
+        link.setAttribute('download', `Đề thi - ${sanitizeFilenamePart(currentQuiz.title)}${vpaData.includeAnswers ? ' - Đáp án' : ''}.docx`);
         document.body.appendChild(link);
         link.click();
         link.parentNode?.removeChild(link);
