@@ -3208,28 +3208,31 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
             <div className="w-full max-w-4xl h-[90vh] max-h-[900px] border border-vpa-olive-light bg-vpa-sand-light dark:bg-vpa-dark-card p-6 shadow-2xl rounded-lg flex flex-col relative">
               
               {/* Header */}
-              <div className="flex justify-between items-center border-b border-vpa-olive-light pb-3 mb-6 flex-shrink-0">
-                <div>
-                  <span className="text-[10px] font-mono text-vpa-gold uppercase font-bold mr-2">Chi tiết đề thi</span>
-                  <h3 className="text-sm font-bold uppercase text-vpa-olive dark:text-vpa-sand inline-block">
+              <div className="flex justify-between items-center border-b border-vpa-olive-light/40 pb-3 mb-4 flex-shrink-0 gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center space-x-2 mb-0.5">
+                    <span className="w-2 h-2 bg-vpa-gold rounded-sm inline-block shrink-0" />
+                    <span className="text-[10px] font-mono text-vpa-gold uppercase font-bold tracking-wider">Chi tiết đề thi</span>
+                  </div>
+                  <h3 className="text-sm md:text-base font-bold uppercase text-vpa-olive dark:text-vpa-sand line-clamp-2" title={currentQuizToShow.title}>
                     {currentQuizToShow.title}
                   </h3>
                 </div>
-                <div className="flex items-end space-x-2">
+                <div className="flex items-center space-x-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setOmrPrintQuiz(currentQuizToShow)}
                     title="In Phiếu Trả Lời Trắc Nghiệm OMR (Chuẩn A4 Máy Quét)"
-                    className="px-3 py-1.5 border border-vpa-gold text-vpa-olive dark:text-vpa-gold hover:bg-vpa-gold/15 text-xs font-bold transition-colors rounded-lg flex items-center space-x-1"
+                    className="h-9 px-3 border border-vpa-gold text-vpa-olive dark:text-vpa-gold hover:bg-vpa-gold/15 text-xs font-bold transition-all rounded-lg flex items-center space-x-1.5 whitespace-nowrap shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                   >
-                    <Printer size={16} />
-                    <span>In Phiếu OMR</span>
+                    <Printer size={16} weight="bold" className="shrink-0 text-vpa-gold" />
+                    <span className="whitespace-nowrap">In Phiếu OMR</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => { setViewingQuiz(null); handleEditQuiz(currentQuizToShow); }}
                     title="Sửa mã đề này"
-                    className="p-2 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                    className="w-9 h-9 flex items-center justify-center border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg cursor-pointer shrink-0"
                   >
                     <PencilSimple size={16} />
                   </button>
@@ -3237,7 +3240,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     type="button"
                     onClick={() => handleDeleteQuiz(currentQuizToShow, activeVersionTab === 'parent' ? variants.length : undefined)}
                     title="Xóa mã đề này"
-                    className="p-2 border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg"
+                    className="w-9 h-9 flex items-center justify-center border border-vpa-red/30 text-vpa-red hover:bg-vpa-red hover:text-white transition-colors rounded-lg cursor-pointer shrink-0"
                   >
                     <Trash size={16} />
                   </button>
@@ -3245,7 +3248,7 @@ export const QuizManagement: React.FC<QuizManagementProps> = ({ user, onNavigate
                     type="button"
                     onClick={() => setViewingQuiz(null)}
                     title="Đóng lại"
-                    className="p-2 border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg"
+                    className="w-9 h-9 flex items-center justify-center border border-vpa-olive-light/50 text-vpa-olive dark:text-vpa-sand hover:bg-vpa-olive hover:text-white dark:hover:bg-vpa-gold dark:hover:text-vpa-dark transition-colors rounded-lg cursor-pointer shrink-0"
                   >
                     <X size={16} />
                   </button>
